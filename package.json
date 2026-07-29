@@ -10,15 +10,22 @@
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "extract": "npm run build --silent && node dist/cli.js",
+    "seed:metabolic-products": "tsx src/modules/metabolic-assistant/database/seeds/seed-products.ts",
+    "start:metabolic": "tsx src/modules/metabolic-assistant/server.ts",
     "test": "vitest run",
+    "test:metabolic": "vitest run tests/metabolic-assistant",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "mongoose": "^9.8.1",
     "pdfjs-dist": "^6.2.108",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
     "@types/node": "^26.1.2",
     "pdf-lib": "^1.17.1",
     "tsx": "^4.23.1",
