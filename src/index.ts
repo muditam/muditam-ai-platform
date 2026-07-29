@@ -9,7 +9,15 @@ export {
   type TextLine,
 } from "./contracts/extracted-document.js";
 export {
+  STRUCTURED_REPORT_SCHEMA_VERSION,
+  observationSchema,
+  structuredReportSchema,
+  type Observation,
+  type StructuredReport,
+} from "./contracts/structured-report.js";
+export {
   ExtractionError,
   type ExtractionErrorCode,
 } from "./errors/extraction-error.js";
 export { extractPdf, type ExtractPdfOptions } from "./pdf/extract-pdf.js";
+export { structureReport } from "./report/structure-report.js";

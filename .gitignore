@@ -5,6 +5,7 @@ coverage/
 .DS_Store
 *.log
 tmp/
+output/
 
 # Local report corpus may contain protected health information.
 test-data/reports/**
