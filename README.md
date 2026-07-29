@@ -80,6 +80,19 @@ This output is deterministic parsing, not medical interpretation. It still
 requires normalization, report-level validation, clinical rules, and human
 review before patient-facing use.
 
+## Produce canonical observations
+
+Run the complete deterministic pipeline:
+
+```bash
+npm run process -- report.pdf output/report-final.json
+```
+
+This performs PDF extraction, row structuring, canonical biomarker mapping,
+unit and reference-range normalization, and validation. Recognized tests are
+linked to the versioned biomarker catalogue. Unknown tests remain in the output
+with `mapping.status` set to `UNMAPPED`.
+
 ## Quality statuses
 
 Page statuses:
