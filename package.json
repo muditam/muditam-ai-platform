@@ -1,0 +1,28 @@
+{
+  "name": "muditam-ai-platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Document extraction and AI services for Muditam",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "extract": "npm run build --silent && node dist/cli.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "pdfjs-dist": "^6.2.108",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "pdf-lib": "^1.17.1",
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}
