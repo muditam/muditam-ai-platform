@@ -8,6 +8,9 @@ coverage/
 *.log
 tmp/
 docs/
+output/
+new-ui/muditam_final_cart_ui 1.html
+
 # Local report corpus may contain protected health information.
 test-data/reports/**
 !test-data/reports/.gitkeep

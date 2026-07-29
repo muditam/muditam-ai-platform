@@ -12,6 +12,8 @@
     "extract": "npm run build --silent && node dist/cli.js",
     "seed:metabolic-products": "tsx src/modules/metabolic-assistant/database/seeds/seed-products.ts",
     "start:metabolic": "tsx src/modules/metabolic-assistant/server.ts",
+    "structure": "npm run build --silent && node dist/structure-cli.js",
+    "process": "npm run build --silent && node dist/process-cli.js",
     "test": "vitest run",
     "test:metabolic": "vitest run tests/metabolic-assistant",
     "test:watch": "vitest",

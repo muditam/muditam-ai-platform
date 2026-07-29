@@ -2,9 +2,9 @@
 
 Document-processing and AI services for Muditam.
 
-The current milestone implements deterministic extraction from digital PDFs.
-OCR, biomarker structuring, clinical rules, OpenAI interpretation, chat, and
-voice are intentionally outside the current module.
+The current milestone implements deterministic extraction from digital PDFs
+and an initial report-specific biomarker structuring layer. OCR, clinical
+rules, OpenAI interpretation, chat, and voice are outside the current module.
 
 ## Requirements
 
@@ -58,9 +58,40 @@ const result = await extractPdf(pdfBytes, {
 });
 ```
 
-Do not treat reconstructed text as a medical interpretation. The source items,
-coordinates, values, units, ranges, and flags must pass through separate
-structuring and validation stages before anything is shown to a patient.
+## Structure a blood report
+
+```bash
+npm run structure -- report.pdf output/report-structured.json
+```
+
+The structured artifact groups observations into panels and sections and keeps
+the raw name, value, unit, reference range, laboratory flag, method, and source
+coordinates. Lines that are not confidently classified are retained in
+`unclassifiedContent`; they are never silently dropped.
+
+```ts
+import { extractPdf, structureReport } from "./src/index.js";
+
+const extracted = await extractPdf(pdfBytes, { fileName: "report.pdf" });
+const structured = structureReport(extracted);
+```
+
+This output is deterministic parsing, not medical interpretation. It still
+requires normalization, report-level validation, clinical rules, and human
+review before patient-facing use.
+
+## Produce canonical observations
+
+Run the complete deterministic pipeline:
+
+```bash
+npm run process -- report.pdf output/report-final.json
+```
+
+This performs PDF extraction, row structuring, canonical biomarker mapping,
+unit and reference-range normalization, and validation. Recognized tests are
+linked to the versioned biomarker catalogue. Unknown tests remain in the output
+with `mapping.status` set to `UNMAPPED`.
 
 ## Quality statuses
 
