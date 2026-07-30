@@ -1,0 +1,6310 @@
+{
+  "schemaVersion": "0.1.0",
+  "documentId": "dc558836786c54595d8227f002ffa8e109b503952134802f0975e368348ab57f",
+  "sourceStructuredSchemaVersion": "0.1.0",
+  "catalogueVersion": "0.1.0",
+  "status": "REVIEW_REQUIRED",
+  "observations": [
+    {
+      "sourceObservationId": "obs-0001",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "Haemoglobin (Hb) Haemoglobin (Hb) Haemoglobin (Hb) Haemoglobin (Hb) 12.6",
+        "value": "12.0 - 15.0",
+        "referenceRange": "gm/dL",
+        "method": "Sample: Whole Blood EDTA"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 12,
+          "upper": 15
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "gm/dL"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"Haemoglobin (Hb) Haemoglobin (Hb) Haemoglobin (Hb) Haemoglobin (Hb) 12.6\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l17",
+        "itemIds": [
+          "p1-i152",
+          "p1-i153",
+          "p1-i154",
+          "p1-i155",
+          "p1-i159",
+          "p1-i162",
+          "p1-i161"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 331.89998,
+          "width": 486.99001000000004,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0002",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "Total WBC Count / TLC Total WBC Count / TLC Total WBC Count / TLC Total WBC Count / TLC 5.4",
+        "value": "4.0 - 10.0",
+        "referenceRange": "thou/μL",
+        "method": "Sample: Whole Blood EDTA"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 4,
+          "upper": 10
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "thou/μL"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"Total WBC Count / TLC Total WBC Count / TLC Total WBC Count / TLC Total WBC Count / TLC 5.4\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l20",
+        "itemIds": [
+          "p1-i164",
+          "p1-i165",
+          "p1-i166",
+          "p1-i167",
+          "p1-i171",
+          "p1-i174",
+          "p1-i173"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 368.05998,
+          "width": 493.66001,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0003",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "RBC Count RBC Count RBC Count RBC Count 4.1",
+        "value": "3.8 - 4.8",
+        "referenceRange": "million/μL",
+        "method": "Sample: Whole Blood EDTA"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 3.8,
+          "upper": 4.8
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "million/μL"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"RBC Count RBC Count RBC Count RBC Count 4.1\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l23",
+        "itemIds": [
+          "p1-i176",
+          "p1-i177",
+          "p1-i178",
+          "p1-i179",
+          "p1-i183",
+          "p1-i186",
+          "p1-i185"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 404.21998,
+          "width": 502.21001000000007,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0004",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "PCV / Hematocrit PCV / Hematocrit PCV / Hematocrit PCV / Hematocrit 36.8",
+        "value": "36.0 - 46.0",
+        "referenceRange": "%",
+        "method": "Sample: Whole Blood EDTA"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 36,
+          "upper": 46
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "%"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"PCV / Hematocrit PCV / Hematocrit PCV / Hematocrit PCV / Hematocrit 36.8\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l26",
+        "itemIds": [
+          "p1-i188",
+          "p1-i189",
+          "p1-i190",
+          "p1-i191",
+          "p1-i195",
+          "p1-i198",
+          "p1-i197"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 440.37999,
+          "width": 468.14001,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0005",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "MCV MCV MCV MCV 94.1",
+        "value": "83.0 - 101.0",
+        "referenceRange": "fL",
+        "method": "Sample: Whole Blood EDTA"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 83,
+          "upper": 101
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "fL"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"MCV MCV MCV MCV 94.1\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l29",
+        "itemIds": [
+          "p1-i200",
+          "p1-i201",
+          "p1-i202",
+          "p1-i203",
+          "p1-i207",
+          "p1-i210",
+          "p1-i209"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 476.53999,
+          "width": 468.25001000000003,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0006",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "MCH MCH MCH MCH 28.2",
+        "value": "27.0 - 32.0",
+        "referenceRange": "pg",
+        "method": "Sample: Whole Blood EDTA"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 27,
+          "upper": 32
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "pg"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"MCH MCH MCH MCH 28.2\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l32",
+        "itemIds": [
+          "p1-i212",
+          "p1-i213",
+          "p1-i214",
+          "p1-i215",
+          "p1-i219",
+          "p1-i222",
+          "p1-i221"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 512.6999900000001,
+          "width": 470.9500100000001,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0007",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "MCHC MCHC MCHC MCHC 32.5",
+        "value": "31.5 - 34.5",
+        "referenceRange": "g/dL",
+        "method": "Sample: Whole Blood EDTA"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 31.5,
+          "upper": 34.5
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "g/dL"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"MCHC MCHC MCHC MCHC 32.5\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l35",
+        "itemIds": [
+          "p1-i224",
+          "p1-i225",
+          "p1-i226",
+          "p1-i227",
+          "p1-i231",
+          "p1-i234",
+          "p1-i233"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 548.86,
+          "width": 479.36001000000005,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0008",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "RDW (Red Cell Distribution Width) RDW (Red Cell Distribution Width) RDW (Red Cell Distribution Width) RDW (Red Cell Distribution Width) 12.6",
+        "value": "11.9 - 15.5",
+        "referenceRange": "%",
+        "method": "Sample: Whole Blood EDTA"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 11.9,
+          "upper": 15.5
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "%"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"RDW (Red Cell Distribution Width) RDW (Red Cell Distribution Width) RDW (Red Cell Distribution Width) RDW (Red Cell Distribution Width) 12.6\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l38",
+        "itemIds": [
+          "p1-i236",
+          "p1-i237",
+          "p1-i238",
+          "p1-i239",
+          "p1-i243",
+          "p1-i246",
+          "p1-i245"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 585.02,
+          "width": 468.14001,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0009",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "Neutrophils Neutrophils Neutrophils Neutrophils 60",
+        "value": "40 - 80",
+        "referenceRange": "%",
+        "method": "Sample: Whole Blood EDTA"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 40,
+          "upper": 80
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "%"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"Neutrophils Neutrophils Neutrophils Neutrophils 60\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l43",
+        "itemIds": [
+          "p1-i254",
+          "p1-i255",
+          "p1-i256",
+          "p1-i257",
+          "p1-i261",
+          "p1-i264",
+          "p1-i263"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 645.66002,
+          "width": 468.14001,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0010",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "Lymphocytes Lymphocytes Lymphocytes Lymphocytes 30",
+        "value": "20 - 40",
+        "referenceRange": "%",
+        "method": "Sample: Whole Blood EDTA"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 20,
+          "upper": 40
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "%"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"Lymphocytes Lymphocytes Lymphocytes Lymphocytes 30\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l14",
+        "itemIds": [
+          "p2-i137",
+          "p2-i138",
+          "p2-i139",
+          "p2-i140",
+          "p2-i144",
+          "p2-i147",
+          "p2-i146"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 275.17999999999995,
+          "width": 468.14001,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0011",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "Eosinophils Eosinophils Eosinophils Eosinophils 05",
+        "value": "01 - 06",
+        "referenceRange": "%",
+        "method": "Sample: Whole Blood EDTA"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 1,
+          "upper": 6
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "%"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"Eosinophils Eosinophils Eosinophils Eosinophils 05\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l17",
+        "itemIds": [
+          "p2-i149",
+          "p2-i150",
+          "p2-i151",
+          "p2-i152",
+          "p2-i156",
+          "p2-i159",
+          "p2-i158"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 313.33997999999997,
+          "width": 468.14001,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0012",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "Monocytes Monocytes Monocytes Monocytes 05",
+        "value": "02 - 10",
+        "referenceRange": "%",
+        "method": "Sample: Whole Blood EDTA"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 2,
+          "upper": 10
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "%"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"Monocytes Monocytes Monocytes Monocytes 05\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l20",
+        "itemIds": [
+          "p2-i161",
+          "p2-i162",
+          "p2-i163",
+          "p2-i164",
+          "p2-i168",
+          "p2-i171",
+          "p2-i170"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 351.49998,
+          "width": 468.14001,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0013",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "Basophils Basophils Basophils Basophils 00",
+        "value": "00 - 02",
+        "referenceRange": "%",
+        "method": "Sample: Whole Blood EDTA"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 0,
+          "upper": 2
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "%"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"Basophils Basophils Basophils Basophils 00\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l23",
+        "itemIds": [
+          "p2-i173",
+          "p2-i174",
+          "p2-i175",
+          "p2-i176",
+          "p2-i180",
+          "p2-i183",
+          "p2-i182"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 389.65999,
+          "width": 468.14001,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0014",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "Absolute Neutrophil Count Absolute Neutrophil Count Absolute Neutrophil Count Absolute Neutrophil Count 3240",
+        "value": "2000 - 7000",
+        "referenceRange": "/μL",
+        "method": "Sample: Whole Blood EDTA"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 2000,
+          "upper": 7000
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "/μL"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"Absolute Neutrophil Count Absolute Neutrophil Count Absolute Neutrophil Count Absolute Neutrophil Count 3240\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l26",
+        "itemIds": [
+          "p2-i185",
+          "p2-i186",
+          "p2-i187",
+          "p2-i188",
+          "p2-i191",
+          "p2-i194",
+          "p2-i193"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 427.81999,
+          "width": 474.55001,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0015",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "Absolute Lymphocyte Count Absolute Lymphocyte Count Absolute Lymphocyte Count Absolute Lymphocyte Count 1620",
+        "value": "1000 - 3000",
+        "referenceRange": "/μL",
+        "method": "Sample: Whole Blood EDTA"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 1000,
+          "upper": 3000
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "/μL"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"Absolute Lymphocyte Count Absolute Lymphocyte Count Absolute Lymphocyte Count Absolute Lymphocyte Count 1620\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l28",
+        "itemIds": [
+          "p2-i196",
+          "p2-i197",
+          "p2-i198",
+          "p2-i199",
+          "p2-i202",
+          "p2-i205",
+          "p2-i204"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 456.81999,
+          "width": 474.55001,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0016",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "Absolute Eosinophil Count Absolute Eosinophil Count Absolute Eosinophil Count Absolute Eosinophil Count 270",
+        "value": "20 - 500",
+        "referenceRange": "/μL",
+        "method": "Sample: Whole Blood EDTA"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 20,
+          "upper": 500
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "/μL"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"Absolute Eosinophil Count Absolute Eosinophil Count Absolute Eosinophil Count Absolute Eosinophil Count 270\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l30",
+        "itemIds": [
+          "p2-i207",
+          "p2-i208",
+          "p2-i209",
+          "p2-i210",
+          "p2-i213",
+          "p2-i216",
+          "p2-i215"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 485.81999,
+          "width": 474.55001,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0017",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "Absolute Monocyte Count Absolute Monocyte Count Absolute Monocyte Count Absolute Monocyte Count 270",
+        "value": "200 - 1000",
+        "referenceRange": "/μL",
+        "method": "Sample: Whole Blood EDTA"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 200,
+          "upper": 1000
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "/μL"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"Absolute Monocyte Count Absolute Monocyte Count Absolute Monocyte Count Absolute Monocyte Count 270\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l32",
+        "itemIds": [
+          "p2-i218",
+          "p2-i219",
+          "p2-i220",
+          "p2-i221",
+          "p2-i224",
+          "p2-i227",
+          "p2-i226"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 514.81999,
+          "width": 474.55001,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0018",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "Absolute Basophil Count Absolute Basophil Count Absolute Basophil Count Absolute Basophil Count 00 00 00 00 L L L L",
+        "value": "20 - 100",
+        "referenceRange": "/μL",
+        "method": "Sample: Whole Blood EDTA"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 20,
+          "upper": 100
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "/μL"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"Absolute Basophil Count Absolute Basophil Count Absolute Basophil Count Absolute Basophil Count 00 00 00 00 L L L L\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l34",
+        "itemIds": [
+          "p2-i229",
+          "p2-i230",
+          "p2-i231",
+          "p2-i232",
+          "p2-i235",
+          "p2-i236",
+          "p2-i237",
+          "p2-i238",
+          "p2-i240",
+          "p2-i241",
+          "p2-i242",
+          "p2-i243",
+          "p2-i246",
+          "p2-i245"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 543.81999,
+          "width": 474.55001,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0019",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "Platelet Count Platelet Count Platelet Count Platelet Count 210",
+        "value": "150 - 410",
+        "referenceRange": "thou/μL",
+        "method": "Sample: Whole Blood EDTA"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 150,
+          "upper": 410
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "thou/μL"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"Platelet Count Platelet Count Platelet Count Platelet Count 210\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l36",
+        "itemIds": [
+          "p2-i248",
+          "p2-i249",
+          "p2-i250",
+          "p2-i251",
+          "p2-i255",
+          "p2-i258",
+          "p2-i257"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 571.81999,
+          "width": 493.66001,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0020",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "MPV (Mean Platelet Volume) MPV (Mean Platelet Volume) MPV (Mean Platelet Volume) MPV (Mean Platelet Volume) 8.9",
+        "value": "6.8 - 10.9",
+        "referenceRange": "fL",
+        "method": "Sample: Whole Blood EDTA"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 6.8,
+          "upper": 10.9
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "fL"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"MPV (Mean Platelet Volume) MPV (Mean Platelet Volume) MPV (Mean Platelet Volume) MPV (Mean Platelet Volume) 8.9\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l39",
+        "itemIds": [
+          "p2-i260",
+          "p2-i261",
+          "p2-i262",
+          "p2-i263",
+          "p2-i267",
+          "p2-i270",
+          "p2-i269"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 605.97999,
+          "width": 468.25001000000003,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0021",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "Fasting Plasma Glucose Fasting Plasma Glucose Fasting Plasma Glucose Fasting Plasma Glucose 88",
+        "value": "74 - 99",
+        "referenceRange": "mg/dL",
+        "method": "Sample: Fluoride Plasma - F"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 74,
+          "upper": 99
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "mg/dL"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"Fasting Plasma Glucose Fasting Plasma Glucose Fasting Plasma Glucose Fasting Plasma Glucose 88\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l22",
+        "itemIds": [
+          "p3-i155",
+          "p3-i156",
+          "p3-i157",
+          "p3-i158",
+          "p3-i162",
+          "p3-i165",
+          "p3-i164"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 346.49998,
+          "width": 487.34001000000006,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0022",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "Glucose Random Glucose Random Glucose Random Glucose Random 139",
+        "value": "70 - 140",
+        "referenceRange": "mg/dL",
+        "method": "Sample: Fluoride Plasma - R"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 70,
+          "upper": 140
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "mg/dL"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"Glucose Random Glucose Random Glucose Random Glucose Random 139\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l25",
+        "itemIds": [
+          "p3-i167",
+          "p3-i168",
+          "p3-i169",
+          "p3-i170",
+          "p3-i174",
+          "p3-i177",
+          "p3-i176"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 382.65999,
+          "width": 487.34001000000006,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0023",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "Pus Cells Pus Cells Pus Cells Pus Cells 0 - 5",
+        "value": "0 - 5",
+        "referenceRange": "/hpf",
+        "method": "Sample: Urine"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 0,
+          "upper": 5
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "/hpf"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"Pus Cells Pus Cells Pus Cells Pus Cells 0 - 5\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l25",
+        "itemIds": [
+          "p5-i165",
+          "p5-i166",
+          "p5-i167",
+          "p5-i168",
+          "p5-i171",
+          "p5-i174",
+          "p5-i173"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 372.42,
+          "width": 478.33000999999996,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0024",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "RBC RBC RBC RBC Not Detected",
+        "value": "Not Detected",
+        "referenceRange": "/hpf",
+        "method": "Sample: Urine"
+      },
+      "normalized": {
+        "value": {
+          "type": "QUALITATIVE",
+          "text": "Not Detected"
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "/hpf"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"RBC RBC RBC RBC Not Detected\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l27",
+        "itemIds": [
+          "p5-i176",
+          "p5-i177",
+          "p5-i178",
+          "p5-i179",
+          "p5-i182",
+          "p5-i185",
+          "p5-i184"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 401.42,
+          "width": 478.33000999999996,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0025",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "Epithelial Cells Epithelial Cells Epithelial Cells Epithelial Cells 2 - 3",
+        "value": "0 - 5",
+        "referenceRange": "/hpf",
+        "method": "Sample: Urine"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 0,
+          "upper": 5
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "/hpf"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"Epithelial Cells Epithelial Cells Epithelial Cells Epithelial Cells 2 - 3\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l29",
+        "itemIds": [
+          "p5-i187",
+          "p5-i188",
+          "p5-i189",
+          "p5-i190",
+          "p5-i193",
+          "p5-i196",
+          "p5-i195"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 430.42,
+          "width": 478.33000999999996,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0026",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "Casts Casts Casts Casts Not Detected",
+        "value": "Not Detected",
+        "referenceRange": "/hpf",
+        "method": "Sample: Urine"
+      },
+      "normalized": {
+        "value": {
+          "type": "QUALITATIVE",
+          "text": "Not Detected"
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "/hpf"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"Casts Casts Casts Casts Not Detected\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l31",
+        "itemIds": [
+          "p5-i198",
+          "p5-i199",
+          "p5-i200",
+          "p5-i201",
+          "p5-i204",
+          "p5-i207",
+          "p5-i206"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 459.42,
+          "width": 478.33000999999996,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0027",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "Crystals Crystals Crystals Crystals Not Detected",
+        "value": "Not Detected",
+        "referenceRange": "/hpf",
+        "method": "Sample: Urine"
+      },
+      "normalized": {
+        "value": {
+          "type": "QUALITATIVE",
+          "text": "Not Detected"
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "/hpf"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"Crystals Crystals Crystals Crystals Not Detected\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l33",
+        "itemIds": [
+          "p5-i209",
+          "p5-i210",
+          "p5-i211",
+          "p5-i212",
+          "p5-i215",
+          "p5-i218",
+          "p5-i217"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 488.42,
+          "width": 478.33000999999996,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0028",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "Bacteria Bacteria Bacteria Bacteria Not Detected",
+        "value": "Not Detected",
+        "referenceRange": "/hpf",
+        "method": "Sample: Urine"
+      },
+      "normalized": {
+        "value": {
+          "type": "QUALITATIVE",
+          "text": "Not Detected"
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "/hpf"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"Bacteria Bacteria Bacteria Bacteria Not Detected\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l35",
+        "itemIds": [
+          "p5-i220",
+          "p5-i221",
+          "p5-i222",
+          "p5-i223",
+          "p5-i226",
+          "p5-i229",
+          "p5-i228"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 517.4200000000001,
+          "width": 478.33000999999996,
+          "height": 11
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0029",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "FIRST TRIMESTER",
+        "value": "0.100 - 2.500",
+        "referenceRange": "μIU/mL"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 0.1,
+          "upper": 2.5
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "μIU/mL"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"FIRST TRIMESTER\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l24",
+        "itemIds": [
+          "p8-i221",
+          "p8-i223",
+          "p8-i225"
+        ],
+        "boundingBox": {
+          "x": 91.356,
+          "y": 369.04426324,
+          "width": 419.19283114499984,
+          "height": 9.015600000000006
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0030",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "SECOND TRIMESTER",
+        "value": "0.200 - 3.000",
+        "referenceRange": "μIU/mL"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 0.2,
+          "upper": 3
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "μIU/mL"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"SECOND TRIMESTER\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l25",
+        "itemIds": [
+          "p8-i226",
+          "p8-i228",
+          "p8-i230"
+        ],
+        "boundingBox": {
+          "x": 86.0969,
+          "y": 380.31376324,
+          "width": 424.45193114499983,
+          "height": 9.015600000000006
+        }
+      }
+    },
+    {
+      "sourceObservationId": "obs-0031",
+      "biomarker": null,
+      "mapping": {
+        "status": "UNMAPPED",
+        "confidence": 0
+      },
+      "raw": {
+        "name": "THIRD TRIMESTER",
+        "value": "0.300 - 3.000",
+        "referenceRange": "μIU/mL"
+      },
+      "normalized": {
+        "value": {
+          "type": "RANGE",
+          "lower": 0.3,
+          "upper": 3
+        },
+        "unit": null,
+        "referenceRange": {
+          "type": "TEXT",
+          "text": "μIU/mL"
+        }
+      },
+      "validation": {
+        "status": "REVIEW_REQUIRED",
+        "issues": [
+          {
+            "code": "UNMAPPED_BIOMARKER",
+            "message": "No canonical mapping for \"THIRD TRIMESTER\"."
+          }
+        ]
+      },
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l26",
+        "itemIds": [
+          "p8-i231",
+          "p8-i233",
+          "p8-i235"
+        ],
+        "boundingBox": {
+          "x": 89.8534,
+          "y": 391.58326324,
+          "width": 420.6954311449998,
+          "height": 9.015600000000006
+        }
+      }
+    }
+  ],
+  "unclassifiedContent": [
+    {
+      "text": "ClientClientClientClient Processed ByProcessed ByProcessed ByProcessed By",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l1",
+        "itemIds": [
+          "p1-i3",
+          "p1-i6",
+          "p1-i9",
+          "p1-i12",
+          "p1-i5",
+          "p1-i8",
+          "p1-i11",
+          "p1-i14"
+        ],
+        "boundingBox": {
+          "x": 21.2,
+          "y": 56,
+          "width": 356.40999999999934,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "GurugramGurugramGurugramGurugram Pathkind Diagnostics Pvt. Ltd.Pathkind Diagnostics Pvt. Ltd.Pathkind Diagnostics Pvt. Ltd.Pathkind Diagnostics Pvt. Ltd.",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l2",
+        "itemIds": [
+          "p1-i16",
+          "p1-i17",
+          "p1-i18",
+          "p1-i19",
+          "p1-i266",
+          "p1-i267",
+          "p1-i268",
+          "p1-i269"
+        ],
+        "boundingBox": {
+          "x": 22,
+          "y": 70.58000000000004,
+          "width": 412.29499999999996,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Pathkind Diagnostics Pvt. Ltd. Plot No. 55-56, Udhyog Vihar Ph-IV, Gurugram - 122015",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l3",
+        "itemIds": [
+          "p1-i21",
+          "p1-i271"
+        ],
+        "boundingBox": {
+          "x": 22,
+          "y": 84.98003000000006,
+          "width": 504.086,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "NameNameNameName :::: Mrs. PL02Mrs. PL02Mrs. PL02Mrs. PL02 Billing Date : 07/07/202312:30:22",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l5",
+        "itemIds": [
+          "p1-i30",
+          "p1-i33",
+          "p1-i36",
+          "p1-i39",
+          "p1-i32",
+          "p1-i35",
+          "p1-i38",
+          "p1-i41",
+          "p1-i43",
+          "p1-i44",
+          "p1-i45",
+          "p1-i46",
+          "p1-i25",
+          "p1-i27",
+          "p1-i29",
+          "p1-i24"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 120.78003000000001,
+          "width": 523.9000000000001,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Age : 35 Yrs Sample Collected on : 10/07/2023 10:01:31",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l6",
+        "itemIds": [
+          "p1-i48",
+          "p1-i50",
+          "p1-i52",
+          "p1-i54",
+          "p1-i56",
+          "p1-i58"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 135.17998999999998,
+          "width": 525.36,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Sex : Female Sample Received on : 10/07/2023 11:02:13",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l7",
+        "itemIds": [
+          "p1-i64",
+          "p1-i66",
+          "p1-i68",
+          "p1-i59",
+          "p1-i61",
+          "p1-i63"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 149.58002,
+          "width": 525.36,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "P. ID No. : P1000100012902 Report Released on : 20/07/2023 20:18:12",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l8",
+        "itemIds": [
+          "p1-i69",
+          "p1-i71",
+          "p1-i73",
+          "p1-i75",
+          "p1-i77",
+          "p1-i79"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 163.97997999999995,
+          "width": 525.36,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Accession NoAccession NoAccession NoAccession No :::: 10002304958100023049581000230495810002304958 Barcode No. : 10002304958-02",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l9",
+        "itemIds": [
+          "p1-i81",
+          "p1-i84",
+          "p1-i87",
+          "p1-i90",
+          "p1-i83",
+          "p1-i86",
+          "p1-i89",
+          "p1-i92",
+          "p1-i94",
+          "p1-i95",
+          "p1-i96",
+          "p1-i97",
+          "p1-i273",
+          "p1-i275",
+          "p1-i277"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 178.38,
+          "width": 508.04,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Referred By : Ref no. :",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l11",
+        "itemIds": [
+          "p1-i100",
+          "p1-i102",
+          "p1-i104",
+          "p1-i106"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 207.17998999999998,
+          "width": 427.48001999999974,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Report Status -Report Status -Report Status -Report Status - FinalFinalFinalFinal",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l12",
+        "itemIds": [
+          "p1-i108",
+          "p1-i109",
+          "p1-i110",
+          "p1-i111",
+          "p1-i113",
+          "p1-i114",
+          "p1-i115",
+          "p1-i116"
+        ],
+        "boundingBox": {
+          "x": 223.2,
+          "y": 227.58002999999997,
+          "width": 100.87700000000007,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Test NameTest NameTest NameTest Name ResultResultResultResult Biological Ref. IntervalBiological Ref. IntervalBiological Ref. IntervalBiological Ref. Interval UnitUnitUnitUnit",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l13",
+        "itemIds": [
+          "p1-i118",
+          "p1-i119",
+          "p1-i120",
+          "p1-i121",
+          "p1-i123",
+          "p1-i124",
+          "p1-i125",
+          "p1-i126",
+          "p1-i132",
+          "p1-i133",
+          "p1-i134",
+          "p1-i135",
+          "p1-i128",
+          "p1-i129",
+          "p1-i130",
+          "p1-i131"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 246.58002999999997,
+          "width": 495.09903,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "HAEMATOLOGYHAEMATOLOGYHAEMATOLOGYHAEMATOLOGY",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l14",
+        "itemIds": [
+          "p1-i137",
+          "p1-i138",
+          "p1-i139",
+          "p1-i140"
+        ],
+        "boundingBox": {
+          "x": 252,
+          "y": 277.61996,
+          "width": 78.25200000000001,
+          "height": 12
+        }
+      }
+    },
+    {
+      "text": "Ante Natal Profile BasicAnte Natal Profile BasicAnte Natal Profile BasicAnte Natal Profile Basic",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l15",
+        "itemIds": [
+          "p1-i142",
+          "p1-i143",
+          "p1-i144",
+          "p1-i145"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 301.89998,
+          "width": 107.01899999999999,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Complete Blood Count (CBC)Complete Blood Count (CBC)Complete Blood Count (CBC)Complete Blood Count (CBC)",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l16",
+        "itemIds": [
+          "p1-i147",
+          "p1-i148",
+          "p1-i149",
+          "p1-i150"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 316.89998,
+          "width": 130.152,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Method: Photometric measurement",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l19",
+        "itemIds": [
+          "p1-i157"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 354.6445451551691,
+          "width": 102.80199999999998,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Method: Impedance",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l22",
+        "itemIds": [
+          "p1-i169"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 390.8045451551691,
+          "width": 57.882999999999996,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Method: Impedance",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l25",
+        "itemIds": [
+          "p1-i181"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 426.9645551551691,
+          "width": 57.882999999999996,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Method: Impedance",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l28",
+        "itemIds": [
+          "p1-i193"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 463.1245551551691,
+          "width": 57.882999999999996,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Method: Calculated",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l31",
+        "itemIds": [
+          "p1-i205"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 499.28455515516913,
+          "width": 55.881000000000014,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Method: Calculated",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l34",
+        "itemIds": [
+          "p1-i217"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 535.4445651551691,
+          "width": 55.881000000000014,
+          "height": 7.215434844830952
+        }
+      }
+    },
+    {
+      "text": "Method: Calculated",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l37",
+        "itemIds": [
+          "p1-i229"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 571.604565155169,
+          "width": 55.881000000000014,
+          "height": 7.215434844830952
+        }
+      }
+    },
+    {
+      "text": "Method: Calculated",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l40",
+        "itemIds": [
+          "p1-i241"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 607.7645651551691,
+          "width": 55.881000000000014,
+          "height": 7.215434844830952
+        }
+      }
+    },
+    {
+      "text": "DLC (Differential Leucocyte Count)DLC (Differential Leucocyte Count)DLC (Differential Leucocyte Count)DLC (Differential Leucocyte Count)",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l41",
+        "itemIds": [
+          "p1-i248",
+          "p1-i249",
+          "p1-i250",
+          "p1-i251"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 621.5400099999999,
+          "width": 142.14000000000004,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Method: Flowcytometry/Microscopy",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l42",
+        "itemIds": [
+          "p1-i252"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 634.084575155169,
+          "width": 104.15999999999995,
+          "height": 7.215434844830952
+        }
+      }
+    },
+    {
+      "text": "Method: VCS Technology & Microscopy",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l45",
+        "itemIds": [
+          "p1-i259"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 668.4045851551691,
+          "width": 111.32099999999996,
+          "height": 7.215434844830952
+        }
+      }
+    },
+    {
+      "text": "10002304958 Mrs. PL02",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l46",
+        "itemIds": [
+          "p1-i1"
+        ],
+        "boundingBox": {
+          "x": 231,
+          "y": 775.58002,
+          "width": 117.52800000000002,
+          "height": 12
+        }
+      }
+    },
+    {
+      "text": "Page No: 1 of 8",
+      "source": {
+        "pageNumber": 1,
+        "lineId": "p1-l47",
+        "itemIds": [
+          "p1-i279"
+        ],
+        "boundingBox": {
+          "x": 274,
+          "y": 801.6,
+          "width": 42.839999999999975,
+          "height": 7
+        }
+      }
+    },
+    {
+      "text": "ClientClientClientClient Processed ByProcessed ByProcessed ByProcessed By",
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l1",
+        "itemIds": [
+          "p2-i3",
+          "p2-i6",
+          "p2-i9",
+          "p2-i12",
+          "p2-i5",
+          "p2-i8",
+          "p2-i11",
+          "p2-i14"
+        ],
+        "boundingBox": {
+          "x": 21.2,
+          "y": 56,
+          "width": 356.40999999999934,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "GurugramGurugramGurugramGurugram Pathkind Diagnostics Pvt. Ltd.Pathkind Diagnostics Pvt. Ltd.Pathkind Diagnostics Pvt. Ltd.Pathkind Diagnostics Pvt. Ltd.",
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l2",
+        "itemIds": [
+          "p2-i16",
+          "p2-i17",
+          "p2-i18",
+          "p2-i19",
+          "p2-i279",
+          "p2-i280",
+          "p2-i281",
+          "p2-i282"
+        ],
+        "boundingBox": {
+          "x": 22,
+          "y": 70.58000000000004,
+          "width": 412.29499999999996,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Pathkind Diagnostics Pvt. Ltd. Plot No. 55-56, Udhyog Vihar Ph-IV, Gurugram - 122015",
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l3",
+        "itemIds": [
+          "p2-i21",
+          "p2-i284"
+        ],
+        "boundingBox": {
+          "x": 22,
+          "y": 84.98003000000006,
+          "width": 504.086,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "NameNameNameName :::: Mrs. PL02Mrs. PL02Mrs. PL02Mrs. PL02 Billing Date : 07/07/202312:30:22",
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l5",
+        "itemIds": [
+          "p2-i30",
+          "p2-i33",
+          "p2-i36",
+          "p2-i39",
+          "p2-i32",
+          "p2-i35",
+          "p2-i38",
+          "p2-i41",
+          "p2-i43",
+          "p2-i44",
+          "p2-i45",
+          "p2-i46",
+          "p2-i25",
+          "p2-i27",
+          "p2-i29",
+          "p2-i24"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 120.78003000000001,
+          "width": 523.9000000000001,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Age : 35 Yrs Sample Collected on : 10/07/2023 10:01:31",
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l6",
+        "itemIds": [
+          "p2-i48",
+          "p2-i50",
+          "p2-i52",
+          "p2-i54",
+          "p2-i56",
+          "p2-i58"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 135.17998999999998,
+          "width": 525.36,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Sex : Female Sample Received on : 10/07/2023 11:02:13",
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l7",
+        "itemIds": [
+          "p2-i64",
+          "p2-i66",
+          "p2-i68",
+          "p2-i59",
+          "p2-i61",
+          "p2-i63"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 149.58002,
+          "width": 525.36,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "P. ID No. : P1000100012902 Report Released on : 20/07/2023 20:18:12",
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l8",
+        "itemIds": [
+          "p2-i69",
+          "p2-i71",
+          "p2-i73",
+          "p2-i75",
+          "p2-i77",
+          "p2-i79"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 163.97997999999995,
+          "width": 525.36,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Accession NoAccession NoAccession NoAccession No :::: 10002304958100023049581000230495810002304958 Barcode No. : 10002304958-02",
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l9",
+        "itemIds": [
+          "p2-i81",
+          "p2-i84",
+          "p2-i87",
+          "p2-i90",
+          "p2-i83",
+          "p2-i86",
+          "p2-i89",
+          "p2-i92",
+          "p2-i94",
+          "p2-i95",
+          "p2-i96",
+          "p2-i97",
+          "p2-i286",
+          "p2-i288",
+          "p2-i290"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 178.38,
+          "width": 508.04,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Referred By : Ref no. :",
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l11",
+        "itemIds": [
+          "p2-i100",
+          "p2-i102",
+          "p2-i104",
+          "p2-i106"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 207.17998999999998,
+          "width": 427.48001999999974,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Report Status -Report Status -Report Status -Report Status - FinalFinalFinalFinal",
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l12",
+        "itemIds": [
+          "p2-i108",
+          "p2-i109",
+          "p2-i110",
+          "p2-i111",
+          "p2-i113",
+          "p2-i114",
+          "p2-i115",
+          "p2-i116"
+        ],
+        "boundingBox": {
+          "x": 223.2,
+          "y": 227.58002999999997,
+          "width": 100.87700000000007,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Test NameTest NameTest NameTest Name ResultResultResultResult Biological Ref. IntervalBiological Ref. IntervalBiological Ref. IntervalBiological Ref. Interval UnitUnitUnitUnit",
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l13",
+        "itemIds": [
+          "p2-i118",
+          "p2-i119",
+          "p2-i120",
+          "p2-i121",
+          "p2-i123",
+          "p2-i124",
+          "p2-i125",
+          "p2-i126",
+          "p2-i132",
+          "p2-i133",
+          "p2-i134",
+          "p2-i135",
+          "p2-i128",
+          "p2-i129",
+          "p2-i130",
+          "p2-i131"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 246.58002999999997,
+          "width": 495.09903,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Method: VCS Technology & Microscopy",
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l16",
+        "itemIds": [
+          "p2-i142"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 297.92454515516914,
+          "width": 111.32099999999996,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Method: VCS Technology & Microscopy",
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l19",
+        "itemIds": [
+          "p2-i154"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 336.0845451551691,
+          "width": 111.32099999999996,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Method: VCS Technology & Microscopy",
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l22",
+        "itemIds": [
+          "p2-i166"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 374.2445551551691,
+          "width": 111.32099999999996,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Method: VCS Technology & Microscopy",
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l25",
+        "itemIds": [
+          "p2-i178"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 412.4045551551691,
+          "width": 111.32099999999996,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Method: Impedance",
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l38",
+        "itemIds": [
+          "p2-i253"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 594.564555155169,
+          "width": 57.882999999999996,
+          "height": 7.215434844830952
+        }
+      }
+    },
+    {
+      "text": "Method: Calculated",
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l41",
+        "itemIds": [
+          "p2-i265"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 628.7245651551691,
+          "width": 55.881000000000014,
+          "height": 7.215434844830952
+        }
+      }
+    },
+    {
+      "text": "Sample: Whole Blood EDTA",
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l42",
+        "itemIds": [
+          "p2-i272"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 642.7245651551691,
+          "width": 77.20300000000002,
+          "height": 7.215434844830952
+        }
+      }
+    },
+    {
+      "text": "Blood GroupBlood GroupBlood GroupBlood Group",
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l43",
+        "itemIds": [
+          "p2-i274",
+          "p2-i275",
+          "p2-i276",
+          "p2-i277"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 654.14,
+          "width": 57.859999999999985,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "10002304958 Mrs. PL02",
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l44",
+        "itemIds": [
+          "p2-i1"
+        ],
+        "boundingBox": {
+          "x": 231,
+          "y": 775.58002,
+          "width": 117.52800000000002,
+          "height": 12
+        }
+      }
+    },
+    {
+      "text": "Page No: 2 of 8",
+      "source": {
+        "pageNumber": 2,
+        "lineId": "p2-l45",
+        "itemIds": [
+          "p2-i292"
+        ],
+        "boundingBox": {
+          "x": 274,
+          "y": 801.6,
+          "width": 42.839999999999975,
+          "height": 7
+        }
+      }
+    },
+    {
+      "text": "ClientClientClientClient Processed ByProcessed ByProcessed ByProcessed By",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l1",
+        "itemIds": [
+          "p3-i3",
+          "p3-i6",
+          "p3-i9",
+          "p3-i12",
+          "p3-i5",
+          "p3-i8",
+          "p3-i11",
+          "p3-i14"
+        ],
+        "boundingBox": {
+          "x": 21.2,
+          "y": 56,
+          "width": 356.40999999999934,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "GurugramGurugramGurugramGurugram Pathkind Diagnostics Pvt. Ltd.Pathkind Diagnostics Pvt. Ltd.Pathkind Diagnostics Pvt. Ltd.Pathkind Diagnostics Pvt. Ltd.",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l2",
+        "itemIds": [
+          "p3-i16",
+          "p3-i17",
+          "p3-i18",
+          "p3-i19",
+          "p3-i255",
+          "p3-i256",
+          "p3-i257",
+          "p3-i258"
+        ],
+        "boundingBox": {
+          "x": 22,
+          "y": 70.58000000000004,
+          "width": 412.29499999999996,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Pathkind Diagnostics Pvt. Ltd. Plot No. 55-56, Udhyog Vihar Ph-IV, Gurugram - 122015",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l3",
+        "itemIds": [
+          "p3-i21",
+          "p3-i260"
+        ],
+        "boundingBox": {
+          "x": 22,
+          "y": 84.98003000000006,
+          "width": 504.086,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "NameNameNameName :::: Mrs. PL02Mrs. PL02Mrs. PL02Mrs. PL02 Billing Date : 07/07/202312:30:22",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l5",
+        "itemIds": [
+          "p3-i30",
+          "p3-i33",
+          "p3-i36",
+          "p3-i39",
+          "p3-i32",
+          "p3-i35",
+          "p3-i38",
+          "p3-i41",
+          "p3-i43",
+          "p3-i44",
+          "p3-i45",
+          "p3-i46",
+          "p3-i25",
+          "p3-i27",
+          "p3-i29",
+          "p3-i24"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 120.78003000000001,
+          "width": 523.9000000000001,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Age : 35 Yrs Sample Collected on : 10/07/2023 10:01:31",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l6",
+        "itemIds": [
+          "p3-i48",
+          "p3-i50",
+          "p3-i52",
+          "p3-i54",
+          "p3-i56",
+          "p3-i58"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 135.17998999999998,
+          "width": 525.36,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Sex : Female Sample Received on : 10/07/2023 11:02:13",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l7",
+        "itemIds": [
+          "p3-i64",
+          "p3-i66",
+          "p3-i68",
+          "p3-i59",
+          "p3-i61",
+          "p3-i63"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 149.58002,
+          "width": 525.36,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "P. ID No. : P1000100012902 Report Released on : 20/07/2023 20:18:12",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l8",
+        "itemIds": [
+          "p3-i69",
+          "p3-i71",
+          "p3-i73",
+          "p3-i75",
+          "p3-i77",
+          "p3-i79"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 163.97997999999995,
+          "width": 525.36,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Accession NoAccession NoAccession NoAccession No :::: 10002304958100023049581000230495810002304958 Barcode No. : 10002304958-02,",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l9",
+        "itemIds": [
+          "p3-i81",
+          "p3-i84",
+          "p3-i87",
+          "p3-i90",
+          "p3-i83",
+          "p3-i86",
+          "p3-i89",
+          "p3-i92",
+          "p3-i94",
+          "p3-i95",
+          "p3-i96",
+          "p3-i97",
+          "p3-i262",
+          "p3-i264",
+          "p3-i266"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 178.38,
+          "width": 510.53000000000003,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "10002304958-03,",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l10",
+        "itemIds": [
+          "p3-i267"
+        ],
+        "boundingBox": {
+          "x": 468,
+          "y": 188.38,
+          "width": 71.33000000000004,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "10002304958-04,",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l12",
+        "itemIds": [
+          "p3-i268"
+        ],
+        "boundingBox": {
+          "x": 468,
+          "y": 198.38,
+          "width": 71.33000000000004,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Referred By : Ref no. : 10002304958-05",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l13",
+        "itemIds": [
+          "p3-i100",
+          "p3-i102",
+          "p3-i104",
+          "p3-i106",
+          "p3-i269"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 207.17998999999998,
+          "width": 508.04,
+          "height": 11.20001000000002
+        }
+      }
+    },
+    {
+      "text": "Report Status -Report Status -Report Status -Report Status - FinalFinalFinalFinal",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l14",
+        "itemIds": [
+          "p3-i108",
+          "p3-i109",
+          "p3-i110",
+          "p3-i111",
+          "p3-i113",
+          "p3-i114",
+          "p3-i115",
+          "p3-i116"
+        ],
+        "boundingBox": {
+          "x": 223.2,
+          "y": 227.58002999999997,
+          "width": 100.87700000000007,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Test NameTest NameTest NameTest Name ResultResultResultResult Biological Ref. IntervalBiological Ref. IntervalBiological Ref. IntervalBiological Ref. Interval UnitUnitUnitUnit",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l15",
+        "itemIds": [
+          "p3-i118",
+          "p3-i119",
+          "p3-i120",
+          "p3-i121",
+          "p3-i123",
+          "p3-i124",
+          "p3-i125",
+          "p3-i126",
+          "p3-i132",
+          "p3-i133",
+          "p3-i134",
+          "p3-i135",
+          "p3-i128",
+          "p3-i129",
+          "p3-i130",
+          "p3-i131"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 246.58002999999997,
+          "width": 495.09903,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Blood GroupingBlood GroupingBlood GroupingBlood Grouping A",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l16",
+        "itemIds": [
+          "p3-i137",
+          "p3-i138",
+          "p3-i139",
+          "p3-i140",
+          "p3-i144"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 274.17999999999995,
+          "width": 207.77999999999997,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Sample: Whole Blood EDTA",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l17",
+        "itemIds": [
+          "p3-i141"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 287.7645651551691,
+          "width": 77.20300000000002,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Method: Column Agglutination",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l18",
+        "itemIds": [
+          "p3-i142"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 296.92454515516914,
+          "width": 87.96899999999995,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Rh (D) TypingRh (D) TypingRh (D) TypingRh (D) Typing Positive",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l19",
+        "itemIds": [
+          "p3-i146",
+          "p3-i147",
+          "p3-i148",
+          "p3-i149",
+          "p3-i153"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 310.33997999999997,
+          "width": 233.45000000000005,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Sample: Whole Blood EDTA",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l20",
+        "itemIds": [
+          "p3-i150"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 323.9245451551691,
+          "width": 77.20300000000002,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Method: Column agglutination",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l21",
+        "itemIds": [
+          "p3-i151"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 333.0845451551691,
+          "width": 87.27599999999997,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Method: Hexokinase",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l24",
+        "itemIds": [
+          "p3-i160"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 369.2445551551691,
+          "width": 58.548000000000016,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Method: Hexokinase",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l27",
+        "itemIds": [
+          "p3-i172"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 405.4045551551691,
+          "width": 58.548000000000016,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "HIV Antibody, Rapid CardHIV Antibody, Rapid CardHIV Antibody, Rapid CardHIV Antibody, Rapid Card Non Reactive Non Reactive",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l28",
+        "itemIds": [
+          "p3-i179",
+          "p3-i180",
+          "p3-i181",
+          "p3-i182",
+          "p3-i186",
+          "p3-i188"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 418.81999,
+          "width": 363.48001000000005,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Sample: Serum",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l29",
+        "itemIds": [
+          "p3-i183"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 432.4045551551691,
+          "width": 42.748999999999995,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Method: Immunodot Assay",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l30",
+        "itemIds": [
+          "p3-i184"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 441.5645551551691,
+          "width": 77.41299999999998,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Hepatitis B Surface Antigen (HBsAg)Hepatitis B Surface Antigen (HBsAg)Hepatitis B Surface Antigen (HBsAg)Hepatitis B Surface Antigen (HBsAg) Non Reactive Non Reactive",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l31",
+        "itemIds": [
+          "p3-i190",
+          "p3-i191",
+          "p3-i192",
+          "p3-i193",
+          "p3-i202",
+          "p3-i204"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 454.97999,
+          "width": 363.48001000000005,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Rapid CardRapid CardRapid CardRapid Card",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l32",
+        "itemIds": [
+          "p3-i195",
+          "p3-i196",
+          "p3-i197",
+          "p3-i198"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 465.97999,
+          "width": 49.819,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Sample: Serum",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l33",
+        "itemIds": [
+          "p3-i199"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 479.5645551551691,
+          "width": 42.748999999999995,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Method: Immunochromatography",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l34",
+        "itemIds": [
+          "p3-i200"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 488.7245651551691,
+          "width": 97.02699999999994,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Hepatitis C Antibody (HCV), Rapid CardHepatitis C Antibody (HCV), Rapid CardHepatitis C Antibody (HCV), Rapid CardHepatitis C Antibody (HCV), Rapid Card ReactiveReactiveReactiveReactive Non Reactive",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l35",
+        "itemIds": [
+          "p3-i206",
+          "p3-i207",
+          "p3-i208",
+          "p3-i209",
+          "p3-i213",
+          "p3-i214",
+          "p3-i215",
+          "p3-i216",
+          "p3-i218"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 502.14,
+          "width": 363.48001000000005,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Sample: Serum",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l36",
+        "itemIds": [
+          "p3-i210"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 515.7245651551691,
+          "width": 42.748999999999995,
+          "height": 7.215434844830952
+        }
+      }
+    },
+    {
+      "text": "Method: Immunodot Assay",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l37",
+        "itemIds": [
+          "p3-i211"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 524.8845651551691,
+          "width": 77.41299999999998,
+          "height": 7.215434844830952
+        }
+      }
+    },
+    {
+      "text": "VDRL (RPR)VDRL (RPR)VDRL (RPR)VDRL (RPR) Reactive 1:64Reactive 1:64Reactive 1:64Reactive 1:64 Non Reactive NA",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l38",
+        "itemIds": [
+          "p3-i220",
+          "p3-i221",
+          "p3-i222",
+          "p3-i223",
+          "p3-i227",
+          "p3-i228",
+          "p3-i229",
+          "p3-i230",
+          "p3-i233",
+          "p3-i232"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 538.3,
+          "width": 473.23001000000005,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Sample: Serum",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l39",
+        "itemIds": [
+          "p3-i224"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 551.8845651551691,
+          "width": 42.748999999999995,
+          "height": 7.215434844830952
+        }
+      }
+    },
+    {
+      "text": "Method: Slide flocculation",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l40",
+        "itemIds": [
+          "p3-i225"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 561.044565155169,
+          "width": 74.61299999999999,
+          "height": 7.215434844830952
+        }
+      }
+    },
+    {
+      "text": "TSH 3rd GenerationTSH 3rd GenerationTSH 3rd GenerationTSH 3rd Generation 5.6005.6005.6005.600 HHHH 0.270 - 4.200 μIU/mL",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l41",
+        "itemIds": [
+          "p3-i235",
+          "p3-i236",
+          "p3-i237",
+          "p3-i238",
+          "p3-i242",
+          "p3-i243",
+          "p3-i244",
+          "p3-i245",
+          "p3-i247",
+          "p3-i248",
+          "p3-i249",
+          "p3-i250",
+          "p3-i253",
+          "p3-i252"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 584.46,
+          "width": 491.4500100000001,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Sample: Serum",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l42",
+        "itemIds": [
+          "p3-i239"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 598.044565155169,
+          "width": 42.748999999999995,
+          "height": 7.215434844830952
+        }
+      }
+    },
+    {
+      "text": "Method: ECLIA",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l43",
+        "itemIds": [
+          "p3-i240"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 607.2045751551691,
+          "width": 42.063,
+          "height": 7.215434844830952
+        }
+      }
+    },
+    {
+      "text": "10002304958 Mrs. PL02",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l44",
+        "itemIds": [
+          "p3-i1"
+        ],
+        "boundingBox": {
+          "x": 231,
+          "y": 775.58002,
+          "width": 117.52800000000002,
+          "height": 12
+        }
+      }
+    },
+    {
+      "text": "Page No: 3 of 8",
+      "source": {
+        "pageNumber": 3,
+        "lineId": "p3-l45",
+        "itemIds": [
+          "p3-i271"
+        ],
+        "boundingBox": {
+          "x": 274,
+          "y": 801.6,
+          "width": 42.839999999999975,
+          "height": 7
+        }
+      }
+    },
+    {
+      "text": "ClientClientClientClient Processed ByProcessed ByProcessed ByProcessed By",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l1",
+        "itemIds": [
+          "p4-i3",
+          "p4-i6",
+          "p4-i9",
+          "p4-i12",
+          "p4-i5",
+          "p4-i8",
+          "p4-i11",
+          "p4-i14"
+        ],
+        "boundingBox": {
+          "x": 21.2,
+          "y": 56,
+          "width": 356.40999999999934,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "GurugramGurugramGurugramGurugram Pathkind Diagnostics Pvt. Ltd.Pathkind Diagnostics Pvt. Ltd.Pathkind Diagnostics Pvt. Ltd.Pathkind Diagnostics Pvt. Ltd.",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l2",
+        "itemIds": [
+          "p4-i16",
+          "p4-i17",
+          "p4-i18",
+          "p4-i19",
+          "p4-i257",
+          "p4-i258",
+          "p4-i259",
+          "p4-i260"
+        ],
+        "boundingBox": {
+          "x": 22,
+          "y": 70.58000000000004,
+          "width": 412.29499999999996,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Pathkind Diagnostics Pvt. Ltd. Plot No. 55-56, Udhyog Vihar Ph-IV, Gurugram - 122015",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l3",
+        "itemIds": [
+          "p4-i21",
+          "p4-i262"
+        ],
+        "boundingBox": {
+          "x": 22,
+          "y": 84.98003000000006,
+          "width": 504.086,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "NameNameNameName :::: Mrs. PL02Mrs. PL02Mrs. PL02Mrs. PL02 Billing Date : 07/07/202312:30:22",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l5",
+        "itemIds": [
+          "p4-i30",
+          "p4-i33",
+          "p4-i36",
+          "p4-i39",
+          "p4-i32",
+          "p4-i35",
+          "p4-i38",
+          "p4-i41",
+          "p4-i43",
+          "p4-i44",
+          "p4-i45",
+          "p4-i46",
+          "p4-i25",
+          "p4-i27",
+          "p4-i29",
+          "p4-i24"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 120.78003000000001,
+          "width": 523.9000000000001,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Age : 35 Yrs Sample Collected on : 10/07/2023 10:01:31",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l6",
+        "itemIds": [
+          "p4-i48",
+          "p4-i50",
+          "p4-i52",
+          "p4-i54",
+          "p4-i56",
+          "p4-i58"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 135.17998999999998,
+          "width": 525.36,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Sex : Female Sample Received on : 10/07/2023 11:02:13",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l7",
+        "itemIds": [
+          "p4-i64",
+          "p4-i66",
+          "p4-i68",
+          "p4-i59",
+          "p4-i61",
+          "p4-i63"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 149.58002,
+          "width": 525.36,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "P. ID No. : P1000100012902 Report Released on : 20/07/2023 20:18:12",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l8",
+        "itemIds": [
+          "p4-i69",
+          "p4-i71",
+          "p4-i73",
+          "p4-i75",
+          "p4-i77",
+          "p4-i79"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 163.97997999999995,
+          "width": 525.36,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Accession NoAccession NoAccession NoAccession No :::: 10002304958100023049581000230495810002304958 Barcode No. : 10002304958-01,",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l9",
+        "itemIds": [
+          "p4-i81",
+          "p4-i84",
+          "p4-i87",
+          "p4-i90",
+          "p4-i83",
+          "p4-i86",
+          "p4-i89",
+          "p4-i92",
+          "p4-i94",
+          "p4-i95",
+          "p4-i96",
+          "p4-i97",
+          "p4-i264",
+          "p4-i266",
+          "p4-i268"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 178.38,
+          "width": 510.53000000000003,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "10002304958-02,",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l10",
+        "itemIds": [
+          "p4-i269"
+        ],
+        "boundingBox": {
+          "x": 468,
+          "y": 188.38,
+          "width": 71.33000000000004,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "10002304958-03,",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l12",
+        "itemIds": [
+          "p4-i270"
+        ],
+        "boundingBox": {
+          "x": 468,
+          "y": 198.38,
+          "width": 71.33000000000004,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Referred By : Ref no. : 10002304958-04,",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l13",
+        "itemIds": [
+          "p4-i100",
+          "p4-i102",
+          "p4-i104",
+          "p4-i106",
+          "p4-i271"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 207.17998999999998,
+          "width": 510.53000000000003,
+          "height": 11.20001000000002
+        }
+      }
+    },
+    {
+      "text": "10002304958-05",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l14",
+        "itemIds": [
+          "p4-i272"
+        ],
+        "boundingBox": {
+          "x": 468,
+          "y": 218.38,
+          "width": 68.84000000000003,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Report Status -Report Status -Report Status -Report Status - FinalFinalFinalFinal",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l15",
+        "itemIds": [
+          "p4-i108",
+          "p4-i109",
+          "p4-i110",
+          "p4-i111",
+          "p4-i113",
+          "p4-i114",
+          "p4-i115",
+          "p4-i116"
+        ],
+        "boundingBox": {
+          "x": 223.2,
+          "y": 227.58002999999997,
+          "width": 100.87700000000007,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Test NameTest NameTest NameTest Name ResultResultResultResult Biological Ref. IntervalBiological Ref. IntervalBiological Ref. IntervalBiological Ref. Interval UnitUnitUnitUnit",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l16",
+        "itemIds": [
+          "p4-i118",
+          "p4-i119",
+          "p4-i120",
+          "p4-i121",
+          "p4-i123",
+          "p4-i124",
+          "p4-i125",
+          "p4-i126",
+          "p4-i132",
+          "p4-i133",
+          "p4-i134",
+          "p4-i135",
+          "p4-i128",
+          "p4-i129",
+          "p4-i130",
+          "p4-i131"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 246.58002999999997,
+          "width": 495.09903,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "CLINICAL PATHOLOGYCLINICAL PATHOLOGYCLINICAL PATHOLOGYCLINICAL PATHOLOGY",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l17",
+        "itemIds": [
+          "p4-i137",
+          "p4-i138",
+          "p4-i139",
+          "p4-i140"
+        ],
+        "boundingBox": {
+          "x": 236,
+          "y": 277.01998000000003,
+          "width": 107.62800000000004,
+          "height": 12
+        }
+      }
+    },
+    {
+      "text": "Urine Routine & Microscopic ExaminationUrine Routine & Microscopic ExaminationUrine Routine & Microscopic ExaminationUrine Routine & Microscopic Examination",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l18",
+        "itemIds": [
+          "p4-i142",
+          "p4-i143",
+          "p4-i144",
+          "p4-i145"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 296.25996,
+          "width": 190.38799999999998,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Method: Reflectance Photometry",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l19",
+        "itemIds": [
+          "p4-i146"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 310.0044951551691,
+          "width": 94.75199999999994,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Physical ExaminationPhysical ExaminationPhysical ExaminationPhysical Examination",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l20",
+        "itemIds": [
+          "p4-i148",
+          "p4-i149",
+          "p4-i150",
+          "p4-i151"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 324.49994,
+          "width": 87.33,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "ColourColourColourColour Pale Yellow Pale Yellow",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l21",
+        "itemIds": [
+          "p4-i153",
+          "p4-i154",
+          "p4-i155",
+          "p4-i156",
+          "p4-i160",
+          "p4-i162"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 339.17994,
+          "width": 355.3500100000001,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Sample: Urine",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l22",
+        "itemIds": [
+          "p4-i157"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 352.7645051551691,
+          "width": 40.03999999999999,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Method: Physical Examination",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l23",
+        "itemIds": [
+          "p4-i158"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 361.9245151551691,
+          "width": 85.42099999999995,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "AppearanceAppearanceAppearanceAppearance Clear Clear",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l24",
+        "itemIds": [
+          "p4-i164",
+          "p4-i165",
+          "p4-i166",
+          "p4-i167",
+          "p4-i171",
+          "p4-i173"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 375.33995,
+          "width": 330.86001000000005,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Sample: Urine",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l25",
+        "itemIds": [
+          "p4-i168"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 388.9245151551691,
+          "width": 40.03999999999999,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Method: Physical Examination",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l26",
+        "itemIds": [
+          "p4-i169"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 398.08451515516913,
+          "width": 85.42099999999995,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Specific GravitySpecific GravitySpecific GravitySpecific Gravity 1.015 1.003 - 1.035",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l27",
+        "itemIds": [
+          "p4-i175",
+          "p4-i176",
+          "p4-i177",
+          "p4-i178",
+          "p4-i182",
+          "p4-i184"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 411.49995,
+          "width": 363.10001000000005,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Sample: Urine",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l28",
+        "itemIds": [
+          "p4-i179"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 425.08451515516913,
+          "width": 40.03999999999999,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Method: pKa change of pretreated polyelectrolytes",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l29",
+        "itemIds": [
+          "p4-i180"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 434.2445151551691,
+          "width": 144.851,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "pHpHpHpH 6.0 4.7 - 7.5",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l30",
+        "itemIds": [
+          "p4-i186",
+          "p4-i187",
+          "p4-i188",
+          "p4-i189",
+          "p4-i193",
+          "p4-i195"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 450.65995,
+          "width": 342.86001,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Sample: Urine",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l31",
+        "itemIds": [
+          "p4-i190"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 464.2445151551691,
+          "width": 40.03999999999999,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Method: Double indicator principle",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l32",
+        "itemIds": [
+          "p4-i191"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 473.4045251551691,
+          "width": 99.68699999999991,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Chemical ExaminationChemical ExaminationChemical ExaminationChemical Examination",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l33",
+        "itemIds": [
+          "p4-i197",
+          "p4-i198",
+          "p4-i199",
+          "p4-i200"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 490.05997,
+          "width": 91.99000000000002,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "GlucoseGlucoseGlucoseGlucose Not Detected Not Detected",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l34",
+        "itemIds": [
+          "p4-i202",
+          "p4-i203",
+          "p4-i204",
+          "p4-i205",
+          "p4-i209",
+          "p4-i211"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 506.89998,
+          "width": 364.28000999999995,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Sample: Urine",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l35",
+        "itemIds": [
+          "p4-i206"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 520.484545155169,
+          "width": 40.03999999999999,
+          "height": 7.215434844830952
+        }
+      }
+    },
+    {
+      "text": "Method: Glucose oxidase/peroxidase",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l36",
+        "itemIds": [
+          "p4-i207"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 529.644545155169,
+          "width": 105.37099999999997,
+          "height": 7.215434844830952
+        }
+      }
+    },
+    {
+      "text": "ProteinProteinProteinProtein Not Detected Not Detected",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l37",
+        "itemIds": [
+          "p4-i213",
+          "p4-i214",
+          "p4-i215",
+          "p4-i216",
+          "p4-i220",
+          "p4-i222"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 543.05998,
+          "width": 364.28000999999995,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Sample: Urine",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l38",
+        "itemIds": [
+          "p4-i217"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 556.644545155169,
+          "width": 40.03999999999999,
+          "height": 7.215434844830952
+        }
+      }
+    },
+    {
+      "text": "Method: Protein-error-of-indicators principle",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l39",
+        "itemIds": [
+          "p4-i218"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 565.8045451551691,
+          "width": 127.17599999999995,
+          "height": 7.215434844830952
+        }
+      }
+    },
+    {
+      "text": "KetonesKetonesKetonesKetones Not Detected Not Detected",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l40",
+        "itemIds": [
+          "p4-i224",
+          "p4-i225",
+          "p4-i226",
+          "p4-i227",
+          "p4-i231",
+          "p4-i233"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 579.21998,
+          "width": 364.28000999999995,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Sample: Urine",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l41",
+        "itemIds": [
+          "p4-i228"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 592.8045451551691,
+          "width": 40.03999999999999,
+          "height": 7.215434844830952
+        }
+      }
+    },
+    {
+      "text": "Method: Sodium nitroprusside reaction",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l42",
+        "itemIds": [
+          "p4-i229"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 601.964555155169,
+          "width": 111.93699999999994,
+          "height": 7.215434844830952
+        }
+      }
+    },
+    {
+      "text": "BloodBloodBloodBlood Not Detected Not Detected",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l43",
+        "itemIds": [
+          "p4-i235",
+          "p4-i236",
+          "p4-i237",
+          "p4-i238",
+          "p4-i242",
+          "p4-i244"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 615.37999,
+          "width": 364.28000999999995,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Sample: Urine",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l44",
+        "itemIds": [
+          "p4-i239"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 628.964555155169,
+          "width": 40.03999999999999,
+          "height": 7.215434844830952
+        }
+      }
+    },
+    {
+      "text": "Method: Peroxidase",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l45",
+        "itemIds": [
+          "p4-i240"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 638.124555155169,
+          "width": 56.95900000000002,
+          "height": 7.215434844830952
+        }
+      }
+    },
+    {
+      "text": "BilirubinBilirubinBilirubinBilirubin Not Detected Not Detected",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l46",
+        "itemIds": [
+          "p4-i246",
+          "p4-i247",
+          "p4-i248",
+          "p4-i249",
+          "p4-i253",
+          "p4-i255"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 651.53999,
+          "width": 364.28000999999995,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Sample: Urine",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l47",
+        "itemIds": [
+          "p4-i250"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 665.124555155169,
+          "width": 40.03999999999999,
+          "height": 7.215434844830952
+        }
+      }
+    },
+    {
+      "text": "Method: Diazo reaction",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l48",
+        "itemIds": [
+          "p4-i251"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 674.2845551551691,
+          "width": 66.83600000000003,
+          "height": 7.215434844830952
+        }
+      }
+    },
+    {
+      "text": "10002304958 Mrs. PL02",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l49",
+        "itemIds": [
+          "p4-i1"
+        ],
+        "boundingBox": {
+          "x": 231,
+          "y": 775.58002,
+          "width": 117.52800000000002,
+          "height": 12
+        }
+      }
+    },
+    {
+      "text": "Page No: 4 of 8",
+      "source": {
+        "pageNumber": 4,
+        "lineId": "p4-l50",
+        "itemIds": [
+          "p4-i274"
+        ],
+        "boundingBox": {
+          "x": 274,
+          "y": 801.6,
+          "width": 42.839999999999975,
+          "height": 7
+        }
+      }
+    },
+    {
+      "text": "ClientClientClientClient Processed ByProcessed ByProcessed ByProcessed By",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l1",
+        "itemIds": [
+          "p5-i3",
+          "p5-i6",
+          "p5-i9",
+          "p5-i12",
+          "p5-i5",
+          "p5-i8",
+          "p5-i11",
+          "p5-i14"
+        ],
+        "boundingBox": {
+          "x": 21.2,
+          "y": 56,
+          "width": 356.40999999999934,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "GurugramGurugramGurugramGurugram Pathkind Diagnostics Pvt. Ltd.Pathkind Diagnostics Pvt. Ltd.Pathkind Diagnostics Pvt. Ltd.Pathkind Diagnostics Pvt. Ltd.",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l2",
+        "itemIds": [
+          "p5-i16",
+          "p5-i17",
+          "p5-i18",
+          "p5-i19",
+          "p5-i248",
+          "p5-i249",
+          "p5-i250",
+          "p5-i251"
+        ],
+        "boundingBox": {
+          "x": 22,
+          "y": 70.58000000000004,
+          "width": 412.29499999999996,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Pathkind Diagnostics Pvt. Ltd. Plot No. 55-56, Udhyog Vihar Ph-IV, Gurugram - 122015",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l3",
+        "itemIds": [
+          "p5-i21",
+          "p5-i253"
+        ],
+        "boundingBox": {
+          "x": 22,
+          "y": 84.98003000000006,
+          "width": 504.086,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "NameNameNameName :::: Mrs. PL02Mrs. PL02Mrs. PL02Mrs. PL02 Billing Date : 07/07/202312:30:22",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l5",
+        "itemIds": [
+          "p5-i30",
+          "p5-i33",
+          "p5-i36",
+          "p5-i39",
+          "p5-i32",
+          "p5-i35",
+          "p5-i38",
+          "p5-i41",
+          "p5-i43",
+          "p5-i44",
+          "p5-i45",
+          "p5-i46",
+          "p5-i25",
+          "p5-i27",
+          "p5-i29",
+          "p5-i24"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 120.78003000000001,
+          "width": 523.9000000000001,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Age : 35 Yrs Sample Collected on : 10/07/2023 10:01:31",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l6",
+        "itemIds": [
+          "p5-i48",
+          "p5-i50",
+          "p5-i52",
+          "p5-i54",
+          "p5-i56",
+          "p5-i58"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 135.17998999999998,
+          "width": 525.36,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Sex : Female Sample Received on : 10/07/2023 11:02:13",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l7",
+        "itemIds": [
+          "p5-i64",
+          "p5-i66",
+          "p5-i68",
+          "p5-i59",
+          "p5-i61",
+          "p5-i63"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 149.58002,
+          "width": 525.36,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "P. ID No. : P1000100012902 Report Released on : 20/07/2023 20:18:12",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l8",
+        "itemIds": [
+          "p5-i69",
+          "p5-i71",
+          "p5-i73",
+          "p5-i75",
+          "p5-i77",
+          "p5-i79"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 163.97997999999995,
+          "width": 525.36,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Accession NoAccession NoAccession NoAccession No :::: 10002304958100023049581000230495810002304958 Barcode No. : 10002304958-01,",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l9",
+        "itemIds": [
+          "p5-i81",
+          "p5-i84",
+          "p5-i87",
+          "p5-i90",
+          "p5-i83",
+          "p5-i86",
+          "p5-i89",
+          "p5-i92",
+          "p5-i94",
+          "p5-i95",
+          "p5-i96",
+          "p5-i97",
+          "p5-i255",
+          "p5-i257",
+          "p5-i259"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 178.38,
+          "width": 510.53000000000003,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "10002304958-02,",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l10",
+        "itemIds": [
+          "p5-i260"
+        ],
+        "boundingBox": {
+          "x": 468,
+          "y": 188.38,
+          "width": 71.33000000000004,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "10002304958-03,",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l12",
+        "itemIds": [
+          "p5-i261"
+        ],
+        "boundingBox": {
+          "x": 468,
+          "y": 198.38,
+          "width": 71.33000000000004,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Referred By : Ref no. : 10002304958-04,",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l13",
+        "itemIds": [
+          "p5-i100",
+          "p5-i102",
+          "p5-i104",
+          "p5-i106",
+          "p5-i262"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 207.17998999999998,
+          "width": 510.53000000000003,
+          "height": 11.20001000000002
+        }
+      }
+    },
+    {
+      "text": "10002304958-05",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l14",
+        "itemIds": [
+          "p5-i263"
+        ],
+        "boundingBox": {
+          "x": 468,
+          "y": 218.38,
+          "width": 68.84000000000003,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Report Status -Report Status -Report Status -Report Status - FinalFinalFinalFinal",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l15",
+        "itemIds": [
+          "p5-i108",
+          "p5-i109",
+          "p5-i110",
+          "p5-i111",
+          "p5-i113",
+          "p5-i114",
+          "p5-i115",
+          "p5-i116"
+        ],
+        "boundingBox": {
+          "x": 223.2,
+          "y": 227.58002999999997,
+          "width": 100.87700000000007,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Test NameTest NameTest NameTest Name ResultResultResultResult Biological Ref. IntervalBiological Ref. IntervalBiological Ref. IntervalBiological Ref. Interval UnitUnitUnitUnit",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l16",
+        "itemIds": [
+          "p5-i118",
+          "p5-i119",
+          "p5-i120",
+          "p5-i121",
+          "p5-i123",
+          "p5-i124",
+          "p5-i125",
+          "p5-i126",
+          "p5-i132",
+          "p5-i133",
+          "p5-i134",
+          "p5-i135",
+          "p5-i128",
+          "p5-i129",
+          "p5-i130",
+          "p5-i131"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 246.58002999999997,
+          "width": 495.09903,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "UrobilinogenUrobilinogenUrobilinogenUrobilinogen Normal Normal",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l17",
+        "itemIds": [
+          "p5-i137",
+          "p5-i138",
+          "p5-i139",
+          "p5-i140",
+          "p5-i144",
+          "p5-i146"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 274.17999999999995,
+          "width": 340.26001,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Sample: Urine",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l18",
+        "itemIds": [
+          "p5-i141"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 287.7645651551691,
+          "width": 40.03999999999999,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Method: Ehrlich's reaction",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l19",
+        "itemIds": [
+          "p5-i142"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 296.92454515516914,
+          "width": 74.907,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "NitriteNitriteNitriteNitrite Not Detected Not Detected",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l20",
+        "itemIds": [
+          "p5-i148",
+          "p5-i149",
+          "p5-i150",
+          "p5-i151",
+          "p5-i155",
+          "p5-i157"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 310.33997999999997,
+          "width": 364.28000999999995,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Sample: Urine",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l21",
+        "itemIds": [
+          "p5-i152"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 323.9245451551691,
+          "width": 40.03999999999999,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Method: Nitrite Test",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l22",
+        "itemIds": [
+          "p5-i153"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 333.0845451551691,
+          "width": 57.34400000000001,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "Microscopic ExaminationMicroscopic ExaminationMicroscopic ExaminationMicroscopic Examination",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l23",
+        "itemIds": [
+          "p5-i159",
+          "p5-i160",
+          "p5-i161",
+          "p5-i162"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 347.57999,
+          "width": 106.13000000000001,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Method: Microscopy",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l24",
+        "itemIds": [
+          "p5-i163"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 360.1245551551691,
+          "width": 58.93300000000002,
+          "height": 7.215434844830895
+        }
+      }
+    },
+    {
+      "text": "RemarksRemarksRemarksRemarks",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l37",
+        "itemIds": [
+          "p5-i231",
+          "p5-i232",
+          "p5-i233",
+          "p5-i234"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 546.4200000000001,
+          "width": 39.721000000000004,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Sample: Urine",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l38",
+        "itemIds": [
+          "p5-i235"
+        ],
+        "boundingBox": {
+          "x": 43.2,
+          "y": 560.0045651551691,
+          "width": 40.03999999999999,
+          "height": 7.215434844830952
+        }
+      }
+    },
+    {
+      "text": "Remarks : Microscopic Examination is performed on urine sediment",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l39",
+        "itemIds": [
+          "p5-i237",
+          "p5-i239"
+        ],
+        "boundingBox": {
+          "x": 28.9981,
+          "y": 592.531372482,
+          "width": 303.52521167171585,
+          "height": 11.269499999999994
+        }
+      }
+    },
+    {
+      "text": "Complete Blood Count (CBC)Complete Blood Count (CBC)Complete Blood Count (CBC)Complete Blood Count (CBC)",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l40",
+        "itemIds": [
+          "p5-i241",
+          "p5-i242",
+          "p5-i243",
+          "p5-i244"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 606.5,
+          "width": 139.59999999999997,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "10002304958 Mrs. PL02",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l42",
+        "itemIds": [
+          "p5-i1"
+        ],
+        "boundingBox": {
+          "x": 231,
+          "y": 775.58002,
+          "width": 117.52800000000002,
+          "height": 12
+        }
+      }
+    },
+    {
+      "text": "Page No: 5 of 8",
+      "source": {
+        "pageNumber": 5,
+        "lineId": "p5-l43",
+        "itemIds": [
+          "p5-i265"
+        ],
+        "boundingBox": {
+          "x": 274,
+          "y": 801.6,
+          "width": 42.839999999999975,
+          "height": 7
+        }
+      }
+    },
+    {
+      "text": "ClientClientClientClient Processed ByProcessed ByProcessed ByProcessed By",
+      "source": {
+        "pageNumber": 6,
+        "lineId": "p6-l1",
+        "itemIds": [
+          "p6-i3",
+          "p6-i6",
+          "p6-i9",
+          "p6-i12",
+          "p6-i5",
+          "p6-i8",
+          "p6-i11",
+          "p6-i14"
+        ],
+        "boundingBox": {
+          "x": 21.2,
+          "y": 56,
+          "width": 356.40999999999934,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "GurugramGurugramGurugramGurugram Pathkind Diagnostics Pvt. Ltd.Pathkind Diagnostics Pvt. Ltd.Pathkind Diagnostics Pvt. Ltd.Pathkind Diagnostics Pvt. Ltd.",
+      "source": {
+        "pageNumber": 6,
+        "lineId": "p6-l2",
+        "itemIds": [
+          "p6-i16",
+          "p6-i17",
+          "p6-i18",
+          "p6-i19",
+          "p6-i177",
+          "p6-i178",
+          "p6-i179",
+          "p6-i180"
+        ],
+        "boundingBox": {
+          "x": 22,
+          "y": 70.58000000000004,
+          "width": 412.29499999999996,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Pathkind Diagnostics Pvt. Ltd. Plot No. 55-56, Udhyog Vihar Ph-IV, Gurugram - 122015",
+      "source": {
+        "pageNumber": 6,
+        "lineId": "p6-l3",
+        "itemIds": [
+          "p6-i21",
+          "p6-i182"
+        ],
+        "boundingBox": {
+          "x": 22,
+          "y": 84.98003000000006,
+          "width": 504.086,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "NameNameNameName :::: Mrs. PL02Mrs. PL02Mrs. PL02Mrs. PL02 Billing Date : 07/07/202312:30:22",
+      "source": {
+        "pageNumber": 6,
+        "lineId": "p6-l5",
+        "itemIds": [
+          "p6-i30",
+          "p6-i33",
+          "p6-i36",
+          "p6-i39",
+          "p6-i32",
+          "p6-i35",
+          "p6-i38",
+          "p6-i41",
+          "p6-i43",
+          "p6-i44",
+          "p6-i45",
+          "p6-i46",
+          "p6-i25",
+          "p6-i27",
+          "p6-i29",
+          "p6-i24"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 120.78003000000001,
+          "width": 523.9000000000001,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Age : 35 Yrs Sample Collected on : 10/07/2023 10:01:31",
+      "source": {
+        "pageNumber": 6,
+        "lineId": "p6-l6",
+        "itemIds": [
+          "p6-i48",
+          "p6-i50",
+          "p6-i52",
+          "p6-i54",
+          "p6-i56",
+          "p6-i58"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 135.17998999999998,
+          "width": 525.36,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Sex : Female Sample Received on : 10/07/2023 11:02:13",
+      "source": {
+        "pageNumber": 6,
+        "lineId": "p6-l7",
+        "itemIds": [
+          "p6-i64",
+          "p6-i66",
+          "p6-i68",
+          "p6-i59",
+          "p6-i61",
+          "p6-i63"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 149.58002,
+          "width": 525.36,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "P. ID No. : P1000100012902 Report Released on : 20/07/2023 20:18:12",
+      "source": {
+        "pageNumber": 6,
+        "lineId": "p6-l8",
+        "itemIds": [
+          "p6-i69",
+          "p6-i71",
+          "p6-i73",
+          "p6-i75",
+          "p6-i77",
+          "p6-i79"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 163.97997999999995,
+          "width": 525.36,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Accession NoAccession NoAccession NoAccession No :::: 10002304958100023049581000230495810002304958 Barcode No. : 10002304958-01,",
+      "source": {
+        "pageNumber": 6,
+        "lineId": "p6-l9",
+        "itemIds": [
+          "p6-i81",
+          "p6-i84",
+          "p6-i87",
+          "p6-i90",
+          "p6-i83",
+          "p6-i86",
+          "p6-i89",
+          "p6-i92",
+          "p6-i94",
+          "p6-i95",
+          "p6-i96",
+          "p6-i97",
+          "p6-i184",
+          "p6-i186",
+          "p6-i188"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 178.38,
+          "width": 510.53000000000003,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "10002304958-02,",
+      "source": {
+        "pageNumber": 6,
+        "lineId": "p6-l10",
+        "itemIds": [
+          "p6-i189"
+        ],
+        "boundingBox": {
+          "x": 468,
+          "y": 188.38,
+          "width": 71.33000000000004,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "10002304958-03,",
+      "source": {
+        "pageNumber": 6,
+        "lineId": "p6-l12",
+        "itemIds": [
+          "p6-i190"
+        ],
+        "boundingBox": {
+          "x": 468,
+          "y": 198.38,
+          "width": 71.33000000000004,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Referred By : Ref no. : 10002304958-04,",
+      "source": {
+        "pageNumber": 6,
+        "lineId": "p6-l13",
+        "itemIds": [
+          "p6-i100",
+          "p6-i102",
+          "p6-i104",
+          "p6-i106",
+          "p6-i191"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 207.17998999999998,
+          "width": 510.53000000000003,
+          "height": 11.20001000000002
+        }
+      }
+    },
+    {
+      "text": "10002304958-05",
+      "source": {
+        "pageNumber": 6,
+        "lineId": "p6-l14",
+        "itemIds": [
+          "p6-i192"
+        ],
+        "boundingBox": {
+          "x": 468,
+          "y": 218.38,
+          "width": 68.84000000000003,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Report Status -Report Status -Report Status -Report Status - FinalFinalFinalFinal",
+      "source": {
+        "pageNumber": 6,
+        "lineId": "p6-l15",
+        "itemIds": [
+          "p6-i108",
+          "p6-i109",
+          "p6-i110",
+          "p6-i111",
+          "p6-i113",
+          "p6-i114",
+          "p6-i115",
+          "p6-i116"
+        ],
+        "boundingBox": {
+          "x": 223.2,
+          "y": 227.58002999999997,
+          "width": 100.87700000000007,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Test NameTest NameTest NameTest Name ResultResultResultResult Biological Ref. IntervalBiological Ref. IntervalBiological Ref. IntervalBiological Ref. Interval UnitUnitUnitUnit",
+      "source": {
+        "pageNumber": 6,
+        "lineId": "p6-l16",
+        "itemIds": [
+          "p6-i118",
+          "p6-i119",
+          "p6-i120",
+          "p6-i121",
+          "p6-i123",
+          "p6-i124",
+          "p6-i125",
+          "p6-i126",
+          "p6-i132",
+          "p6-i133",
+          "p6-i134",
+          "p6-i135",
+          "p6-i128",
+          "p6-i129",
+          "p6-i130",
+          "p6-i131"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 246.58002999999997,
+          "width": 495.09903,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "diagnosis, to detect an unsuspected hematologic disorder, or to monitor effects of radiation or chemotherapy. Abnormal results may be due to a",
+      "source": {
+        "pageNumber": 6,
+        "lineId": "p6-l21",
+        "itemIds": [
+          "p6-i141",
+          "p6-i143"
+        ],
+        "boundingBox": {
+          "x": 26.7442,
+          "y": 317.204411352,
+          "width": 545.4490590999993,
+          "height": 9.015600000000006
+        }
+      }
+    },
+    {
+      "text": "HIV Antibody, Rapid CardHIV Antibody, Rapid CardHIV Antibody, Rapid CardHIV Antibody, Rapid Card",
+      "source": {
+        "pageNumber": 6,
+        "lineId": "p6-l24",
+        "itemIds": [
+          "p6-i147",
+          "p6-i148",
+          "p6-i149",
+          "p6-i150"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 370.38,
+          "width": 120.71999999999998,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Hepatitis B Surface Antigen (HBsAg)Hepatitis B Surface Antigen (HBsAg)Hepatitis B Surface Antigen (HBsAg)Hepatitis B Surface Antigen (HBsAg)",
+      "source": {
+        "pageNumber": 6,
+        "lineId": "p6-l28",
+        "itemIds": [
+          "p6-i156",
+          "p6-i157",
+          "p6-i158",
+          "p6-i159"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 439.38,
+          "width": 174.25,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Hepatitis C Antibody (HCV), Rapid CardHepatitis C Antibody (HCV), Rapid CardHepatitis C Antibody (HCV), Rapid CardHepatitis C Antibody (HCV), Rapid Card",
+      "source": {
+        "pageNumber": 6,
+        "lineId": "p6-l39",
+        "itemIds": [
+          "p6-i172",
+          "p6-i173",
+          "p6-i174",
+          "p6-i175"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 625.38,
+          "width": 187.52999999999997,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "10002304958 Mrs. PL02",
+      "source": {
+        "pageNumber": 6,
+        "lineId": "p6-l40",
+        "itemIds": [
+          "p6-i1"
+        ],
+        "boundingBox": {
+          "x": 231,
+          "y": 775.58002,
+          "width": 117.52800000000002,
+          "height": 12
+        }
+      }
+    },
+    {
+      "text": "Page No: 6 of 8",
+      "source": {
+        "pageNumber": 6,
+        "lineId": "p6-l41",
+        "itemIds": [
+          "p6-i194"
+        ],
+        "boundingBox": {
+          "x": 274,
+          "y": 801.6,
+          "width": 42.839999999999975,
+          "height": 7
+        }
+      }
+    },
+    {
+      "text": "ClientClientClientClient Processed ByProcessed ByProcessed ByProcessed By",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l1",
+        "itemIds": [
+          "p7-i3",
+          "p7-i6",
+          "p7-i9",
+          "p7-i12",
+          "p7-i5",
+          "p7-i8",
+          "p7-i11",
+          "p7-i14"
+        ],
+        "boundingBox": {
+          "x": 21.2,
+          "y": 56,
+          "width": 356.40999999999934,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "GurugramGurugramGurugramGurugram Pathkind Diagnostics Pvt. Ltd.Pathkind Diagnostics Pvt. Ltd.Pathkind Diagnostics Pvt. Ltd.Pathkind Diagnostics Pvt. Ltd.",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l2",
+        "itemIds": [
+          "p7-i16",
+          "p7-i17",
+          "p7-i18",
+          "p7-i19",
+          "p7-i167",
+          "p7-i168",
+          "p7-i169",
+          "p7-i170"
+        ],
+        "boundingBox": {
+          "x": 22,
+          "y": 70.58000000000004,
+          "width": 412.29499999999996,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Pathkind Diagnostics Pvt. Ltd. Plot No. 55-56, Udhyog Vihar Ph-IV, Gurugram - 122015",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l3",
+        "itemIds": [
+          "p7-i21",
+          "p7-i172"
+        ],
+        "boundingBox": {
+          "x": 22,
+          "y": 84.98003000000006,
+          "width": 504.086,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "NameNameNameName :::: Mrs. PL02Mrs. PL02Mrs. PL02Mrs. PL02 Billing Date : 07/07/202312:30:22",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l5",
+        "itemIds": [
+          "p7-i30",
+          "p7-i33",
+          "p7-i36",
+          "p7-i39",
+          "p7-i32",
+          "p7-i35",
+          "p7-i38",
+          "p7-i41",
+          "p7-i43",
+          "p7-i44",
+          "p7-i45",
+          "p7-i46",
+          "p7-i25",
+          "p7-i27",
+          "p7-i29",
+          "p7-i24"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 120.78003000000001,
+          "width": 523.9000000000001,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Age : 35 Yrs Sample Collected on : 10/07/2023 10:01:31",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l6",
+        "itemIds": [
+          "p7-i48",
+          "p7-i50",
+          "p7-i52",
+          "p7-i54",
+          "p7-i56",
+          "p7-i58"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 135.17998999999998,
+          "width": 525.36,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Sex : Female Sample Received on : 10/07/2023 11:02:13",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l7",
+        "itemIds": [
+          "p7-i64",
+          "p7-i66",
+          "p7-i68",
+          "p7-i59",
+          "p7-i61",
+          "p7-i63"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 149.58002,
+          "width": 525.36,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "P. ID No. : P1000100012902 Report Released on : 20/07/2023 20:18:12",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l8",
+        "itemIds": [
+          "p7-i69",
+          "p7-i71",
+          "p7-i73",
+          "p7-i75",
+          "p7-i77",
+          "p7-i79"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 163.97997999999995,
+          "width": 525.36,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Accession NoAccession NoAccession NoAccession No :::: 10002304958100023049581000230495810002304958 Barcode No. : 10002304958-01,",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l9",
+        "itemIds": [
+          "p7-i81",
+          "p7-i84",
+          "p7-i87",
+          "p7-i90",
+          "p7-i83",
+          "p7-i86",
+          "p7-i89",
+          "p7-i92",
+          "p7-i94",
+          "p7-i95",
+          "p7-i96",
+          "p7-i97",
+          "p7-i174",
+          "p7-i176",
+          "p7-i178"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 178.38,
+          "width": 510.53000000000003,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "10002304958-02,",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l10",
+        "itemIds": [
+          "p7-i179"
+        ],
+        "boundingBox": {
+          "x": 468,
+          "y": 188.38,
+          "width": 71.33000000000004,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "10002304958-03,",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l12",
+        "itemIds": [
+          "p7-i180"
+        ],
+        "boundingBox": {
+          "x": 468,
+          "y": 198.38,
+          "width": 71.33000000000004,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Referred By : Ref no. : 10002304958-04,",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l13",
+        "itemIds": [
+          "p7-i100",
+          "p7-i102",
+          "p7-i104",
+          "p7-i106",
+          "p7-i181"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 207.17998999999998,
+          "width": 510.53000000000003,
+          "height": 11.20001000000002
+        }
+      }
+    },
+    {
+      "text": "10002304958-05",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l14",
+        "itemIds": [
+          "p7-i182"
+        ],
+        "boundingBox": {
+          "x": 468,
+          "y": 218.38,
+          "width": 68.84000000000003,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Report Status -Report Status -Report Status -Report Status - FinalFinalFinalFinal",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l15",
+        "itemIds": [
+          "p7-i108",
+          "p7-i109",
+          "p7-i110",
+          "p7-i111",
+          "p7-i113",
+          "p7-i114",
+          "p7-i115",
+          "p7-i116"
+        ],
+        "boundingBox": {
+          "x": 223.2,
+          "y": 227.58002999999997,
+          "width": 100.87700000000007,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Test NameTest NameTest NameTest Name ResultResultResultResult Biological Ref. IntervalBiological Ref. IntervalBiological Ref. IntervalBiological Ref. Interval UnitUnitUnitUnit",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l16",
+        "itemIds": [
+          "p7-i118",
+          "p7-i119",
+          "p7-i120",
+          "p7-i121",
+          "p7-i123",
+          "p7-i124",
+          "p7-i125",
+          "p7-i126",
+          "p7-i132",
+          "p7-i133",
+          "p7-i134",
+          "p7-i135",
+          "p7-i128",
+          "p7-i129",
+          "p7-i130",
+          "p7-i131"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 246.58002999999997,
+          "width": 495.09903,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "VDRL (RPR)VDRL (RPR)VDRL (RPR)VDRL (RPR)",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l25",
+        "itemIds": [
+          "p7-i146",
+          "p7-i147",
+          "p7-i148",
+          "p7-i149"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 415.38,
+          "width": 57.85000000000001,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "1. This is a screening test for syphilis based on principal of flocculation which measures antibodies produced by the body when",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l26",
+        "itemIds": [
+          "p7-i151"
+        ],
+        "boundingBox": {
+          "x": 42.5215,
+          "y": 451.67604803,
+          "width": 516.8376582177586,
+          "height": 9.015600000000006
+        }
+      }
+    },
+    {
+      "text": "i t",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l27",
+        "itemIds": [
+          "p7-i152"
+        ],
+        "boundingBox": {
+          "x": 42.5215,
+          "y": 462.19424803,
+          "width": 6.016410399999998,
+          "height": 9.015600000000006
+        }
+      }
+    },
+    {
+      "text": "comes in contact with the bacteria Treponema pallidum",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l28",
+        "itemIds": [
+          "p7-i153"
+        ],
+        "boundingBox": {
+          "x": 52.03524195199999,
+          "y": 472.71244803,
+          "width": 226.67584688469594,
+          "height": 9.015600000000006
+        }
+      }
+    },
+    {
+      "text": "2. This test is helpful in the initial diagnosis and following the progression of disease and response to therapy",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l29",
+        "itemIds": [
+          "p7-i154"
+        ],
+        "boundingBox": {
+          "x": 42.5215,
+          "y": 493.74884803000003,
+          "width": 450.24053336248875,
+          "height": 9.015600000000006
+        }
+      }
+    },
+    {
+      "text": "3. Titers >1:8 are considered REACTIVE and SIGNIFICANT",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l30",
+        "itemIds": [
+          "p7-i155"
+        ],
+        "boundingBox": {
+          "x": 42.5215,
+          "y": 514.78524803,
+          "width": 222.63929788636784,
+          "height": 9.01559999999995
+        }
+      }
+    },
+    {
+      "text": "4. Titers < 1:8 are considered NON REACTIVE and could be due to Biological False Positive reaction which may be seen in",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l31",
+        "itemIds": [
+          "p7-i156"
+        ],
+        "boundingBox": {
+          "x": 42.5215,
+          "y": 535.82164803,
+          "width": 484.1194872712886,
+          "height": 9.01559999999995
+        }
+      }
+    },
+    {
+      "text": "conditions like Malaria, HIV, SLE, Autoimmune disorders, Viral fever, Pregnancy etc.",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l32",
+        "itemIds": [
+          "p7-i157"
+        ],
+        "boundingBox": {
+          "x": 51.96160703900001,
+          "y": 546.33984803,
+          "width": 336.3306537949591,
+          "height": 9.01559999999995
+        }
+      }
+    },
+    {
+      "text": "5. Confirmation of diagnosis should be done by TPHA / FTA-ABS",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l33",
+        "itemIds": [
+          "p7-i158"
+        ],
+        "boundingBox": {
+          "x": 42.5215,
+          "y": 567.37624803,
+          "width": 254.2663480293199,
+          "height": 9.01559999999995
+        }
+      }
+    },
+    {
+      "text": "TSH 3rd GenerationTSH 3rd GenerationTSH 3rd GenerationTSH 3rd Generation",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l34",
+        "itemIds": [
+          "p7-i160",
+          "p7-i161",
+          "p7-i162",
+          "p7-i163"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 600.38,
+          "width": 94.11,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "10002304958 Mrs. PL02",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l36",
+        "itemIds": [
+          "p7-i1"
+        ],
+        "boundingBox": {
+          "x": 231,
+          "y": 775.58002,
+          "width": 117.52800000000002,
+          "height": 12
+        }
+      }
+    },
+    {
+      "text": "Page No: 7 of 8",
+      "source": {
+        "pageNumber": 7,
+        "lineId": "p7-l37",
+        "itemIds": [
+          "p7-i184"
+        ],
+        "boundingBox": {
+          "x": 274,
+          "y": 801.6,
+          "width": 42.839999999999975,
+          "height": 7
+        }
+      }
+    },
+    {
+      "text": "ClientClientClientClient Processed ByProcessed ByProcessed ByProcessed By",
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l1",
+        "itemIds": [
+          "p8-i3",
+          "p8-i6",
+          "p8-i9",
+          "p8-i12",
+          "p8-i5",
+          "p8-i8",
+          "p8-i11",
+          "p8-i14"
+        ],
+        "boundingBox": {
+          "x": 21.2,
+          "y": 56,
+          "width": 356.40999999999934,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "GurugramGurugramGurugramGurugram Pathkind Diagnostics Pvt. Ltd.Pathkind Diagnostics Pvt. Ltd.Pathkind Diagnostics Pvt. Ltd.Pathkind Diagnostics Pvt. Ltd.",
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l2",
+        "itemIds": [
+          "p8-i16",
+          "p8-i17",
+          "p8-i18",
+          "p8-i19",
+          "p8-i267",
+          "p8-i268",
+          "p8-i269",
+          "p8-i270"
+        ],
+        "boundingBox": {
+          "x": 22,
+          "y": 70.58000000000004,
+          "width": 412.29499999999996,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Pathkind Diagnostics Pvt. Ltd. Plot No. 55-56, Udhyog Vihar Ph-IV, Gurugram - 122015",
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l3",
+        "itemIds": [
+          "p8-i21",
+          "p8-i272"
+        ],
+        "boundingBox": {
+          "x": 22,
+          "y": 84.98003000000006,
+          "width": 504.086,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "NameNameNameName :::: Mrs. PL02Mrs. PL02Mrs. PL02Mrs. PL02 Billing Date : 07/07/202312:30:22",
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l5",
+        "itemIds": [
+          "p8-i30",
+          "p8-i33",
+          "p8-i36",
+          "p8-i39",
+          "p8-i32",
+          "p8-i35",
+          "p8-i38",
+          "p8-i41",
+          "p8-i43",
+          "p8-i44",
+          "p8-i45",
+          "p8-i46",
+          "p8-i25",
+          "p8-i27",
+          "p8-i29",
+          "p8-i24"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 120.78003000000001,
+          "width": 523.9000000000001,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Age : 35 Yrs Sample Collected on : 10/07/2023 10:01:31",
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l6",
+        "itemIds": [
+          "p8-i48",
+          "p8-i50",
+          "p8-i52",
+          "p8-i54",
+          "p8-i56",
+          "p8-i58"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 135.17998999999998,
+          "width": 525.36,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Sex : Female Sample Received on : 10/07/2023 11:02:13",
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l7",
+        "itemIds": [
+          "p8-i64",
+          "p8-i66",
+          "p8-i68",
+          "p8-i59",
+          "p8-i61",
+          "p8-i63"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 149.58002,
+          "width": 525.36,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "P. ID No. : P1000100012902 Report Released on : 20/07/2023 20:18:12",
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l8",
+        "itemIds": [
+          "p8-i69",
+          "p8-i71",
+          "p8-i73",
+          "p8-i75",
+          "p8-i77",
+          "p8-i79"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 163.97997999999995,
+          "width": 525.36,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Accession NoAccession NoAccession NoAccession No :::: 10002304958100023049581000230495810002304958 Barcode No. : 10002304958-01,",
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l9",
+        "itemIds": [
+          "p8-i81",
+          "p8-i84",
+          "p8-i87",
+          "p8-i90",
+          "p8-i83",
+          "p8-i86",
+          "p8-i89",
+          "p8-i92",
+          "p8-i94",
+          "p8-i95",
+          "p8-i96",
+          "p8-i97",
+          "p8-i274",
+          "p8-i276",
+          "p8-i278"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 178.38,
+          "width": 510.53000000000003,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "10002304958-02,",
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l10",
+        "itemIds": [
+          "p8-i279"
+        ],
+        "boundingBox": {
+          "x": 468,
+          "y": 188.38,
+          "width": 71.33000000000004,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "10002304958-03,",
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l12",
+        "itemIds": [
+          "p8-i280"
+        ],
+        "boundingBox": {
+          "x": 468,
+          "y": 198.38,
+          "width": 71.33000000000004,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Referred By : Ref no. : 10002304958-04,",
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l13",
+        "itemIds": [
+          "p8-i100",
+          "p8-i102",
+          "p8-i104",
+          "p8-i106",
+          "p8-i281"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 207.17998999999998,
+          "width": 510.53000000000003,
+          "height": 11.20001000000002
+        }
+      }
+    },
+    {
+      "text": "10002304958-05",
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l14",
+        "itemIds": [
+          "p8-i282"
+        ],
+        "boundingBox": {
+          "x": 468,
+          "y": 218.38,
+          "width": 68.84000000000003,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Report Status -Report Status -Report Status -Report Status - FinalFinalFinalFinal",
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l15",
+        "itemIds": [
+          "p8-i108",
+          "p8-i109",
+          "p8-i110",
+          "p8-i111",
+          "p8-i113",
+          "p8-i114",
+          "p8-i115",
+          "p8-i116"
+        ],
+        "boundingBox": {
+          "x": 223.2,
+          "y": 227.58002999999997,
+          "width": 100.87700000000007,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "Test NameTest NameTest NameTest Name ResultResultResultResult Biological Ref. IntervalBiological Ref. IntervalBiological Ref. IntervalBiological Ref. Interval UnitUnitUnitUnit",
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l16",
+        "itemIds": [
+          "p8-i118",
+          "p8-i119",
+          "p8-i120",
+          "p8-i121",
+          "p8-i123",
+          "p8-i124",
+          "p8-i125",
+          "p8-i126",
+          "p8-i132",
+          "p8-i133",
+          "p8-i134",
+          "p8-i135",
+          "p8-i128",
+          "p8-i129",
+          "p8-i130",
+          "p8-i131"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 246.58002999999997,
+          "width": 495.09903,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "diagnosis of primary from secondary and tertiary hypothyroidism. In primary hypothyroidism, TSH levels are elevated, while in",
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l18",
+        "itemIds": [
+          "p8-i138",
+          "p8-i140",
+          "p8-i142",
+          "p8-i144",
+          "p8-i146",
+          "p8-i148",
+          "p8-i150",
+          "p8-i152",
+          "p8-i154",
+          "p8-i156",
+          "p8-i158",
+          "p8-i160",
+          "p8-i162",
+          "p8-i164",
+          "p8-i166",
+          "p8-i168",
+          "p8-i170"
+        ],
+        "boundingBox": {
+          "x": 28.2468,
+          "y": 283.39606324000005,
+          "width": 567.6002260192001,
+          "height": 9.015600000000006
+        }
+      }
+    },
+    {
+      "text": "secondary and tertiary hypothyroidism, TSH levels are low or normal. High TSH level in the presence of normal FT4 is cal",
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l19",
+        "itemIds": [
+          "p8-i171",
+          "p8-i173",
+          "p8-i175",
+          "p8-i177",
+          "p8-i179",
+          "p8-i181",
+          "p8-i183",
+          "p8-i185",
+          "p8-i187",
+          "p8-i189",
+          "p8-i191",
+          "p8-i193",
+          "p8-i195",
+          "p8-i197",
+          "p8-i199",
+          "p8-i201",
+          "p8-i203",
+          "p8-i205",
+          "p8-i207",
+          "p8-i209",
+          "p8-i211"
+        ],
+        "boundingBox": {
+          "x": 28.2468,
+          "y": 293.91426324,
+          "width": 566.9975421748019,
+          "height": 9.015600000000006
+        }
+      }
+    },
+    {
+      "text": "PREGNANCY TRIMESTER BIOLOGICAL REFERENCE INTERVAL UNIT",
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l23",
+        "itemIds": [
+          "p8-i216",
+          "p8-i218",
+          "p8-i220"
+        ],
+        "boundingBox": {
+          "x": 78.5839,
+          "y": 357.77476324,
+          "width": 427.46190190000004,
+          "height": 9.015600000000006
+        }
+      }
+    },
+    {
+      "text": "Urine Routine & Microscopic ExaminationUrine Routine & Microscopic ExaminationUrine Routine & Microscopic ExaminationUrine Routine & Microscopic Examination",
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l27",
+        "itemIds": [
+          "p8-i237",
+          "p8-i238",
+          "p8-i239",
+          "p8-i240"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 425.38,
+          "width": 199.02,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Clinical Significance :",
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l28",
+        "itemIds": [
+          "p8-i242"
+        ],
+        "boundingBox": {
+          "x": 25.9929,
+          "y": 451.908895495,
+          "width": 74.37449272000003,
+          "height": 8.264299999999992
+        }
+      }
+    },
+    {
+      "text": "** End of Report**",
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l33",
+        "itemIds": [
+          "p8-i249"
+        ],
+        "boundingBox": {
+          "x": 252,
+          "y": 523.98,
+          "width": 70.16399999999999,
+          "height": 9
+        }
+      }
+    },
+    {
+      "text": "Dr. Aarti Khanna NagpalDr. Aarti Khanna NagpalDr. Aarti Khanna NagpalDr. Aarti Khanna Nagpal Dr. Rahul BehlDr. Rahul BehlDr. Rahul BehlDr. Rahul Behl",
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l34",
+        "itemIds": [
+          "p8-i251",
+          "p8-i252",
+          "p8-i253",
+          "p8-i254",
+          "p8-i259",
+          "p8-i260",
+          "p8-i261",
+          "p8-i262"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 633.37999,
+          "width": 237.29298999999997,
+          "height": 11
+        }
+      }
+    },
+    {
+      "text": "DNB (Pathology) MD",
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l35",
+        "itemIds": [
+          "p8-i256",
+          "p8-i264"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 648.17999,
+          "width": 187.48998999999998,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "Senior Consultant Consultant Microbiology",
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l36",
+        "itemIds": [
+          "p8-i257",
+          "p8-i265"
+        ],
+        "boundingBox": {
+          "x": 28.8,
+          "y": 658.17999,
+          "width": 272.09998999999993,
+          "height": 10
+        }
+      }
+    },
+    {
+      "text": "10002304958 Mrs. PL02",
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l37",
+        "itemIds": [
+          "p8-i1"
+        ],
+        "boundingBox": {
+          "x": 231,
+          "y": 775.58002,
+          "width": 117.52800000000002,
+          "height": 12
+        }
+      }
+    },
+    {
+      "text": "Page No: 8 of 8",
+      "source": {
+        "pageNumber": 8,
+        "lineId": "p8-l38",
+        "itemIds": [
+          "p8-i284"
+        ],
+        "boundingBox": {
+          "x": 274,
+          "y": 801.6,
+          "width": 42.839999999999975,
+          "height": 7
+        }
+      }
+    }
+  ],
+  "statistics": {
+    "observationCount": 31,
+    "mappedCount": 0,
+    "unmappedCount": 31,
+    "reviewRequiredCount": 31
+  }
+}

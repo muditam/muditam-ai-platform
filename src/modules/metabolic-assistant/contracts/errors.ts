@@ -1,7 +1,14 @@
 export type MetabolicErrorCode =
   | "FEATURE_DISABLED"
+  | "FILE_TOO_LARGE"
+  | "INVALID_FILE"
   | "INVALID_CONFIGURATION"
   | "NOT_FOUND"
+  | "REPORT_NOT_FOUND"
+  | "STORAGE_ERROR"
+  | "EXTRACTION_PROVIDER_ERROR"
+  | "EXTRACTION_INVALID_OUTPUT"
+  | "NOT_A_BLOOD_REPORT"
   | "INTERNAL_ERROR";
 
 export class MetabolicAssistantError extends Error {

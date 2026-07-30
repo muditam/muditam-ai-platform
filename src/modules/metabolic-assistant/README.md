@@ -5,7 +5,7 @@ API described in `docs/metabolic-assistant/PHASED_ARCHITECTURE_PLAN.md`.
 
 ## Current scope
 
-Only the Phase 1 foundation exists:
+The isolated foundation and extraction path now include:
 
 - typed environment configuration;
 - feature flags;
@@ -16,11 +16,16 @@ Only the Phase 1 foundation exists:
 - a validated 20-product test catalog;
 - a module-owned MongoDB product model;
 - an idempotent MongoDB product seed command;
-- folder boundaries for later adapters, database code, services, workers, and
-  seed scripts.
+- private PDF/JPEG/PNG storage and open report endpoints;
+- Mongo-backed extraction job leasing and bounded retries;
+- a provider-neutral extraction contract;
+- an OpenAI Responses API adapter using `gpt-4o-mini`;
+- strict structured-output and canonical JSON validation.
 
-Product seeding is implemented, but no report model, upload, extraction, OpenAI
-call, chat, or existing PDF/OCR integration has been implemented.
+With the worker enabled, an uploaded report moves through `QUEUED`,
+`PROCESSING`, and `NEEDS_REVIEW`. At that stopping point the validated
+extraction JSON is available through the report endpoint. Review/correction,
+normalization, recommendations, chat, and authentication are not implemented.
 
 ## Run
 

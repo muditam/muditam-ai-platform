@@ -55,14 +55,24 @@ export const metabolicEnvironmentSchema = z.object({
   METABOLIC_MONGODB_URI: optionalString,
 
   METABOLIC_OPENAI_API_KEY: optionalString,
-  METABOLIC_EXTRACTION_MODEL: optionalString,
+  METABOLIC_EXTRACTION_MODEL: z
+    .string()
+    .trim()
+    .min(1)
+    .default("gpt-4o-mini"),
   METABOLIC_CHAT_MODEL: optionalString,
   METABOLIC_OPENAI_STORE: booleanFromEnvironment(false),
+  METABOLIC_OPENAI_TIMEOUT_MS: integerFromEnvironment(120_000),
 
   METABOLIC_MAX_FILE_BYTES: integerFromEnvironment(10 * 1024 * 1024),
   METABOLIC_MAX_PDF_PAGES: integerFromEnvironment(30),
 
-  METABOLIC_STORAGE_PROVIDER: z.enum(["s3"]).default("s3"),
+  METABOLIC_STORAGE_PROVIDER: z.enum(["local", "s3"]).default("local"),
+  METABOLIC_LOCAL_STORAGE_DIR: z
+    .string()
+    .trim()
+    .min(1)
+    .default(".data/metabolic-assistant/reports"),
   METABOLIC_STORAGE_BUCKET: optionalString,
   METABOLIC_STORAGE_PREFIX: z
     .string()
@@ -77,6 +87,8 @@ export const metabolicEnvironmentSchema = z.object({
   METABOLIC_WORKER_ENABLED: booleanFromEnvironment(false),
   METABOLIC_WORKER_CONCURRENCY: integerFromEnvironment(1),
   METABOLIC_MAX_JOB_ATTEMPTS: integerFromEnvironment(3),
+  METABOLIC_WORKER_POLL_INTERVAL_MS: integerFromEnvironment(2_000),
+  METABOLIC_JOB_LEASE_MS: integerFromEnvironment(180_000),
 
   METABOLIC_REPORT_RETENTION_DAYS: integerFromEnvironment(30),
   METABOLIC_CHAT_RETENTION_DAYS: integerFromEnvironment(30),
