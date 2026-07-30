@@ -9,7 +9,7 @@ coverage/
 tmp/
 .data/
 docs/
-!docs/
+
 docs/*
 !docs/asisstant-docs/
 !docs/asisstant-docs/**
