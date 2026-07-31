@@ -8,6 +8,7 @@ import {
   type ReportRepositoryPort,
 } from "../repositories/report-repository.js";
 import type { ReportUsageRepositoryPort } from "../repositories/report-usage-repository.js";
+import type { ConversationReportAttachmentOperations } from "./diabetes-chat-service.js";
 
 export interface UploadReportInput {
   originalName: string;
@@ -15,6 +16,7 @@ export interface UploadReportInput {
   bytes: Uint8Array;
   displayName?: string;
   subjectId?: string;
+  conversationId?: string;
 }
 
 export interface PublicReport {
@@ -40,6 +42,7 @@ export interface PublicReport {
 
 export interface UploadReportResult {
   report: PublicReport;
+  conversationId?: string;
   quota?: {
     maximum: number;
     remaining: number;
@@ -131,6 +134,7 @@ export class ReportIngestionService implements ReportOperations {
       maximum: number;
       requireSubjectId: boolean;
     },
+    private readonly conversations?: ConversationReportAttachmentOperations,
   ) {}
 
   async upload(input: UploadReportInput): Promise<UploadReportResult> {
@@ -191,8 +195,25 @@ export class ReportIngestionService implements ReportOperations {
     let stored:
       | Awaited<ReturnType<ReportStorage["store"]>>
       | undefined;
+    let attachedToConversation = false;
 
     try {
+      const conversationId = normalizeOptionalText(input.conversationId);
+      if (conversationId !== undefined) {
+        if (subjectId === undefined || this.conversations === undefined) {
+          throw new MetabolicAssistantError(
+            "INVALID_CONFIGURATION",
+            "A valid subjectId and enabled chat service are required to attach a report.",
+            { status: 400 },
+          );
+        }
+        await this.conversations.attachReport({
+          conversationId,
+          userId: subjectId,
+          reportId,
+        });
+        attachedToConversation = true;
+      }
       stored = await this.storage.store({
         reportId,
         originalName: input.originalName,
@@ -218,8 +239,26 @@ export class ReportIngestionService implements ReportOperations {
         ),
       };
       if (quotaResult !== undefined) result.quota = quotaResult;
+      if (conversationId !== undefined) {
+        result.conversationId = conversationId;
+      }
       return result;
     } catch (error) {
+      const conversationId = normalizeOptionalText(input.conversationId);
+      if (
+        attachedToConversation &&
+        conversationId !== undefined &&
+        subjectId !== undefined &&
+        this.conversations !== undefined
+      ) {
+        await this.conversations
+          .detachReport({
+            conversationId,
+            userId: subjectId,
+            reportId,
+          })
+          .catch(() => undefined);
+      }
       if (stored !== undefined) {
         await this.storage.delete(stored.objectKey).catch(() => undefined);
       }
@@ -242,6 +281,7 @@ export class ReportIngestionService implements ReportOperations {
 
   async delete(id: string): Promise<void> {
     const report = await this.repository.deleteById(id);
+    await this.conversations?.detachReportEverywhere(id);
     if (report.subjectId !== undefined && this.quota !== undefined) {
       await this.quota.usage.release(report.subjectId);
     }

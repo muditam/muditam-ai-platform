@@ -18,19 +18,24 @@ import type {
   ChatConversationRecord,
   ChatMessageRecord,
   ChatRepositoryPort,
+  KnowledgeReferenceRecord,
 } from "../repositories/chat-repository.js";
 import type {
   ChatUsageRepositoryPort,
   ChatUsageReservation,
 } from "../repositories/chat-usage-repository.js";
+import type {
+  KnowledgeRecord,
+  KnowledgeRepositoryPort,
+} from "../repositories/knowledge-repository.js";
 import type { ReportRepositoryPort } from "../repositories/report-repository.js";
 
-export interface AskDiabetesChatInput {
-  reportId: string;
-  reportIds?: string[];
-  userId: string;
-  question: string;
-  conversationId?: string;
+export interface PublicConversation {
+  conversationId: string;
+  reportIds: string[];
+  status: "ACTIVE" | "CLOSED";
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface PublicChatMessage {
@@ -40,6 +45,7 @@ export interface PublicChatMessage {
   decision?: ChatDecision;
   category?: ChatCategory;
   citations: ChatCitationRecord[];
+  knowledgeReferences: KnowledgeReferenceRecord[];
   createdAt: string;
 }
 
@@ -52,30 +58,46 @@ export interface PublicChatReport {
 
 export interface AskDiabetesChatResult {
   conversationId: string;
-  reportIds: string[];
-  reports: PublicChatReport[];
+  attachedReportIds: string[];
+  readyReports: PublicChatReport[];
   message: PublicChatMessage;
   remainingQuestions: number;
   limitResetsAt: string;
   disclaimer: string;
-  reportReviewPending: boolean;
 }
 
 export interface DiabetesChatHistory {
-  conversationId: string;
-  reportId: string;
-  reportIds: string[];
+  conversation: PublicConversation;
   messages: PublicChatMessage[];
   disclaimer: string;
 }
 
 export interface DiabetesChatOperations {
-  ask(input: AskDiabetesChatInput): Promise<AskDiabetesChatResult>;
+  createConversation(userId: string): Promise<PublicConversation>;
+  listConversations(userId: string): Promise<PublicConversation[]>;
+  ask(input: {
+    conversationId: string;
+    userId: string;
+    question: string;
+  }): Promise<AskDiabetesChatResult>;
   history(input: {
-    reportId: string;
     conversationId: string;
     userId: string;
   }): Promise<DiabetesChatHistory>;
+}
+
+export interface ConversationReportAttachmentOperations {
+  attachReport(input: {
+    conversationId: string;
+    userId: string;
+    reportId: string;
+  }): Promise<PublicConversation>;
+  detachReport(input: {
+    conversationId: string;
+    userId: string;
+    reportId: string;
+  }): Promise<void>;
+  detachReportEverywhere(reportId: string): Promise<void>;
 }
 
 function userKey(userId: string): string {
@@ -86,14 +108,22 @@ function expiry(now: Date, retentionDays: number): Date {
   return new Date(now.getTime() + retentionDays * 24 * 60 * 60 * 1_000);
 }
 
-function unique(values: readonly string[]): string[] {
-  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
-}
-
 function limitWords(text: string, maximum: number): string {
   const words = text.trim().split(/\s+/);
   if (words.length <= maximum) return text.trim();
   return `${words.slice(0, maximum).join(" ")}…`;
+}
+
+function publicConversation(
+  conversation: ChatConversationRecord,
+): PublicConversation {
+  return {
+    conversationId: conversation.id,
+    reportIds: conversation.reportIds,
+    status: conversation.status,
+    createdAt: conversation.createdAt.toISOString(),
+    updatedAt: conversation.updatedAt.toISOString(),
+  };
 }
 
 function publicMessage(message: ChatMessageRecord): PublicChatMessage {
@@ -102,6 +132,7 @@ function publicMessage(message: ChatMessageRecord): PublicChatMessage {
     role: message.role,
     content: message.content,
     citations: message.citations,
+    knowledgeReferences: message.knowledgeReferences,
     createdAt: message.createdAt.toISOString(),
   };
   if (message.decision !== undefined) result.decision = message.decision;
@@ -118,7 +149,9 @@ function publicReport(context: NormalizedReportContext): PublicChatReport {
   };
 }
 
-export class DiabetesChatService implements DiabetesChatOperations {
+export class DiabetesChatService
+  implements DiabetesChatOperations, ConversationReportAttachmentOperations
+{
   readonly #allowedCategories: ReadonlySet<ChatCategory>;
   readonly #allowedReportStatuses: ReadonlySet<string>;
 
@@ -126,6 +159,7 @@ export class DiabetesChatService implements DiabetesChatOperations {
     private readonly reports: ReportRepositoryPort,
     private readonly chats: ChatRepositoryPort,
     private readonly usage: ChatUsageRepositoryPort,
+    private readonly knowledge: KnowledgeRepositoryPort,
     private readonly provider: ReportChatProvider,
     private readonly policy: MetabolicChatPolicy,
     private readonly now: () => Date = () => new Date(),
@@ -134,7 +168,30 @@ export class DiabetesChatService implements DiabetesChatOperations {
     this.#allowedReportStatuses = new Set(policy.allowedReportStatuses);
   }
 
-  async ask(input: AskDiabetesChatInput): Promise<AskDiabetesChatResult> {
+  async createConversation(userId: string): Promise<PublicConversation> {
+    this.assertEnabled();
+    const normalizedUserId = this.validateUserId(userId);
+    return publicConversation(
+      await this.chats.createConversation({
+        userKey: userKey(normalizedUserId),
+        expiresAt: expiry(this.now(), this.policy.retentionDays),
+      }),
+    );
+  }
+
+  async listConversations(userId: string): Promise<PublicConversation[]> {
+    this.assertEnabled();
+    const normalizedUserId = this.validateUserId(userId);
+    return (
+      await this.chats.listConversations(userKey(normalizedUserId), 100)
+    ).map(publicConversation);
+  }
+
+  async ask(input: {
+    conversationId: string;
+    userId: string;
+    question: string;
+  }): Promise<AskDiabetesChatResult> {
     this.assertEnabled();
     const question = input.question.trim();
     const normalizedUserId = this.validateUserId(input.userId);
@@ -150,53 +207,23 @@ export class DiabetesChatService implements DiabetesChatOperations {
     }
 
     const key = userKey(normalizedUserId);
-    const existingConversation =
-      input.conversationId === undefined
-        ? undefined
-        : await this.ownedConversation(
-            input.conversationId,
-            input.reportId,
-            key,
-          );
-    const selectedReportIds = unique([
-      input.reportId,
-      ...(existingConversation?.reportIds ?? []),
-      ...(input.reportIds ?? []),
-    ]);
-    if (selectedReportIds.length > this.policy.maxReportsPerConversation) {
-      throw new MetabolicAssistantError(
-        "CHAT_REPORT_LIMIT_EXCEEDED",
-        "This conversation has reached its report limit.",
-        {
-          status: 400,
-          details: {
-            maximum: this.policy.maxReportsPerConversation,
-            requested: selectedReportIds.length,
-          },
-        },
-      );
-    }
-
-    const contexts = await this.loadReportContexts(
-      selectedReportIds,
+    const conversation = await this.ownedConversation(
+      input.conversationId,
+      key,
+    );
+    const contexts = await this.loadReadyReportContexts(
+      conversation.reportIds,
       normalizedUserId,
     );
     const comparison = compareNormalizedReports(contexts);
-    const conversation =
-      existingConversation === undefined
-        ? undefined
-        : await this.chats.attachReports(
-            existingConversation.id,
-            selectedReportIds,
-            this.policy.maxReportsPerConversation,
-          );
-    const history =
-      conversation === undefined
-        ? []
-        : await this.chats.recentMessages(
-            conversation.id,
-            this.policy.maxHistoryMessages,
-          );
+    const knowledge = await this.knowledge.search(
+      question,
+      this.policy.maxKnowledgeResults,
+    );
+    const history = await this.chats.recentMessages(
+      conversation.id,
+      this.policy.maxHistoryMessages,
+    );
 
     const reservation = await this.usage.reserve({
       userKey: key,
@@ -221,6 +248,7 @@ export class DiabetesChatService implements DiabetesChatOperations {
         question,
         reports: contexts,
         comparison,
+        knowledge,
         history: history.map((message) => ({
           role: message.role,
           content: message.content,
@@ -235,49 +263,37 @@ export class DiabetesChatService implements DiabetesChatOperations {
       providerResponse,
       contexts,
       comparison,
+      knowledge,
     );
-    const expiresAt = expiry(this.now(), this.policy.retentionDays);
-    const activeConversation =
-      conversation ??
-      (await this.chats.createConversation({
-        reportId: input.reportId,
-        reportIds: selectedReportIds,
-        userKey: key,
-        expiresAt,
-      }));
     const saved = await this.chats.saveExchange({
-      conversationId: activeConversation.id,
-      reportId: input.reportId,
+      conversationId: conversation.id,
       userKey: key,
       question,
       answer: enforced.answer,
       decision: enforced.decision,
       category: enforced.category,
       citations: enforced.citations,
+      knowledgeReferences: enforced.knowledgeReferences,
       model: providerResponse.model,
       ...(providerResponse.responseId === undefined
         ? {}
         : { responseId: providerResponse.responseId }),
       promptVersion: this.policy.promptVersion,
-      expiresAt,
+      expiresAt: expiry(this.now(), this.policy.retentionDays),
     });
 
     return {
-      conversationId: activeConversation.id,
-      reportIds: selectedReportIds,
-      reports: contexts.map(publicReport),
+      conversationId: conversation.id,
+      attachedReportIds: conversation.reportIds,
+      readyReports: contexts.map(publicReport),
       message: publicMessage(saved),
       remainingQuestions: reservation.remaining,
       limitResetsAt: reservation.resetsAt.toISOString(),
       disclaimer: this.policy.disclaimer,
-      reportReviewPending: contexts.some(
-        (context) => context.normalized.reportReviewPending,
-      ),
     };
   }
 
   async history(input: {
-    reportId: string;
     conversationId: string;
     userId: string;
   }): Promise<DiabetesChatHistory> {
@@ -285,18 +301,52 @@ export class DiabetesChatService implements DiabetesChatOperations {
     const normalizedUserId = this.validateUserId(input.userId);
     const conversation = await this.ownedConversation(
       input.conversationId,
-      input.reportId,
       userKey(normalizedUserId),
     );
     return {
-      conversationId: conversation.id,
-      reportId: conversation.reportId,
-      reportIds: conversation.reportIds,
+      conversation: publicConversation(conversation),
       messages: (await this.chats.allMessages(conversation.id)).map(
         publicMessage,
       ),
       disclaimer: this.policy.disclaimer,
     };
+  }
+
+  async attachReport(input: {
+    conversationId: string;
+    userId: string;
+    reportId: string;
+  }): Promise<PublicConversation> {
+    this.assertEnabled();
+    const normalizedUserId = this.validateUserId(input.userId);
+    const conversation = await this.ownedConversation(
+      input.conversationId,
+      userKey(normalizedUserId),
+    );
+    return publicConversation(
+      await this.chats.attachReports(
+        conversation.id,
+        [input.reportId],
+        this.policy.maxReportsPerConversation,
+      ),
+    );
+  }
+
+  async detachReport(input: {
+    conversationId: string;
+    userId: string;
+    reportId: string;
+  }): Promise<void> {
+    const normalizedUserId = this.validateUserId(input.userId);
+    const conversation = await this.ownedConversation(
+      input.conversationId,
+      userKey(normalizedUserId),
+    );
+    await this.chats.detachReport(conversation.id, input.reportId);
+  }
+
+  async detachReportEverywhere(reportId: string): Promise<void> {
+    await this.chats.detachReportEverywhere(reportId);
   }
 
   private assertEnabled(): void {
@@ -321,63 +371,12 @@ export class DiabetesChatService implements DiabetesChatOperations {
     return normalized;
   }
 
-  private async loadReportContexts(
-    reportIds: readonly string[],
-    userId: string,
-  ): Promise<NormalizedReportContext[]> {
-    return Promise.all(
-      reportIds.map(async (reportId) => {
-        const report = await this.reports.getById(reportId);
-        if (
-          report.subjectId !== undefined &&
-          report.subjectId !== userId
-        ) {
-          throw new MetabolicAssistantError(
-            "REPORT_NOT_FOUND",
-            "Report not found.",
-            { status: 404 },
-          );
-        }
-        if (
-          !this.#allowedReportStatuses.has(report.status) ||
-          report.extraction === null
-        ) {
-          throw new MetabolicAssistantError(
-            "CHAT_REPORT_NOT_READY",
-            "Every selected report must finish extraction before chat can use it.",
-            { status: 409, details: { reportId } },
-          );
-        }
-        const extraction = canonicalExtractionResultSchema.safeParse(
-          report.extraction,
-        );
-        if (!extraction.success) {
-          throw new MetabolicAssistantError(
-            "CHAT_REPORT_NOT_READY",
-            "A selected report extraction is not valid for chat.",
-            { status: 409, details: { reportId } },
-          );
-        }
-        return {
-          reportId: report.id,
-          displayName: report.displayName,
-          uploadedAt: report.createdAt.toISOString(),
-          normalized: normalizeExtractedReport(extraction.data, {
-            minimumConfidence: this.policy.minimumMarkerConfidence,
-          }),
-        };
-      }),
-    );
-  }
-
   private async ownedConversation(
     conversationId: string,
-    reportId: string,
     key: string,
   ): Promise<ChatConversationRecord> {
     const conversation = await this.chats.getConversation(conversationId);
     if (
-      conversation.reportId !== reportId ||
       conversation.userKey !== key ||
       conversation.status !== "ACTIVE"
     ) {
@@ -390,15 +389,53 @@ export class DiabetesChatService implements DiabetesChatOperations {
     return conversation;
   }
 
+  private async loadReadyReportContexts(
+    reportIds: readonly string[],
+    userId: string,
+  ): Promise<NormalizedReportContext[]> {
+    const contexts: NormalizedReportContext[] = [];
+    for (const reportId of reportIds) {
+      const report = await this.reports.getById(reportId);
+      if (report.subjectId !== undefined && report.subjectId !== userId) {
+        throw new MetabolicAssistantError(
+          "REPORT_NOT_FOUND",
+          "Report not found.",
+          { status: 404 },
+        );
+      }
+      if (
+        !this.#allowedReportStatuses.has(report.status) ||
+        report.extraction === null
+      ) {
+        continue;
+      }
+      const extraction = canonicalExtractionResultSchema.safeParse(
+        report.extraction,
+      );
+      if (!extraction.success) continue;
+      contexts.push({
+        reportId: report.id,
+        displayName: report.displayName,
+        uploadedAt: report.createdAt.toISOString(),
+        normalized: normalizeExtractedReport(extraction.data, {
+          minimumConfidence: this.policy.minimumMarkerConfidence,
+        }),
+      });
+    }
+    return contexts;
+  }
+
   private enforceProviderResult(
     providerResponse: ChatProviderResponse,
     contexts: readonly NormalizedReportContext[],
     comparison: ReportComparison,
+    knowledge: readonly KnowledgeRecord[],
   ): {
     answer: string;
     decision: ChatDecision;
     category: ChatCategory;
     citations: ChatCitationRecord[];
+    knowledgeReferences: KnowledgeReferenceRecord[];
   } {
     const providerResult = providerResponse.result;
     const markerByKey = new Map<
@@ -417,13 +454,12 @@ export class DiabetesChatService implements DiabetesChatOperations {
         });
       }
     }
-
     const citations: ChatCitationRecord[] = [];
-    const seen = new Set<string>();
+    const seenCitations = new Set<string>();
     for (const cited of providerResult.citedBiomarkers) {
       const key = `${cited.reportId}:${cited.biomarkerId}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
+      if (seenCitations.has(key)) continue;
+      seenCitations.add(key);
       const found = markerByKey.get(key);
       if (found === undefined) continue;
       const citation: ChatCitationRecord = {
@@ -442,6 +478,22 @@ export class DiabetesChatService implements DiabetesChatOperations {
       citations.push(citation);
     }
 
+    const knowledgeById = new Map(
+      knowledge.map((entry) => [entry.id, entry]),
+    );
+    const knowledgeReferences: KnowledgeReferenceRecord[] = [];
+    for (const id of new Set(providerResult.citedKnowledgeIds)) {
+      const entry = knowledgeById.get(id);
+      if (entry === undefined) continue;
+      knowledgeReferences.push({
+        knowledgeId: entry.id,
+        key: entry.key,
+        title: entry.title,
+        sourceName: entry.source.name,
+        sourceUrl: entry.source.url,
+      });
+    }
+
     if (
       providerResult.decision === "SAFETY" ||
       providerResult.category === "URGENT_SAFETY"
@@ -451,6 +503,7 @@ export class DiabetesChatService implements DiabetesChatOperations {
         decision: "SAFETY",
         category: "URGENT_SAFETY",
         citations: [],
+        knowledgeReferences,
       };
     }
     if (
@@ -462,17 +515,18 @@ export class DiabetesChatService implements DiabetesChatOperations {
         decision: "REFUSE",
         category: providerResult.category,
         citations: [],
+        knowledgeReferences: [],
       };
     }
-    const citedReportCount = new Set(
-      citations.map((citation) => citation.reportId),
-    ).size;
     if (
       providerResult.category === "REPORT_VALUES" &&
       (!providerResult.usedReportData || citations.length === 0)
     ) {
       return this.missingReportData("REPORT_VALUES");
     }
+    const citedReportCount = new Set(
+      citations.map((citation) => citation.reportId),
+    ).size;
     if (
       providerResult.category === "REPORT_COMPARISON" &&
       (
@@ -490,6 +544,7 @@ export class DiabetesChatService implements DiabetesChatOperations {
         decision: "REFUSE",
         category: providerResult.category,
         citations: [],
+        knowledgeReferences: [],
       };
     }
     return {
@@ -500,6 +555,7 @@ export class DiabetesChatService implements DiabetesChatOperations {
       decision: "ALLOW",
       category: providerResult.category,
       citations,
+      knowledgeReferences,
     };
   }
 
@@ -508,12 +564,14 @@ export class DiabetesChatService implements DiabetesChatOperations {
     decision: ChatDecision;
     category: ChatCategory;
     citations: ChatCitationRecord[];
+    knowledgeReferences: KnowledgeReferenceRecord[];
   } {
     return {
       answer: this.policy.missingReportDataMessage,
       decision: "REFUSE",
       category,
       citations: [],
+      knowledgeReferences: [],
     };
   }
 

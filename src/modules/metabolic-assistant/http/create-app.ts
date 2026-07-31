@@ -30,6 +30,19 @@ export function createMetabolicApp({
 
   app.disable("x-powered-by");
   app.use(attachRequestId);
+  // The current metabolic API is intentionally unauthenticated for development.
+  // Allow the standalone chat-interface test client to call it from its local
+  // static server. Replace this with an allow-list before production use.
+  app.use((request, response, next) => {
+    response.setHeader("Access-Control-Allow-Origin", "*");
+    response.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    response.setHeader("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
+    if (request.method === "OPTIONS") {
+      response.status(204).end();
+      return;
+    }
+    next();
+  });
   app.use(express.json({ limit: "1mb" }));
 
   const healthDependencies: Parameters<typeof createHealthRouter>[0] = {
@@ -49,7 +62,7 @@ export function createMetabolicApp({
   }
   if (environment.ENABLE_METABOLIC_ASSISTANT && chatService !== undefined) {
     app.use(
-      `${environment.METABOLIC_API_PREFIX}/reports`,
+      `${environment.METABOLIC_API_PREFIX}/chat`,
       createChatRouter(new ChatController(chatService)),
     );
   }

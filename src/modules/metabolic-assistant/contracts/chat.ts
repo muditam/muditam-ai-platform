@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const ALLOWABLE_CHAT_CATEGORIES = [
+  "GREETING",
   "REPORT_VALUES",
   "REPORT_COMPARISON",
   "GLYCEMIC_EDUCATION",
@@ -22,11 +23,13 @@ export const allowableChatCategorySchema = z.enum(
 export const chatCategorySchema = z.enum(CHAT_CATEGORIES);
 export const chatDecisionSchema = z.enum(["ALLOW", "REFUSE", "SAFETY"]);
 
+export const createConversationSchema = z.object({
+  userId: z.string().trim().min(1).max(200),
+});
+
 export const askChatQuestionSchema = z.object({
   userId: z.string().trim().min(1).max(200),
   question: z.string().trim().min(1),
-  conversationId: z.string().trim().min(1).optional(),
-  reportIds: z.array(z.string().trim().min(1)).optional(),
 });
 
 export const citedBiomarkerSchema = z.object({
@@ -39,7 +42,9 @@ export const chatProviderResultSchema = z.object({
   category: chatCategorySchema,
   answer: z.string(),
   citedBiomarkers: z.array(citedBiomarkerSchema),
+  citedKnowledgeIds: z.array(z.string().trim().min(1)),
   usedReportData: z.boolean(),
+  usedKnowledgeBase: z.boolean(),
 });
 
 export type AllowableChatCategory = z.infer<

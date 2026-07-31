@@ -23,6 +23,17 @@ const citationSchema = new Schema(
   { _id: false, strict: "throw" },
 );
 
+const knowledgeReferenceSchema = new Schema(
+  {
+    knowledgeId: { type: String, required: true, trim: true },
+    key: { type: String, required: true, trim: true },
+    title: { type: String, required: true, trim: true },
+    sourceName: { type: String, required: true, trim: true },
+    sourceUrl: { type: String, required: true, trim: true },
+  },
+  { _id: false, strict: "throw" },
+);
+
 const metabolicChatMessageSchema = new Schema(
   {
     conversationId: {
@@ -33,7 +44,7 @@ const metabolicChatMessageSchema = new Schema(
     },
     reportId: {
       type: Schema.Types.ObjectId,
-      required: true,
+      required: false,
       index: true,
       ref: "MetabolicReport",
     },
@@ -43,6 +54,10 @@ const metabolicChatMessageSchema = new Schema(
     decision: { type: String, enum: ["ALLOW", "REFUSE", "SAFETY"] },
     category: { type: String, enum: CHAT_CATEGORIES },
     citations: { type: [citationSchema], default: [] },
+    knowledgeReferences: {
+      type: [knowledgeReferenceSchema],
+      default: [],
+    },
     model: { type: String, trim: true },
     responseId: { type: String, trim: true },
     promptVersion: { type: String, trim: true },

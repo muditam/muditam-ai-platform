@@ -1,8 +1,5 @@
 import { Types, type Model } from "mongoose";
-import type {
-  ChatCategory,
-  ChatDecision,
-} from "../contracts/chat.js";
+import type { ChatCategory, ChatDecision } from "../contracts/chat.js";
 import { MetabolicAssistantError } from "../contracts/errors.js";
 import type { MetabolicChatConversationDocument } from "../database/models/metabolic-chat-conversation.js";
 import type { MetabolicChatMessageDocument } from "../database/models/metabolic-chat-message.js";
@@ -17,9 +14,16 @@ export interface ChatCitationRecord {
   page?: number;
 }
 
+export interface KnowledgeReferenceRecord {
+  knowledgeId: string;
+  key: string;
+  title: string;
+  sourceName: string;
+  sourceUrl: string;
+}
+
 export interface ChatConversationRecord {
   id: string;
-  reportId: string;
   reportIds: string[];
   userKey: string;
   status: "ACTIVE" | "CLOSED";
@@ -30,25 +34,26 @@ export interface ChatConversationRecord {
 export interface ChatMessageRecord {
   id: string;
   conversationId: string;
-  reportId: string;
+  reportId?: string;
   userKey: string;
   role: "user" | "assistant";
   content: string;
   decision?: ChatDecision;
   category?: ChatCategory;
   citations: ChatCitationRecord[];
+  knowledgeReferences: KnowledgeReferenceRecord[];
   createdAt: Date;
 }
 
 export interface SaveChatExchangeInput {
   conversationId: string;
-  reportId: string;
   userKey: string;
   question: string;
   answer: string;
   decision: ChatDecision;
   category: ChatCategory;
   citations: ChatCitationRecord[];
+  knowledgeReferences: KnowledgeReferenceRecord[];
   model: string;
   responseId?: string;
   promptVersion: string;
@@ -57,17 +62,21 @@ export interface SaveChatExchangeInput {
 
 export interface ChatRepositoryPort {
   createConversation(input: {
-    reportId: string;
-    reportIds: string[];
     userKey: string;
     expiresAt: Date;
   }): Promise<ChatConversationRecord>;
   getConversation(id: string): Promise<ChatConversationRecord>;
+  listConversations(
+    userKey: string,
+    limit: number,
+  ): Promise<ChatConversationRecord[]>;
   attachReports(
     conversationId: string,
     reportIds: string[],
     maximum: number,
   ): Promise<ChatConversationRecord>;
+  detachReport(conversationId: string, reportId: string): Promise<void>;
+  detachReportEverywhere(reportId: string): Promise<void>;
   recentMessages(
     conversationId: string,
     limit: number,
@@ -76,7 +85,10 @@ export interface ChatRepositoryPort {
   saveExchange(input: SaveChatExchangeInput): Promise<ChatMessageRecord>;
 }
 
-function objectId(id: string, errorCode: "REPORT_NOT_FOUND" | "CHAT_CONVERSATION_NOT_FOUND"): Types.ObjectId {
+function objectId(
+  id: string,
+  errorCode: "REPORT_NOT_FOUND" | "CHAT_CONVERSATION_NOT_FOUND",
+): Types.ObjectId {
   if (!Types.ObjectId.isValid(id)) {
     throw new MetabolicAssistantError(
       errorCode,
@@ -92,17 +104,21 @@ function objectId(id: string, errorCode: "REPORT_NOT_FOUND" | "CHAT_CONVERSATION
 function toConversation(
   value: Record<string, unknown>,
 ): ChatConversationRecord {
-  const primaryReportId = String(value.reportId);
+  const legacyReportId =
+    value.reportId === undefined || value.reportId === null
+      ? undefined
+      : String(value.reportId);
   const storedReportIds = Array.isArray(value.reportIds)
     ? value.reportIds.map(String)
     : [];
   return {
     id: String(value._id),
-    reportId: primaryReportId,
-    reportIds:
-      storedReportIds.length === 0
-        ? [primaryReportId]
-        : Array.from(new Set([primaryReportId, ...storedReportIds])),
+    reportIds: Array.from(
+      new Set([
+        ...(legacyReportId === undefined ? [] : [legacyReportId]),
+        ...storedReportIds,
+      ]),
+    ),
     userKey: String(value.userKey),
     status: value.status as "ACTIVE" | "CLOSED",
     createdAt: value.createdAt as Date,
@@ -114,13 +130,17 @@ function toMessage(value: Record<string, unknown>): ChatMessageRecord {
   const result: ChatMessageRecord = {
     id: String(value._id),
     conversationId: String(value.conversationId),
-    reportId: String(value.reportId),
     userKey: String(value.userKey),
     role: value.role as "user" | "assistant",
     content: String(value.content),
     citations: (value.citations ?? []) as ChatCitationRecord[],
+    knowledgeReferences: (value.knowledgeReferences ??
+      []) as KnowledgeReferenceRecord[],
     createdAt: value.createdAt as Date,
   };
+  if (value.reportId !== undefined && value.reportId !== null) {
+    result.reportId = String(value.reportId);
+  }
   if (value.decision !== undefined) {
     result.decision = value.decision as ChatDecision;
   }
@@ -137,23 +157,49 @@ export class ChatRepository implements ChatRepositoryPort {
   ) {}
 
   async createConversation(input: {
-    reportId: string;
-    reportIds: string[];
     userKey: string;
     expiresAt: Date;
   }): Promise<ChatConversationRecord> {
-    const primaryReportId = objectId(input.reportId, "REPORT_NOT_FOUND");
     const created = await this.conversationModel.create({
-      reportId: primaryReportId,
-      reportIds: Array.from(
-        new Set([input.reportId, ...input.reportIds]),
-      ).map((id) => objectId(id, "REPORT_NOT_FOUND")),
+      reportIds: [],
       userKey: input.userKey,
       status: "ACTIVE",
       expiresAt: input.expiresAt,
     });
     return toConversation(
       created.toObject() as unknown as Record<string, unknown>,
+    );
+  }
+
+  async getConversation(id: string): Promise<ChatConversationRecord> {
+    const conversation = await this.conversationModel
+      .findById(objectId(id, "CHAT_CONVERSATION_NOT_FOUND"))
+      .lean()
+      .exec();
+    if (conversation === null) {
+      throw new MetabolicAssistantError(
+        "CHAT_CONVERSATION_NOT_FOUND",
+        "Chat conversation not found.",
+        { status: 404 },
+      );
+    }
+    return toConversation(
+      conversation as unknown as Record<string, unknown>,
+    );
+  }
+
+  async listConversations(
+    userKey: string,
+    limit: number,
+  ): Promise<ChatConversationRecord[]> {
+    const conversations = await this.conversationModel
+      .find({ userKey, status: "ACTIVE" })
+      .sort({ updatedAt: -1 })
+      .limit(limit)
+      .lean()
+      .exec();
+    return conversations.map((conversation) =>
+      toConversation(conversation as unknown as Record<string, unknown>),
     );
   }
 
@@ -193,7 +239,6 @@ export class ChatRepository implements ChatRepositoryPort {
       if (combined.length === currentRecord.reportIds.length) {
         return currentRecord;
       }
-
       const rawReportIds = Array.isArray(raw.reportIds)
         ? raw.reportIds
         : [];
@@ -233,21 +278,45 @@ export class ChatRepository implements ChatRepositoryPort {
     );
   }
 
-  async getConversation(id: string): Promise<ChatConversationRecord> {
-    const conversation = await this.conversationModel
-      .findById(objectId(id, "CHAT_CONVERSATION_NOT_FOUND"))
-      .lean()
+  async detachReport(
+    conversationId: string,
+    reportId: string,
+  ): Promise<void> {
+    await this.conversationModel
+      .updateOne(
+        {
+          _id: objectId(
+            conversationId,
+            "CHAT_CONVERSATION_NOT_FOUND",
+          ),
+        },
+        {
+          $pull: {
+            reportIds: objectId(reportId, "REPORT_NOT_FOUND"),
+          },
+        },
+      )
       .exec();
-    if (conversation === null) {
-      throw new MetabolicAssistantError(
-        "CHAT_CONVERSATION_NOT_FOUND",
-        "Chat conversation not found.",
-        { status: 404 },
-      );
-    }
-    return toConversation(
-      conversation as unknown as Record<string, unknown>,
-    );
+  }
+
+  async detachReportEverywhere(reportId: string): Promise<void> {
+    const reportObjectId = objectId(reportId, "REPORT_NOT_FOUND");
+    await this.conversationModel
+      .updateMany(
+        { reportIds: reportObjectId },
+        {
+          $pull: {
+            reportIds: reportObjectId,
+          },
+        },
+      )
+      .exec();
+    await this.conversationModel
+      .updateMany(
+        { reportId: reportObjectId },
+        { $unset: { reportId: 1 } },
+      )
+      .exec();
   }
 
   async recentMessages(
@@ -290,14 +359,11 @@ export class ChatRepository implements ChatRepositoryPort {
   }
 
   async saveExchange(input: SaveChatExchangeInput): Promise<ChatMessageRecord> {
-    const conversationId = objectId(
-      input.conversationId,
-      "CHAT_CONVERSATION_NOT_FOUND",
-    );
-    const reportId = objectId(input.reportId, "REPORT_NOT_FOUND");
     const common = {
-      conversationId,
-      reportId,
+      conversationId: objectId(
+        input.conversationId,
+        "CHAT_CONVERSATION_NOT_FOUND",
+      ),
       userKey: input.userKey,
       expiresAt: input.expiresAt,
     };
@@ -307,6 +373,7 @@ export class ChatRepository implements ChatRepositoryPort {
         role: "user",
         content: input.question,
         citations: [],
+        knowledgeReferences: [],
       },
       {
         ...common,
@@ -315,6 +382,7 @@ export class ChatRepository implements ChatRepositoryPort {
         decision: input.decision,
         category: input.category,
         citations: input.citations,
+        knowledgeReferences: input.knowledgeReferences,
         model: input.model,
         promptVersion: input.promptVersion,
       },

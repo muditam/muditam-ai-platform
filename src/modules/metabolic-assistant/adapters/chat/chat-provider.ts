@@ -3,6 +3,7 @@ import type {
   NormalizedReportContext,
   ReportComparison,
 } from "../../contracts/report-comparison.js";
+import type { KnowledgeRecord } from "../../repositories/knowledge-repository.js";
 
 export interface ChatHistoryItem {
   role: "user" | "assistant";
@@ -14,6 +15,7 @@ export interface ChatProviderInput {
   history: readonly ChatHistoryItem[];
   reports: readonly NormalizedReportContext[];
   comparison: ReportComparison;
+  knowledge: readonly KnowledgeRecord[];
 }
 
 export interface ChatProviderResponse {

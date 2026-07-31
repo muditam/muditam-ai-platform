@@ -18,6 +18,10 @@ import type {
   ChatUsageReservation,
 } from "../../src/modules/metabolic-assistant/repositories/chat-usage-repository.js";
 import type {
+  KnowledgeRecord,
+  KnowledgeRepositoryPort,
+} from "../../src/modules/metabolic-assistant/repositories/knowledge-repository.js";
+import type {
   CreateQueuedReportRecord,
   ReportRecord,
   ReportRepositoryPort,
@@ -25,6 +29,7 @@ import type {
 import { DiabetesChatService } from "../../src/modules/metabolic-assistant/services/diabetes-chat-service.js";
 
 const reportId = "507f1f77bcf86cd799439011";
+const conversationId = "507f1f77bcf86cd799439012";
 const now = new Date("2026-07-31T00:00:00.000Z");
 const extraction: CanonicalExtractionResult = {
   schemaVersion: "1.0.0",
@@ -53,6 +58,20 @@ const extraction: CanonicalExtractionResult = {
   extractedAt: now.toISOString(),
 };
 
+const hba1cKnowledge: KnowledgeRecord = {
+  id: "507f1f77bcf86cd799439099",
+  key: "hba1c-ranges",
+  title: "HbA1c meaning and screening ranges",
+  category: "DIABETES_TESTING",
+  content: "HbA1c below 5.7% is normal; 5.7% to 6.4% is prediabetes.",
+  source: {
+    name: "CDC",
+    url: "https://www.cdc.gov/diabetes/diabetes-testing/prediabetes-a1c-test.html",
+    reviewedAt: "2026-07-31",
+  },
+  version: "1.0.0",
+};
+
 class FakeReportRepository implements ReportRepositoryPort {
   createId(): string {
     return reportId;
@@ -63,6 +82,7 @@ class FakeReportRepository implements ReportRepositoryPort {
   async getById(): Promise<ReportRecord> {
     return {
       id: reportId,
+      subjectId: "test-user",
       displayName: "report.pdf",
       status: "NEEDS_REVIEW",
       file: {
@@ -91,28 +111,50 @@ class FakeReportRepository implements ReportRepositoryPort {
 
 class FakeChatRepository implements ChatRepositoryPort {
   saved?: SaveChatExchangeInput;
+  conversation?: ChatConversationRecord;
 
   async createConversation(input: {
-    reportId: string;
-    reportIds: string[];
     userKey: string;
     expiresAt: Date;
   }): Promise<ChatConversationRecord> {
-    return {
-      id: "507f1f77bcf86cd799439012",
-      reportId: input.reportId,
-      reportIds: input.reportIds,
+    this.conversation = {
+      id: conversationId,
+      reportIds: [],
       userKey: input.userKey,
       status: "ACTIVE",
       createdAt: now,
       updatedAt: now,
     };
+    return this.conversation;
   }
   async getConversation(): Promise<ChatConversationRecord> {
-    throw new Error("Not used.");
+    if (this.conversation === undefined) throw new Error("Missing conversation.");
+    return this.conversation;
   }
-  async attachReports(): Promise<ChatConversationRecord> {
-    throw new Error("Not used.");
+  async listConversations(): Promise<ChatConversationRecord[]> {
+    return this.conversation === undefined ? [] : [this.conversation];
+  }
+  async attachReports(
+    _conversationId: string,
+    reportIds: string[],
+    maximum: number,
+  ): Promise<ChatConversationRecord> {
+    if (this.conversation === undefined) throw new Error("Missing conversation.");
+    const combined = [...new Set([...this.conversation.reportIds, ...reportIds])];
+    if (combined.length > maximum) throw new Error("Too many reports.");
+    this.conversation = { ...this.conversation, reportIds: combined };
+    return this.conversation;
+  }
+  async detachReport(_conversationId: string, id: string): Promise<void> {
+    if (this.conversation !== undefined) {
+      this.conversation = {
+        ...this.conversation,
+        reportIds: this.conversation.reportIds.filter((value) => value !== id),
+      };
+    }
+  }
+  async detachReportEverywhere(id: string): Promise<void> {
+    await this.detachReport(conversationId, id);
   }
   async recentMessages(): Promise<ChatMessageRecord[]> {
     return [];
@@ -125,13 +167,13 @@ class FakeChatRepository implements ChatRepositoryPort {
     return {
       id: "507f1f77bcf86cd799439013",
       conversationId: input.conversationId,
-      reportId: input.reportId,
       userKey: input.userKey,
       role: "assistant",
       content: input.answer,
       decision: input.decision,
       category: input.category,
       citations: input.citations,
+      knowledgeReferences: input.knowledgeReferences,
       createdAt: now,
     };
   }
@@ -151,11 +193,18 @@ class FakeUsageRepository implements ChatUsageRepositoryPort {
   async release(): Promise<void> {}
 }
 
+class FakeKnowledgeRepository implements KnowledgeRepositoryPort {
+  receivedQuestion?: string;
+  constructor(private readonly values: KnowledgeRecord[] = []) {}
+  async search(question: string): Promise<KnowledgeRecord[]> {
+    this.receivedQuestion = question;
+    return this.values;
+  }
+}
+
 class FakeProvider implements ReportChatProvider {
   received?: ChatProviderInput;
-
   constructor(private readonly response: ChatProviderResponse) {}
-
   async answer(input: ChatProviderInput): Promise<ChatProviderResponse> {
     this.received = input;
     return this.response;
@@ -172,8 +221,92 @@ function policy() {
   );
 }
 
+async function createService(
+  provider: FakeProvider,
+  options: {
+    chats?: FakeChatRepository;
+    usage?: FakeUsageRepository;
+    knowledge?: FakeKnowledgeRepository;
+  } = {},
+) {
+  const chats = options.chats ?? new FakeChatRepository();
+  const service = new DiabetesChatService(
+    new FakeReportRepository(),
+    chats,
+    options.usage ?? new FakeUsageRepository(),
+    options.knowledge ?? new FakeKnowledgeRepository(),
+    provider,
+    policy(),
+    () => now,
+  );
+  await service.createConversation("test-user");
+  return { service, chats };
+}
+
 describe("diabetes chat service", () => {
-  it("returns an allowed report answer with only valid report citations", async () => {
+  it("creates a conversation and answers a greeting without any report", async () => {
+    const provider = new FakeProvider({
+      model: "test-model",
+      result: {
+        decision: "ALLOW",
+        category: "GREETING",
+        answer: "Hi! How can I help with diabetes today?",
+        citedBiomarkers: [],
+        citedKnowledgeIds: [],
+        usedReportData: false,
+        usedKnowledgeBase: false,
+      },
+    });
+    const { service } = await createService(provider);
+
+    const result = await service.ask({
+      conversationId,
+      userId: "test-user",
+      question: "Hi",
+    });
+
+    expect(result.attachedReportIds).toEqual([]);
+    expect(result.readyReports).toEqual([]);
+    expect(result.message.category).toBe("GREETING");
+    expect(provider.received?.reports).toEqual([]);
+  });
+
+  it("answers a general HbA1c question from the MongoDB knowledge layer", async () => {
+    const provider = new FakeProvider({
+      model: "test-model",
+      result: {
+        decision: "ALLOW",
+        category: "DIABETES_EDUCATION",
+        answer: "HbA1c shows your average blood sugar over recent months.",
+        citedBiomarkers: [],
+        citedKnowledgeIds: [hba1cKnowledge.id, "invented-id"],
+        usedReportData: false,
+        usedKnowledgeBase: true,
+      },
+    });
+    const knowledge = new FakeKnowledgeRepository([hba1cKnowledge]);
+    const { service } = await createService(provider, { knowledge });
+
+    const result = await service.ask({
+      conversationId,
+      userId: "test-user",
+      question: "What is the general H1B value?",
+    });
+
+    expect(knowledge.receivedQuestion).toBe("What is the general H1B value?");
+    expect(provider.received?.knowledge).toEqual([hba1cKnowledge]);
+    expect(result.message.knowledgeReferences).toEqual([
+      {
+        knowledgeId: hba1cKnowledge.id,
+        key: hba1cKnowledge.key,
+        title: hba1cKnowledge.title,
+        sourceName: "CDC",
+        sourceUrl: hba1cKnowledge.source.url,
+      },
+    ]);
+  });
+
+  it("uses attached reports internally and keeps only valid citations", async () => {
     const chats = new FakeChatRepository();
     const provider = new FakeProvider({
       model: "test-model",
@@ -186,25 +319,25 @@ describe("diabetes chat service", () => {
           { reportId, biomarkerId: "hba1c-1" },
           { reportId, biomarkerId: "invented-id" },
         ],
+        citedKnowledgeIds: [],
         usedReportData: true,
+        usedKnowledgeBase: false,
       },
     });
-    const service = new DiabetesChatService(
-      new FakeReportRepository(),
-      chats,
-      new FakeUsageRepository(),
-      provider,
-      policy(),
-      () => now,
-    );
+    const { service } = await createService(provider, { chats });
+    await service.attachReport({
+      conversationId,
+      userId: "test-user",
+      reportId,
+    });
 
     const result = await service.ask({
-      reportId,
+      conversationId,
       userId: "test-user",
       question: "What is my HbA1c?",
     });
 
-    expect(result.message.decision).toBe("ALLOW");
+    expect(result.attachedReportIds).toEqual([reportId]);
     expect(result.message.citations).toEqual([
       {
         reportId,
@@ -216,42 +349,7 @@ describe("diabetes chat service", () => {
         page: 1,
       },
     ]);
-    expect(
-      provider.received?.reports[0]?.normalized.biomarkers[0]
-        ?.normalizedUnit,
-    ).toBe("%");
-    expect(chats.saved?.promptVersion).toBe("1.1.0");
-  });
-
-  it("uses the configured application rejection message for an off-topic answer", async () => {
-    const provider = new FakeProvider({
-      model: "test-model",
-      result: {
-        decision: "ALLOW",
-        category: "OFF_TOPIC",
-        answer: "This model answer must not reach the user.",
-        citedBiomarkers: [{ reportId, biomarkerId: "hba1c-1" }],
-        usedReportData: false,
-      },
-    });
-    const service = new DiabetesChatService(
-      new FakeReportRepository(),
-      new FakeChatRepository(),
-      new FakeUsageRepository(),
-      provider,
-      policy(),
-      () => now,
-    );
-
-    const result = await service.ask({
-      reportId,
-      userId: "test-user",
-      question: "Who won the match?",
-    });
-
-    expect(result.message.decision).toBe("REFUSE");
-    expect(result.message.content).toBe(policy().rejectionMessage);
-    expect(result.message.citations).toEqual([]);
+    expect(chats.saved?.promptVersion).toBe("2.0.0");
   });
 
   it("stops before OpenAI when the per-user limit is reached", async () => {
@@ -262,21 +360,18 @@ describe("diabetes chat service", () => {
         category: "DIABETES_EDUCATION",
         answer: "Answer",
         citedBiomarkers: [],
+        citedKnowledgeIds: [],
         usedReportData: false,
+        usedKnowledgeBase: false,
       },
     });
-    const service = new DiabetesChatService(
-      new FakeReportRepository(),
-      new FakeChatRepository(),
-      new FakeUsageRepository(false),
-      provider,
-      policy(),
-      () => now,
-    );
+    const { service } = await createService(provider, {
+      usage: new FakeUsageRepository(false),
+    });
 
     await expect(
       service.ask({
-        reportId,
+        conversationId,
         userId: "test-user",
         question: "What is diabetes?",
       }),

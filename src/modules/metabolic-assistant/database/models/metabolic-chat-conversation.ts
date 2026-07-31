@@ -9,7 +9,7 @@ const metabolicChatConversationSchema = new Schema(
   {
     reportId: {
       type: Schema.Types.ObjectId,
-      required: true,
+      required: false,
       index: true,
       ref: "MetabolicReport",
     },
@@ -37,6 +37,7 @@ const metabolicChatConversationSchema = new Schema(
 );
 
 metabolicChatConversationSchema.index({ userKey: 1, reportId: 1, createdAt: -1 });
+metabolicChatConversationSchema.index({ userKey: 1, createdAt: -1 });
 metabolicChatConversationSchema.index({ reportIds: 1 });
 metabolicChatConversationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 

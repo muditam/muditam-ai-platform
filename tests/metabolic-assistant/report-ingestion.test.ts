@@ -9,6 +9,10 @@ import type {
   ReportRepositoryPort,
 } from "../../src/modules/metabolic-assistant/repositories/report-repository.js";
 import type { ReportUsageRepositoryPort } from "../../src/modules/metabolic-assistant/repositories/report-usage-repository.js";
+import type {
+  ConversationReportAttachmentOperations,
+  PublicConversation,
+} from "../../src/modules/metabolic-assistant/services/diabetes-chat-service.js";
 import { ReportIngestionService } from "../../src/modules/metabolic-assistant/services/report-ingestion-service.js";
 
 class FakeReportRepository implements ReportRepositoryPort {
@@ -88,6 +92,46 @@ class FakeReportUsage implements ReportUsageRepositoryPort {
   }
 }
 
+class FakeConversationAttachments
+  implements ConversationReportAttachmentOperations
+{
+  attached?: {
+    conversationId: string;
+    userId: string;
+    reportId: string;
+  };
+  detached?: {
+    conversationId: string;
+    userId: string;
+    reportId: string;
+  };
+
+  async attachReport(input: {
+    conversationId: string;
+    userId: string;
+    reportId: string;
+  }): Promise<PublicConversation> {
+    this.attached = input;
+    return {
+      conversationId: input.conversationId,
+      reportIds: [input.reportId],
+      status: "ACTIVE",
+      createdAt: "2026-07-30T00:00:00.000Z",
+      updatedAt: "2026-07-30T00:00:00.000Z",
+    };
+  }
+
+  async detachReport(input: {
+    conversationId: string;
+    userId: string;
+    reportId: string;
+  }): Promise<void> {
+    this.detached = input;
+  }
+
+  async detachReportEverywhere(): Promise<void> {}
+}
+
 describe("report ingestion service", () => {
   it("stores and queues a valid PDF without selecting an extractor", async () => {
     const repository = new FakeReportRepository();
@@ -164,5 +208,31 @@ describe("report ingestion service", () => {
       }),
     ).rejects.toMatchObject({ code: "REPORT_LIMIT_REACHED", status: 429 });
     expect(storage.stored).toBeUndefined();
+  });
+
+  it("attaches the new report to the selected conversation during upload", async () => {
+    const conversations = new FakeConversationAttachments();
+    const service = new ReportIngestionService(
+      new FakeReportRepository(),
+      new FakeReportStorage(),
+      undefined,
+      conversations,
+    );
+
+    const result = await service.upload({
+      originalName: "blood-report.pdf",
+      declaredMimeType: "application/pdf",
+      bytes: new TextEncoder().encode("%PDF-1.7 synthetic"),
+      subjectId: "test-user",
+      conversationId: "507f1f77bcf86cd799439012",
+    });
+
+    expect(result.conversationId).toBe("507f1f77bcf86cd799439012");
+    expect(conversations.attached).toEqual({
+      conversationId: "507f1f77bcf86cd799439012",
+      userId: "test-user",
+      reportId: "507f1f77bcf86cd799439011",
+    });
+    expect(conversations.detached).toBeUndefined();
   });
 });

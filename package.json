@@ -11,6 +11,7 @@
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "extract": "npm run build --silent && node dist/cli.js",
     "seed:metabolic-products": "tsx src/modules/metabolic-assistant/database/seeds/seed-products.ts",
+    "seed:diabetes-knowledge": "tsx src/modules/metabolic-assistant/database/seeds/seed-diabetes-knowledge.ts",
     "start:metabolic": "tsx src/modules/metabolic-assistant/server.ts",
     "structure": "npm run build --silent && node dist/structure-cli.js",
     "process": "npm run build --silent && node dist/process-cli.js",

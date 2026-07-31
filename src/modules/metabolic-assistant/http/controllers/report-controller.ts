@@ -32,8 +32,12 @@ export class ReportController {
       };
       const displayName = textField(request.body.displayName);
       const subjectId = textField(request.body.subjectId);
+      const conversationId = textField(request.body.conversationId);
       if (displayName !== undefined) uploadInput.displayName = displayName;
       if (subjectId !== undefined) uploadInput.subjectId = subjectId;
+      if (conversationId !== undefined) {
+        uploadInput.conversationId = conversationId;
+      }
       const result = await this.reports.upload(uploadInput);
       response.status(202).json({
         ok: true,

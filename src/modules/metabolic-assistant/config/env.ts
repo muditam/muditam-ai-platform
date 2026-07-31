@@ -101,6 +101,7 @@ export const metabolicEnvironmentSchema = z.object({
   METABOLIC_CHAT_MODEL: z.string().trim().min(1).default("gpt-4o-mini"),
   METABOLIC_CHAT_ALLOWED_CATEGORIES: csvFromEnvironment(
     [
+      "GREETING",
       "REPORT_VALUES",
       "REPORT_COMPARISON",
       "GLYCEMIC_EDUCATION",
@@ -108,6 +109,7 @@ export const metabolicEnvironmentSchema = z.object({
       "LIFESTYLE_EDUCATION",
     ],
     [
+      "GREETING",
       "REPORT_VALUES",
       "REPORT_COMPARISON",
       "GLYCEMIC_EDUCATION",
@@ -127,6 +129,7 @@ export const metabolicEnvironmentSchema = z.object({
   METABOLIC_CHAT_MAX_HISTORY_MESSAGES: integerFromEnvironment(10),
   METABOLIC_CHAT_MAX_ANSWER_WORDS: integerFromEnvironment(180),
   METABOLIC_CHAT_MAX_OUTPUT_TOKENS: integerFromEnvironment(700),
+  METABOLIC_CHAT_MAX_KNOWLEDGE_RESULTS: integerFromEnvironment(5),
   METABOLIC_CHAT_MIN_MARKER_CONFIDENCE: numberFromEnvironment(0.6, {
     minimum: 0,
     maximum: 1,
@@ -151,7 +154,7 @@ export const metabolicEnvironmentSchema = z.object({
     .trim()
     .min(1)
     .default(
-      "I can only help with diabetes, blood-sugar health, and the values in this blood report.",
+      "I can only help with diabetes, blood-sugar health, and blood-report questions.",
     ),
   METABOLIC_CHAT_MISSING_REPORT_DATA_MESSAGE: z
     .string()
@@ -172,7 +175,7 @@ export const metabolicEnvironmentSchema = z.object({
     .trim()
     .min(1)
     .default(
-      "This is general education based on an automatically extracted report. It is not a diagnosis or a replacement for a doctor.",
+      "This is general diabetes education. Report-based answers use automatically extracted data. It is not a diagnosis or a replacement for a doctor.",
     ),
   METABOLIC_OPENAI_STORE: booleanFromEnvironment(false),
   METABOLIC_OPENAI_TIMEOUT_MS: integerFromEnvironment(120_000),

@@ -1,7 +1,7 @@
 import type { MetabolicEnvironment } from "./env.js";
 import type { AllowableChatCategory } from "../contracts/chat.js";
 
-export const METABOLIC_CHAT_PROMPT_VERSION = "1.1.0" as const;
+export const METABOLIC_CHAT_PROMPT_VERSION = "2.0.0" as const;
 
 export interface MetabolicChatPolicy {
   enabled: boolean;
@@ -15,6 +15,7 @@ export interface MetabolicChatPolicy {
   maxHistoryMessages: number;
   maxAnswerWords: number;
   maxOutputTokens: number;
+  maxKnowledgeResults: number;
   minimumMarkerConfidence: number;
   personaName: string;
   tone: string;
@@ -49,6 +50,7 @@ export function buildMetabolicChatPolicy(
     maxHistoryMessages: environment.METABOLIC_CHAT_MAX_HISTORY_MESSAGES,
     maxAnswerWords: environment.METABOLIC_CHAT_MAX_ANSWER_WORDS,
     maxOutputTokens: environment.METABOLIC_CHAT_MAX_OUTPUT_TOKENS,
+    maxKnowledgeResults: environment.METABOLIC_CHAT_MAX_KNOWLEDGE_RESULTS,
     minimumMarkerConfidence:
       environment.METABOLIC_CHAT_MIN_MARKER_CONFIDENCE,
     personaName: environment.METABOLIC_CHAT_PERSONA_NAME,

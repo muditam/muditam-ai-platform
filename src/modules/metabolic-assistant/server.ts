@@ -13,6 +13,7 @@ import {
 import { getMetabolicProcessingJobModel } from "./database/models/metabolic-processing-job.js";
 import { getMetabolicReportModel } from "./database/models/metabolic-report.js";
 import { getMetabolicReportUsageModel } from "./database/models/metabolic-report-usage.js";
+import { getMetabolicKnowledgeEntryModel } from "./database/models/metabolic-knowledge-entry.js";
 import { getMetabolicChatConversationModel } from "./database/models/metabolic-chat-conversation.js";
 import { getMetabolicChatMessageModel } from "./database/models/metabolic-chat-message.js";
 import { getMetabolicChatUsageModel } from "./database/models/metabolic-chat-usage.js";
@@ -24,6 +25,7 @@ import {
 } from "./index.js";
 import { ReportRepository } from "./repositories/report-repository.js";
 import { ReportUsageRepository } from "./repositories/report-usage-repository.js";
+import { KnowledgeRepository } from "./repositories/knowledge-repository.js";
 import { ChatRepository } from "./repositories/chat-repository.js";
 import { ChatUsageRepository } from "./repositories/chat-usage-repository.js";
 import { ProcessingJobRepository } from "./repositories/processing-job-repository.js";
@@ -69,17 +71,6 @@ async function main(): Promise<void> {
     const storage = new LocalReportStorage(
       environment.METABOLIC_LOCAL_STORAGE_DIR,
     );
-    reportService = new ReportIngestionService(
-      repository,
-      storage,
-      {
-        usage: reportUsage,
-        maximum: environment.METABOLIC_MAX_REPORTS_PER_USER,
-        requireSubjectId:
-          environment.METABOLIC_REQUIRE_SUBJECT_ID_FOR_UPLOAD,
-      },
-    );
-
     const chatPolicy = buildMetabolicChatPolicy(environment);
     if (chatPolicy.enabled) {
       if (environment.METABOLIC_OPENAI_API_KEY === undefined) {
@@ -95,6 +86,9 @@ async function main(): Promise<void> {
       const chatUsage = new ChatUsageRepository(
         getMetabolicChatUsageModel(database),
       );
+      const knowledge = new KnowledgeRepository(
+        getMetabolicKnowledgeEntryModel(database),
+      );
       const chatProvider = new OpenAIReportChatProvider({
         apiKey: environment.METABOLIC_OPENAI_API_KEY,
         policy: chatPolicy,
@@ -105,10 +99,23 @@ async function main(): Promise<void> {
         repository,
         chatRepository,
         chatUsage,
+        knowledge,
         chatProvider,
         chatPolicy,
       );
     }
+
+    reportService = new ReportIngestionService(
+      repository,
+      storage,
+      {
+        usage: reportUsage,
+        maximum: environment.METABOLIC_MAX_REPORTS_PER_USER,
+        requireSubjectId:
+          environment.METABOLIC_REQUIRE_SUBJECT_ID_FOR_UPLOAD,
+      },
+      chatService,
+    );
 
     if (environment.METABOLIC_WORKER_ENABLED) {
       if (environment.METABOLIC_OPENAI_API_KEY === undefined) {
