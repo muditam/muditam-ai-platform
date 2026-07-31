@@ -87,6 +87,11 @@ All PDF.js and Vision observations enter the same deterministic pipeline:
 5. Detect conflicting duplicate values.
 6. Preserve unmapped or uncertain observations for review.
 
+HbA1c is unit-aware: NGSP `%` and IFCC `mmol/mol` representations are converted
+and compared. Equivalent representations collapse to one preferred `%` result;
+an IFCC-only result is normalized to `%`; inconsistent representations are
+marked `REVIEW_REQUIRED` instead of being selected silently.
+
 Each normalized observation contains:
 
 - canonical biomarker identity when confidently resolved;

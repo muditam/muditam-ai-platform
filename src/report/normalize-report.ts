@@ -37,6 +37,16 @@ function comparableUnit(unit: string): string {
   return comparable;
 }
 
+function isHba1cUnit(unit: string | null): boolean {
+  if (!unit) return false;
+  const comparable = comparableUnit(unit);
+  return comparable === "%" || comparable === "mmol/mol";
+}
+
+function ifccToNgsp(ifcc: number): number {
+  return 0.09148 * ifcc + 2.152;
+}
+
 function normalizedValue(
   value: Observation["parsedValue"],
 ): NormalizedObservation["normalized"]["value"] {
@@ -123,6 +133,8 @@ function normalizeObservation(
   });
   const definition = resolution.definition;
   const extractedUnit = normalizeUnit(observation.raw.unit);
+  const hasCompatibleAlternateUnit =
+    definition?.canonicalCode === "HBA1C" && isHba1cUnit(extractedUnit);
   const unit =
     definition?.standardUnit &&
     extractedUnit &&
@@ -146,7 +158,8 @@ function normalizeObservation(
   if (
     definition?.standardUnit &&
     unit &&
-    comparableUnit(definition.standardUnit) !== comparableUnit(unit)
+    comparableUnit(definition.standardUnit) !== comparableUnit(unit) &&
+    !hasCompatibleAlternateUnit
   ) {
     issues.push({
       code: "UNIT_MISMATCH",
@@ -251,6 +264,95 @@ function normalizedValueKey(
   });
 }
 
+function convertHba1cRangeToPercent(
+  range: NormalizedObservation["normalized"]["referenceRange"],
+): NormalizedObservation["normalized"]["referenceRange"] {
+  if (!range) return null;
+  if (range.type === "INTERVAL") {
+    return {
+      type: "INTERVAL",
+      lower: Number(ifccToNgsp(range.lower).toFixed(2)),
+      upper: Number(ifccToNgsp(range.upper).toFixed(2)),
+    };
+  }
+  if (range.type === "BOUND") {
+    return {
+      ...range,
+      value: Number(ifccToNgsp(range.value).toFixed(2)),
+    };
+  }
+  if (range.type === "CATEGORICAL_BOUND") {
+    return {
+      ...range,
+      value: Number(ifccToNgsp(range.value).toFixed(2)),
+    };
+  }
+  return range;
+}
+
+function reconcileHba1cRepresentations(
+  observations: NormalizedObservation[],
+): NormalizedObservation[] {
+  const hba1c = observations.filter(
+    (observation) =>
+      observation.biomarker?.canonicalCode === "HBA1C" &&
+      observation.normalized.value.type === "NUMERIC" &&
+      isHba1cUnit(observation.normalized.unit),
+  );
+  if (hba1c.length === 0) return observations;
+
+  const converted = hba1c.map((observation) => {
+    const originalUnit = observation.normalized.unit as string;
+    const originalValue = observation.normalized.value;
+    if (originalValue.type !== "NUMERIC") {
+      throw new Error("HbA1c reconciliation requires a numeric value.");
+    }
+    const percent =
+      comparableUnit(originalUnit) === "mmol/mol"
+        ? ifccToNgsp(originalValue.numeric)
+        : originalValue.numeric;
+    return { observation, originalUnit, percent };
+  });
+  const values = converted.map((item) => item.percent);
+  const equivalent = Math.max(...values) - Math.min(...values) <= 0.15;
+  if (!equivalent) return observations;
+
+  const preferred = [...converted].sort((left, right) => {
+    const leftIsPercent = comparableUnit(left.originalUnit) === "%" ? 1 : 0;
+    const rightIsPercent = comparableUnit(right.originalUnit) === "%" ? 1 : 0;
+    return (
+      rightIsPercent - leftIsPercent ||
+      right.observation.confidence.overall -
+        left.observation.confidence.overall
+    );
+  })[0];
+  if (!preferred) return observations;
+
+  preferred.observation.normalized.value = {
+    type: "NUMERIC",
+    numeric: Number(preferred.percent.toFixed(2)),
+  };
+  if (comparableUnit(preferred.originalUnit) === "mmol/mol") {
+    preferred.observation.normalized.referenceRange =
+      convertHba1cRangeToPercent(
+        preferred.observation.normalized.referenceRange,
+      );
+  }
+  preferred.observation.normalized.unit = "%";
+  const duplicateIds = new Set(
+    hba1c
+      .filter(
+        (observation) =>
+          observation.sourceObservationId !==
+          preferred.observation.sourceObservationId,
+      )
+      .map((observation) => observation.sourceObservationId),
+  );
+  return observations.filter(
+    (observation) => !duplicateIds.has(observation.sourceObservationId),
+  );
+}
+
 function markDuplicateConflicts(
   observations: NormalizedObservation[],
 ): void {
@@ -291,11 +393,12 @@ export function normalizeReport(
     warnings: [],
   },
 ): NormalizedReport {
-  const observations = report.panels.flatMap((panel) =>
+  let observations = report.panels.flatMap((panel) =>
     panel.observations.map((observation) =>
       normalizeObservation(observation, panel.name, report.layoutAnalysis),
     ),
   );
+  observations = reconcileHba1cRepresentations(observations);
   markDuplicateConflicts(observations);
   const mappedCount = observations.filter(
     (observation) => observation.mapping.status === "MAPPED",
