@@ -223,6 +223,85 @@ describe("biomarker normalization", () => {
     }
   });
 
+  it("collapses equivalent NGSP and IFCC HbA1c representations", () => {
+    const result = normalizeReport(
+      reportWith([
+        {
+          id: "hba1c-ngsp",
+          raw: { name: "HbA1c", value: "10.0", unit: "%" },
+          parsedValue: { type: "NUMERIC", numericValue: 10 },
+          source,
+        },
+        {
+          id: "hba1c-ifcc",
+          raw: { name: "HbA1c (IFCC)", value: "85.57", unit: "mmol/mol" },
+          parsedValue: { type: "NUMERIC", numericValue: 85.57 },
+          source: { ...source, pageNumber: 2, lineId: "p2-l1" },
+        },
+      ]),
+    );
+
+    expect(result.status).toBe("NORMALIZED");
+    expect(result.observations).toHaveLength(1);
+    expect(result.observations[0]).toMatchObject({
+      sourceObservationId: "hba1c-ngsp",
+      biomarker: { canonicalCode: "HBA1C" },
+      normalized: { value: { type: "NUMERIC", numeric: 10 }, unit: "%" },
+      validation: { status: "VALID", issues: [] },
+    });
+  });
+
+  it("converts an IFCC-only HbA1c result to dashboard percent", () => {
+    const result = normalizeReport(
+      reportWith([
+        {
+          id: "hba1c-ifcc",
+          raw: { name: "HbA1c", value: "86", unit: "mmol/mol" },
+          parsedValue: { type: "NUMERIC", numericValue: 86 },
+          source,
+        },
+      ]),
+    );
+
+    expect(result.observations[0]).toMatchObject({
+      raw: { value: "86", unit: "mmol/mol" },
+      normalized: {
+        value: { type: "NUMERIC", numeric: 10.02 },
+        unit: "%",
+      },
+      validation: { status: "VALID", issues: [] },
+    });
+  });
+
+  it("requires review when NGSP and IFCC HbA1c values disagree", () => {
+    const result = normalizeReport(
+      reportWith([
+        {
+          id: "hba1c-ngsp",
+          raw: { name: "HbA1c", value: "10.0", unit: "%" },
+          parsedValue: { type: "NUMERIC", numericValue: 10 },
+          source,
+        },
+        {
+          id: "hba1c-ifcc",
+          raw: { name: "HbA1c (IFCC)", value: "60", unit: "mmol/mol" },
+          parsedValue: { type: "NUMERIC", numericValue: 60 },
+          source: { ...source, pageNumber: 2, lineId: "p2-l1" },
+        },
+      ]),
+    );
+
+    expect(result.status).toBe("REVIEW_REQUIRED");
+    expect(result.observations).toHaveLength(2);
+    expect(
+      result.observations.every((observation) =>
+        observation.validation.issues.some(
+          (issue) => issue.code === "DUPLICATE_CONFLICT",
+        ),
+      ),
+    ).toBe(true);
+  });
+
   it("parses labelled clinical reference bounds", () => {
     const result = normalizeReport(
       reportWith([

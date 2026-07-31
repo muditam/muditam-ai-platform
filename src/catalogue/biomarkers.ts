@@ -31,6 +31,7 @@ export const biomarkerCatalogue: readonly BiomarkerDefinition[] = [
     "Glycated Hemoglobin",
     "Glycosylated Haemoglobin",
     "A1C",
+    "HbA1c (IFCC)",
   ]),
   definition(
     "ESTIMATED_AVERAGE_GLUCOSE",
