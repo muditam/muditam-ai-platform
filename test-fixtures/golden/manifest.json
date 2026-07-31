@@ -1,0 +1,15 @@
+{
+  "version": "0.1.0",
+  "cases": [
+    {
+      "id": "report-001",
+      "pdf": "test-data/sanitized-reports/report-001.pdf",
+      "expected": "test-fixtures/golden/report-001-core.json"
+    },
+    {
+      "id": "report-003",
+      "pdf": "test-data/sanitized-reports/report-003.pdf",
+      "expected": "test-fixtures/golden/report-003-core.json"
+    }
+  ]
+}

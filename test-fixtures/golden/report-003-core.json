@@ -1,0 +1,22 @@
+{
+  "name": "report-003 dashboard and supporting biomarkers",
+  "reviewStatus": "DRAFT",
+  "expectedReportStatus": "NORMALIZED",
+  "expectedObservationCount": 68,
+  "observations": [
+    { "canonicalCode": "HBA1C", "numeric": 5.4, "unit": "%", "flag": null },
+    { "canonicalCode": "ESTIMATED_AVERAGE_GLUCOSE", "numeric": 108.28, "unit": "mg/dL", "flag": null },
+    { "canonicalCode": "FASTING_GLUCOSE", "numeric": 74.4, "unit": "mg/dL", "flag": null },
+    { "canonicalCode": "AST", "numeric": 16.4, "unit": "U/L", "flag": null },
+    { "canonicalCode": "ALT", "numeric": 8.4, "unit": "U/L", "flag": null },
+    { "canonicalCode": "GGT", "numeric": 9.8, "unit": "U/L", "flag": null },
+    { "canonicalCode": "BLOOD_UREA", "numeric": 24.2, "unit": "mg/dL", "flag": null },
+    { "canonicalCode": "CREATININE", "numeric": 0.7, "unit": "mg/dL", "flag": null },
+    { "canonicalCode": "EGFR", "numeric": 116.52, "unit": "mL/min/1.73 m²", "flag": null },
+    { "canonicalCode": "TOTAL_CHOLESTEROL", "numeric": 199, "unit": "mg/dL", "flag": null },
+    { "canonicalCode": "TRIGLYCERIDES", "numeric": 111, "unit": "mg/dL", "flag": null },
+    { "canonicalCode": "HDL_CHOLESTEROL", "numeric": 49.3, "unit": "mg/dL", "flag": null },
+    { "canonicalCode": "LDL_CHOLESTEROL", "numeric": 127.5, "unit": "mg/dL", "flag": "H" },
+    { "canonicalCode": "ESR", "numeric": 11, "unit": "mm/hr", "flag": "H" }
+  ]
+}

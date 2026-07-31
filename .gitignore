@@ -1,12 +1,30 @@
 node_modules/
 dist/
 coverage/
+
+# Local configuration and secrets. Commit only the example file.
 .env
+.env.*
+!.env.example
+
+# OS/editor artifacts.
 .DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Runtime logs, caches, and generated extraction artifacts.
 *.log
+*.log.*
 tmp/
+temp/
 output/
-new-ui/muditam_final_cart_ui 1.html
+.cache/
+
+# Local-only report review/prototype interfaces.
+new-ui/
+local-test-ui/
 
 # Local report corpus may contain protected health information.
 test-data/reports/**

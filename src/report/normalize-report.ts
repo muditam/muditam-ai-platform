@@ -1,7 +1,7 @@
 import {
   BIOMARKER_CATALOGUE_VERSION,
-  findBiomarker,
 } from "../catalogue/biomarkers.js";
+import { resolveBiomarker } from "../catalogue/biomarker-resolver.js";
 import {
   NORMALIZED_REPORT_SCHEMA_VERSION,
   normalizedReportSchema,
@@ -30,7 +30,9 @@ function comparableUnit(unit: string): string {
     .replace(/[µμ]/g, "u")
     .replace(/\^/g, "")
     .replace(/²/g, "2")
-    .replace(/\s+/g, "");
+    .replace(/\s+/g, "")
+    .replace(/^gm\//, "g/")
+    .replace(/mm\/1sthour/g, "mm/hr");
   if (comparable === "miu/l" || comparable === "uiu/ml") return "uiu/ml";
   return comparable;
 }
@@ -111,18 +113,34 @@ function normalizeReferenceRange(
 
 function normalizeObservation(
   observation: Observation,
+  sourcePanel: string,
+  layout: StructuredReport["layoutAnalysis"],
 ): NormalizedObservation {
-  const definition = findBiomarker(observation.raw.name);
-  const unit = normalizeUnit(observation.raw.unit);
+  const resolution = resolveBiomarker({
+    rawName: observation.raw.name,
+    panel: sourcePanel,
+    ...(observation.raw.unit ? { unit: observation.raw.unit } : {}),
+  });
+  const definition = resolution.definition;
+  const extractedUnit = normalizeUnit(observation.raw.unit);
+  const unit =
+    definition?.standardUnit &&
+    extractedUnit &&
+    comparableUnit(definition.standardUnit) === comparableUnit(extractedUnit)
+      ? definition.standardUnit
+      : extractedUnit;
   const referenceRange = normalizeReferenceRange(
     observation.raw.referenceRange,
   );
   const issues: NormalizedObservation["validation"]["issues"] = [];
 
-  if (!definition) {
+  if (resolution.status !== "MAPPED") {
     issues.push({
       code: "UNMAPPED_BIOMARKER",
-      message: `No canonical mapping for "${observation.raw.name}".`,
+      message:
+        resolution.status === "UNMAPPED"
+          ? `No canonical mapping for "${observation.raw.name}".`
+          : `Canonical mapping requires confirmation for "${observation.raw.name}".`,
     });
   }
   if (
@@ -145,6 +163,41 @@ function normalizeObservation(
     }
   }
 
+  const hasUnitMismatch = issues.some(
+    (issue) => issue.code === "UNIT_MISMATCH",
+  );
+  const mappingConfidence = resolution.confidence;
+  const layoutConfidence = layout.confidence;
+  const valueParsingConfidence =
+    observation.source.extractionConfidence ?? 1;
+  const unitCompatibilityConfidence = hasUnitMismatch
+    ? 0
+    : definition?.standardUnit && !unit
+      ? 0.7
+      : 1;
+  const overallConfidence = Number(
+    Math.min(
+      mappingConfidence,
+      layoutConfidence,
+      valueParsingConfidence,
+      unitCompatibilityConfidence,
+    ).toFixed(3),
+  );
+  const decision =
+    resolution.status === "UNMAPPED" ||
+    resolution.status === "AMBIGUOUS" ||
+    hasUnitMismatch ||
+    valueParsingConfidence < 0.6
+      ? "REVIEW_REQUIRED"
+      : resolution.status === "POSSIBLE_MATCH" ||
+          resolution.confidence < 0.95 ||
+          layout.strategy === "FALLBACK" ||
+          layout.confidence < 0.8 ||
+          valueParsingConfidence < 0.85 ||
+          issues.length > 0
+        ? "USER_CONFIRMATION"
+        : "AUTO_ACCEPT";
+
   return {
     sourceObservationId: observation.id,
     biomarker: definition
@@ -154,13 +207,19 @@ function normalizeObservation(
           panel: definition.panel,
         }
       : null,
-    mapping: definition
-      ? {
-          status: "MAPPED",
-          matchedAlias: observation.raw.name,
-          confidence: 1,
-        }
-      : { status: "UNMAPPED", confidence: 0 },
+    mapping: {
+      status: resolution.status,
+      method: resolution.method,
+      ...(resolution.method === "EXACT_ALIAS"
+        ? { matchedAlias: observation.raw.name }
+        : {}),
+      ...(resolution.suggestedCanonicalCode
+        ? { suggestedCanonicalCode: resolution.suggestedCanonicalCode }
+        : {}),
+      confidence: resolution.confidence,
+      evidence: resolution.evidence,
+      alternatives: resolution.alternatives,
+    },
     raw: observation.raw,
     normalized: {
       value: normalizedValue(observation.parsedValue),
@@ -171,35 +230,113 @@ function normalizeObservation(
       status: issues.length === 0 ? "VALID" : "REVIEW_REQUIRED",
       issues,
     },
+    confidence: {
+      mapping: mappingConfidence,
+      layout: layoutConfidence,
+      valueParsing: valueParsingConfidence,
+      unitCompatibility: unitCompatibilityConfidence,
+      overall: overallConfidence,
+    },
+    decision,
     source: observation.source,
   };
 }
 
+function normalizedValueKey(
+  observation: NormalizedObservation,
+): string {
+  return JSON.stringify({
+    value: observation.normalized.value,
+    unit: observation.normalized.unit,
+  });
+}
+
+function markDuplicateConflicts(
+  observations: NormalizedObservation[],
+): void {
+  const byCode = new Map<string, NormalizedObservation[]>();
+  for (const observation of observations) {
+    const code = observation.biomarker?.canonicalCode;
+    if (!code) continue;
+    const group = byCode.get(code) ?? [];
+    group.push(observation);
+    byCode.set(code, group);
+  }
+  for (const [code, group] of byCode) {
+    const distinctValues = new Set(group.map(normalizedValueKey));
+    if (group.length < 2 || distinctValues.size < 2) continue;
+    for (const observation of group) {
+      observation.validation.issues.push({
+        code: "DUPLICATE_CONFLICT",
+        message: `Conflicting values were extracted for ${code}.`,
+      });
+      observation.validation.status = "REVIEW_REQUIRED";
+      observation.decision = "REVIEW_REQUIRED";
+      observation.confidence.overall = Math.min(
+        observation.confidence.overall,
+        0.5,
+      );
+    }
+  }
+}
+
 export function normalizeReport(
   report: StructuredReport,
+  processing: NormalizedReport["processing"] = {
+    status: "COMPLETE",
+    totalPages: 1,
+    pdfTextPages: [1],
+    visionPages: [],
+    failedPages: [],
+    warnings: [],
+  },
 ): NormalizedReport {
   const observations = report.panels.flatMap((panel) =>
-    panel.observations.map(normalizeObservation),
+    panel.observations.map((observation) =>
+      normalizeObservation(observation, panel.name, report.layoutAnalysis),
+    ),
   );
+  markDuplicateConflicts(observations);
   const mappedCount = observations.filter(
     (observation) => observation.mapping.status === "MAPPED",
   ).length;
+  const possibleMatchCount = observations.filter(
+    (observation) => observation.mapping.status === "POSSIBLE_MATCH",
+  ).length;
+  const ambiguousCount = observations.filter(
+    (observation) => observation.mapping.status === "AMBIGUOUS",
+  ).length;
+  const unmappedCount = observations.filter(
+    (observation) => observation.mapping.status === "UNMAPPED",
+  ).length;
+  const autoAcceptedCount = observations.filter(
+    (observation) => observation.decision === "AUTO_ACCEPT",
+  ).length;
+  const userConfirmationCount = observations.filter(
+    (observation) => observation.decision === "USER_CONFIRMATION",
+  ).length;
   const reviewRequiredCount = observations.filter(
-    (observation) => observation.validation.status === "REVIEW_REQUIRED",
+    (observation) => observation.decision === "REVIEW_REQUIRED",
   ).length;
   const result: NormalizedReport = {
     schemaVersion: NORMALIZED_REPORT_SCHEMA_VERSION,
     documentId: report.documentId,
     sourceStructuredSchemaVersion: report.schemaVersion,
     catalogueVersion: BIOMARKER_CATALOGUE_VERSION,
+    sourceLayoutAnalysis: report.layoutAnalysis,
     status: reviewRequiredCount > 0 ? "REVIEW_REQUIRED" : "NORMALIZED",
+    processing,
     observations,
     unclassifiedContent: report.unclassifiedContent,
     statistics: {
       observationCount: observations.length,
       mappedCount,
-      unmappedCount: observations.length - mappedCount,
+      possibleMatchCount,
+      ambiguousCount,
+      unmappedCount,
       reviewRequiredCount,
+      autoAcceptedCount,
+      userConfirmationCount,
     },
   };
   return normalizedReportSchema.parse(result);

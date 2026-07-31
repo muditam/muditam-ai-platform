@@ -8,6 +8,8 @@ const sourceReferenceSchema = z.object({
   lineId: z.string().min(1),
   itemIds: z.array(z.string().min(1)),
   boundingBox: boundingBoxSchema,
+  extractionMethod: z.enum(["PDF_TEXT", "OPENAI_VISION"]).optional(),
+  extractionConfidence: z.number().min(0).max(1).optional(),
 });
 
 const parsedValueSchema = z.discriminatedUnion("type", [
@@ -45,6 +47,17 @@ export const structuredReportSchema = z.object({
   documentId: z.string().min(1),
   sourceExtractionSchemaVersion: z.string().min(1),
   status: z.enum(["STRUCTURED", "PARTIAL"]),
+  layoutAnalysis: z.object({
+    strategy: z.enum(["HEADER", "CLUSTERED", "FALLBACK"]),
+    confidence: z.number().min(0).max(1),
+    evidenceRowCount: z.number().int().nonnegative(),
+    anchors: z.object({
+      description: z.number().min(0).max(1),
+      value: z.number().min(0).max(1),
+      unit: z.number().min(0).max(1),
+      referenceRange: z.number().min(0).max(1),
+    }),
+  }),
   panels: z.array(
     z.object({
       name: z.string().min(1),
