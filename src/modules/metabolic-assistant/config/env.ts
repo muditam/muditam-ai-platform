@@ -22,12 +22,49 @@ const booleanFromEnvironment = (defaultValue: boolean) =>
 
 const integerFromEnvironment = (
   defaultValue: number,
-  options: { minimum?: number } = {},
+  options: { minimum?: number; maximum?: number } = {},
 ) =>
   z.preprocess(
     (value) =>
       value === undefined || value === "" ? defaultValue : Number(value),
-    z.number().int().min(options.minimum ?? 1),
+    z
+      .number()
+      .int()
+      .min(options.minimum ?? 1)
+      .max(options.maximum ?? Number.MAX_SAFE_INTEGER),
+  );
+
+const numberFromEnvironment = (
+  defaultValue: number,
+  options: { minimum?: number; maximum?: number } = {},
+) =>
+  z.preprocess(
+    (value) =>
+      value === undefined || value === "" ? defaultValue : Number(value),
+    z
+      .number()
+      .finite()
+      .min(options.minimum ?? Number.NEGATIVE_INFINITY)
+      .max(options.maximum ?? Number.POSITIVE_INFINITY),
+  );
+
+const csvFromEnvironment = <T extends [string, ...string[]]>(
+  values: T,
+  defaultValue: T[number][],
+) =>
+  z.preprocess(
+    (value) => {
+      if (value === undefined || value === "") return defaultValue;
+      if (Array.isArray(value)) return value;
+      if (typeof value === "string") {
+        return value
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean);
+      }
+      return value;
+    },
+    z.array(z.enum(values)).min(1),
   );
 
 const optionalNumber = z.preprocess(
@@ -60,12 +97,90 @@ export const metabolicEnvironmentSchema = z.object({
     .trim()
     .min(1)
     .default("gpt-4o-mini"),
-  METABOLIC_CHAT_MODEL: optionalString,
+  METABOLIC_CHAT_ENABLED: booleanFromEnvironment(false),
+  METABOLIC_CHAT_MODEL: z.string().trim().min(1).default("gpt-4o-mini"),
+  METABOLIC_CHAT_ALLOWED_CATEGORIES: csvFromEnvironment(
+    [
+      "REPORT_VALUES",
+      "REPORT_COMPARISON",
+      "GLYCEMIC_EDUCATION",
+      "DIABETES_EDUCATION",
+      "LIFESTYLE_EDUCATION",
+    ],
+    [
+      "REPORT_VALUES",
+      "REPORT_COMPARISON",
+      "GLYCEMIC_EDUCATION",
+      "DIABETES_EDUCATION",
+      "LIFESTYLE_EDUCATION",
+    ],
+  ),
+  METABOLIC_CHAT_ALLOWED_REPORT_STATUSES: csvFromEnvironment(
+    ["NEEDS_REVIEW", "READY"],
+    ["NEEDS_REVIEW", "READY"],
+  ),
+  METABOLIC_CHAT_MAX_QUESTIONS_PER_WINDOW: integerFromEnvironment(20),
+  METABOLIC_CHAT_MAX_REPORTS_PER_CONVERSATION:
+    integerFromEnvironment(3),
+  METABOLIC_CHAT_LIMIT_WINDOW_MINUTES: integerFromEnvironment(1_440),
+  METABOLIC_CHAT_MAX_QUESTION_CHARS: integerFromEnvironment(1_000),
+  METABOLIC_CHAT_MAX_HISTORY_MESSAGES: integerFromEnvironment(10),
+  METABOLIC_CHAT_MAX_ANSWER_WORDS: integerFromEnvironment(180),
+  METABOLIC_CHAT_MAX_OUTPUT_TOKENS: integerFromEnvironment(700),
+  METABOLIC_CHAT_MIN_MARKER_CONFIDENCE: numberFromEnvironment(0.6, {
+    minimum: 0,
+    maximum: 1,
+  }),
+  METABOLIC_CHAT_PERSONA_NAME: z
+    .string()
+    .trim()
+    .min(1)
+    .default("Muditam Diabetes Guide"),
+  METABOLIC_CHAT_TONE: z
+    .string()
+    .trim()
+    .min(1)
+    .default("calm, clear, respectful, and supportive"),
+  METABOLIC_CHAT_RESPONSE_STYLE: z
+    .string()
+    .trim()
+    .min(1)
+    .default("Use simple English, short paragraphs, and practical explanations."),
+  METABOLIC_CHAT_REJECTION_MESSAGE: z
+    .string()
+    .trim()
+    .min(1)
+    .default(
+      "I can only help with diabetes, blood-sugar health, and the values in this blood report.",
+    ),
+  METABOLIC_CHAT_MISSING_REPORT_DATA_MESSAGE: z
+    .string()
+    .trim()
+    .min(1)
+    .default(
+      "I could not find that value clearly in this report. Please check the report or ask about a value that was extracted.",
+    ),
+  METABOLIC_CHAT_SAFETY_MESSAGE: z
+    .string()
+    .trim()
+    .min(1)
+    .default(
+      "This may need urgent medical attention. Please contact a doctor or local emergency service now. Do not wait for this chat.",
+    ),
+  METABOLIC_CHAT_DISCLAIMER: z
+    .string()
+    .trim()
+    .min(1)
+    .default(
+      "This is general education based on an automatically extracted report. It is not a diagnosis or a replacement for a doctor.",
+    ),
   METABOLIC_OPENAI_STORE: booleanFromEnvironment(false),
   METABOLIC_OPENAI_TIMEOUT_MS: integerFromEnvironment(120_000),
 
   METABOLIC_MAX_FILE_BYTES: integerFromEnvironment(10 * 1024 * 1024),
   METABOLIC_MAX_PDF_PAGES: integerFromEnvironment(30),
+  METABOLIC_MAX_REPORTS_PER_USER: integerFromEnvironment(10),
+  METABOLIC_REQUIRE_SUBJECT_ID_FOR_UPLOAD: booleanFromEnvironment(true),
 
   METABOLIC_STORAGE_PROVIDER: z.enum(["local", "s3"]).default("local"),
   METABOLIC_LOCAL_STORAGE_DIR: z

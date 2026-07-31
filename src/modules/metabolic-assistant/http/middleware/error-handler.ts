@@ -39,6 +39,9 @@ export function createMetabolicErrorHandler(logger: MetabolicLogger) {
       error: {
         code: normalized.code,
         message: normalized.message,
+        ...(normalized.details === undefined
+          ? {}
+          : { details: normalized.details }),
       },
       requestId,
     });

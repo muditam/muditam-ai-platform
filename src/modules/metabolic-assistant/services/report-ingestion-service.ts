@@ -7,6 +7,7 @@ import {
   type ReportRecord,
   type ReportRepositoryPort,
 } from "../repositories/report-repository.js";
+import type { ReportUsageRepositoryPort } from "../repositories/report-usage-repository.js";
 
 export interface UploadReportInput {
   originalName: string;
@@ -37,8 +38,16 @@ export interface PublicReport {
   updatedAt: string;
 }
 
+export interface UploadReportResult {
+  report: PublicReport;
+  quota?: {
+    maximum: number;
+    remaining: number;
+  };
+}
+
 export interface ReportOperations {
-  upload(input: UploadReportInput): Promise<PublicReport>;
+  upload(input: UploadReportInput): Promise<UploadReportResult>;
   get(id: string): Promise<PublicReport>;
   list(subjectId?: string): Promise<PublicReport[]>;
   delete(id: string): Promise<void>;
@@ -117,9 +126,14 @@ export class ReportIngestionService implements ReportOperations {
   constructor(
     private readonly repository: ReportRepositoryPort,
     private readonly storage: ReportStorage,
+    private readonly quota?: {
+      usage: ReportUsageRepositoryPort;
+      maximum: number;
+      requireSubjectId: boolean;
+    },
   ) {}
 
-  async upload(input: UploadReportInput): Promise<PublicReport> {
+  async upload(input: UploadReportInput): Promise<UploadReportResult> {
     if (input.bytes.byteLength === 0) {
       throw new MetabolicAssistantError(
         "INVALID_FILE",
@@ -137,17 +151,55 @@ export class ReportIngestionService implements ReportOperations {
 
     const mimeType = input.declaredMimeType as SupportedReportMimeType;
     validateFileSignature(mimeType, input.bytes);
+    const subjectId = normalizeOptionalText(input.subjectId);
+    if (this.quota?.requireSubjectId === true && subjectId === undefined) {
+      throw new MetabolicAssistantError(
+        "SUBJECT_ID_REQUIRED",
+        "subjectId is required for report upload limits.",
+        { status: 400 },
+      );
+    }
+
+    let quotaResult: { maximum: number; remaining: number } | undefined;
+    let quotaReserved = false;
+    if (this.quota !== undefined && subjectId !== undefined) {
+      const reservation = await this.quota.usage.reserve({
+        subjectId,
+        existingReportCount:
+          await this.repository.countBySubjectId(subjectId),
+        maximum: this.quota.maximum,
+      });
+      if (!reservation.accepted) {
+        throw new MetabolicAssistantError(
+          "REPORT_LIMIT_REACHED",
+          "This user has reached the total report upload limit.",
+          {
+            status: 429,
+            details: { maximum: this.quota.maximum, remaining: 0 },
+          },
+        );
+      }
+      quotaReserved = true;
+      quotaResult = {
+        maximum: this.quota.maximum,
+        remaining: reservation.remaining,
+      };
+    }
+
     const reportId = this.repository.createId();
     const sha256 = createHash("sha256").update(input.bytes).digest("hex");
-    const stored = await this.storage.store({
-      reportId,
-      originalName: input.originalName,
-      mimeType,
-      sha256,
-      bytes: input.bytes,
-    });
+    let stored:
+      | Awaited<ReturnType<ReportStorage["store"]>>
+      | undefined;
 
     try {
+      stored = await this.storage.store({
+        reportId,
+        originalName: input.originalName,
+        mimeType,
+        sha256,
+        bytes: input.bytes,
+      });
       const createInput: CreateQueuedReportRecord = {
         reportId,
         displayName:
@@ -159,11 +211,21 @@ export class ReportIngestionService implements ReportOperations {
         storageProvider: stored.storageProvider,
         objectKey: stored.objectKey,
       };
-      const subjectId = normalizeOptionalText(input.subjectId);
       if (subjectId !== undefined) createInput.subjectId = subjectId;
-      return toPublicReport(await this.repository.createQueued(createInput));
+      const result: UploadReportResult = {
+        report: toPublicReport(
+          await this.repository.createQueued(createInput),
+        ),
+      };
+      if (quotaResult !== undefined) result.quota = quotaResult;
+      return result;
     } catch (error) {
-      await this.storage.delete(stored.objectKey);
+      if (stored !== undefined) {
+        await this.storage.delete(stored.objectKey).catch(() => undefined);
+      }
+      if (quotaReserved && subjectId !== undefined && this.quota !== undefined) {
+        await this.quota.usage.release(subjectId).catch(() => undefined);
+      }
       throw error;
     }
   }
@@ -180,6 +242,9 @@ export class ReportIngestionService implements ReportOperations {
 
   async delete(id: string): Promise<void> {
     const report = await this.repository.deleteById(id);
+    if (report.subjectId !== undefined && this.quota !== undefined) {
+      await this.quota.usage.release(report.subjectId);
+    }
     await this.storage.delete(report.file.objectKey);
   }
 }

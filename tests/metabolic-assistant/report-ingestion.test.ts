@@ -8,6 +8,7 @@ import type {
   ReportRecord,
   ReportRepositoryPort,
 } from "../../src/modules/metabolic-assistant/repositories/report-repository.js";
+import type { ReportUsageRepositoryPort } from "../../src/modules/metabolic-assistant/repositories/report-usage-repository.js";
 import { ReportIngestionService } from "../../src/modules/metabolic-assistant/services/report-ingestion-service.js";
 
 class FakeReportRepository implements ReportRepositoryPort {
@@ -42,6 +43,10 @@ class FakeReportRepository implements ReportRepositoryPort {
     throw new Error("Not required by this test.");
   }
 
+  async countBySubjectId(): Promise<number> {
+    return 0;
+  }
+
   async list(): Promise<ReportRecord[]> {
     return [];
   }
@@ -66,13 +71,30 @@ class FakeReportStorage implements ReportStorage {
   async delete(): Promise<void> {}
 }
 
+class FakeReportUsage implements ReportUsageRepositoryPort {
+  released?: string;
+
+  constructor(private readonly accepted = true) {}
+
+  async reserve() {
+    return {
+      accepted: this.accepted,
+      remaining: this.accepted ? 1 : 0,
+    };
+  }
+
+  async release(subjectId: string): Promise<void> {
+    this.released = subjectId;
+  }
+}
+
 describe("report ingestion service", () => {
   it("stores and queues a valid PDF without selecting an extractor", async () => {
     const repository = new FakeReportRepository();
     const storage = new FakeReportStorage();
     const service = new ReportIngestionService(repository, storage);
 
-    const report = await service.upload({
+    const result = await service.upload({
       originalName: "blood-report.pdf",
       declaredMimeType: "application/pdf",
       bytes: new TextEncoder().encode("%PDF-1.7 synthetic"),
@@ -80,8 +102,8 @@ describe("report ingestion service", () => {
       subjectId: "test-subject",
     });
 
-    expect(report.status).toBe("QUEUED");
-    expect(report.extraction).toBeNull();
+    expect(result.report.status).toBe("QUEUED");
+    expect(result.report.extraction).toBeNull();
     expect(storage.stored?.originalName).toBe("blood-report.pdf");
     expect(repository.created?.subjectId).toBe("test-subject");
   });
@@ -99,5 +121,48 @@ describe("report ingestion service", () => {
         bytes: new TextEncoder().encode("not a pdf"),
       }),
     ).rejects.toMatchObject({ code: "INVALID_FILE", status: 400 });
+  });
+
+  it("requires subjectId when the per-user upload limit is enabled", async () => {
+    const service = new ReportIngestionService(
+      new FakeReportRepository(),
+      new FakeReportStorage(),
+      {
+        usage: new FakeReportUsage(),
+        maximum: 2,
+        requireSubjectId: true,
+      },
+    );
+
+    await expect(
+      service.upload({
+        originalName: "blood-report.pdf",
+        declaredMimeType: "application/pdf",
+        bytes: new TextEncoder().encode("%PDF-1.7 synthetic"),
+      }),
+    ).rejects.toMatchObject({ code: "SUBJECT_ID_REQUIRED", status: 400 });
+  });
+
+  it("stops before file storage when the user's total report limit is reached", async () => {
+    const storage = new FakeReportStorage();
+    const service = new ReportIngestionService(
+      new FakeReportRepository(),
+      storage,
+      {
+        usage: new FakeReportUsage(false),
+        maximum: 2,
+        requireSubjectId: true,
+      },
+    );
+
+    await expect(
+      service.upload({
+        originalName: "blood-report.pdf",
+        declaredMimeType: "application/pdf",
+        bytes: new TextEncoder().encode("%PDF-1.7 synthetic"),
+        subjectId: "test-user",
+      }),
+    ).rejects.toMatchObject({ code: "REPORT_LIMIT_REACHED", status: 429 });
+    expect(storage.stored).toBeUndefined();
   });
 });

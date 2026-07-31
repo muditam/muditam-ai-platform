@@ -21,11 +21,25 @@ The isolated foundation and extraction path now include:
 - a provider-neutral extraction contract;
 - an OpenAI Responses API adapter using `gpt-4o-mini`;
 - strict structured-output and canonical JSON validation.
+- shared, versioned basic report normalization;
+- report-grounded diabetes chat with fixed topic categories;
+- configurable persona, rejection, safety, and disclaimer text;
+- Mongo-backed conversations and messages;
+- atomic per-user question limits.
+- atomic total report limits per upload `subjectId`;
+- multi-report conversations;
+- deterministic same-unit biomarker comparisons before AI explanation.
 
 With the worker enabled, an uploaded report moves through `QUEUED`,
 `PROCESSING`, and `NEEDS_REVIEW`. At that stopping point the validated
-extraction JSON is available through the report endpoint. Review/correction,
-normalization, recommendations, chat, and authentication are not implemented.
+extraction JSON is available through the report endpoint. Chat can use reports
+in `NEEDS_REVIEW` or `READY` state and clearly reports that review is pending.
+Review/correction, recommendations, and authentication are not implemented.
+
+The easy chat guide is in
+`docs/asisstant-docs/DIABETES_REPORT_CHAT.md`.
+The complete manual testing guide is in
+`docs/asisstant-docs/COMPLETE_FLOW_TESTING_GUIDE.md`.
 
 ## Run
 

@@ -34,10 +34,10 @@ export class ReportController {
       const subjectId = textField(request.body.subjectId);
       if (displayName !== undefined) uploadInput.displayName = displayName;
       if (subjectId !== undefined) uploadInput.subjectId = subjectId;
-      const report = await this.reports.upload(uploadInput);
+      const result = await this.reports.upload(uploadInput);
       response.status(202).json({
         ok: true,
-        data: { report },
+        data: result,
         error: null,
         requestId: String(response.locals.requestId),
       });

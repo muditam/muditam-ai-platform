@@ -35,3 +35,28 @@ export {
   createMetabolicLogger,
   type MetabolicLogger,
 } from "./observability/logger.js";
+export {
+  BASIC_NORMALIZATION_VERSION,
+  normalizedBiomarkerSchema,
+  normalizedReportSchema,
+  type NormalizedBiomarker,
+  type NormalizedReport,
+} from "./contracts/normalized-report.js";
+export { normalizeExtractedReport } from "./normalization/basic-report-normalizer.js";
+export {
+  REPORT_COMPARISON_VERSION,
+  reportComparisonSchema,
+  type NormalizedReportContext,
+  type ReportComparison,
+} from "./contracts/report-comparison.js";
+export { compareNormalizedReports } from "./normalization/compare-normalized-reports.js";
+export {
+  ALLOWABLE_CHAT_CATEGORIES,
+  CHAT_CATEGORIES,
+  allowableChatCategorySchema,
+  chatCategorySchema,
+  chatDecisionSchema,
+  type AllowableChatCategory,
+  type ChatCategory,
+  type ChatDecision,
+} from "./contracts/chat.js";

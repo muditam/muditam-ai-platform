@@ -2,16 +2,20 @@ import express, { type Express } from "express";
 import type { MetabolicEnvironment } from "../config/env.js";
 import type { MetabolicLogger } from "../observability/logger.js";
 import type { ReportOperations } from "../services/report-ingestion-service.js";
+import type { DiabetesChatOperations } from "../services/diabetes-chat-service.js";
+import { ChatController } from "./controllers/chat-controller.js";
 import { ReportController } from "./controllers/report-controller.js";
 import { createMetabolicErrorHandler } from "./middleware/error-handler.js";
 import { attachRequestId } from "./middleware/request-id.js";
 import { createHealthRouter } from "./routes/health-routes.js";
+import { createChatRouter } from "./routes/chat-routes.js";
 import { createReportRouter } from "./routes/report-routes.js";
 
 export interface CreateMetabolicAppDependencies {
   environment: MetabolicEnvironment;
   logger: MetabolicLogger;
   reportService?: ReportOperations;
+  chatService?: DiabetesChatOperations;
   now?: () => Date;
 }
 
@@ -19,6 +23,7 @@ export function createMetabolicApp({
   environment,
   logger,
   reportService,
+  chatService,
   now,
 }: CreateMetabolicAppDependencies): Express {
   const app = express();
@@ -40,6 +45,12 @@ export function createMetabolicApp({
     app.use(
       `${environment.METABOLIC_API_PREFIX}/reports`,
       createReportRouter(new ReportController(reportService), environment),
+    );
+  }
+  if (environment.ENABLE_METABOLIC_ASSISTANT && chatService !== undefined) {
+    app.use(
+      `${environment.METABOLIC_API_PREFIX}/reports`,
+      createChatRouter(new ChatController(chatService)),
     );
   }
 

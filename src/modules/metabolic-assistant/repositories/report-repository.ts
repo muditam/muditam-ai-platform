@@ -44,6 +44,7 @@ export interface ReportRepositoryPort {
   createId(): string;
   createQueued(input: CreateQueuedReportRecord): Promise<ReportRecord>;
   getById(id: string): Promise<ReportRecord>;
+  countBySubjectId(subjectId: string): Promise<number>;
   list(subjectId?: string): Promise<ReportRecord[]>;
   deleteById(id: string): Promise<ReportRecord>;
 }
@@ -168,6 +169,10 @@ export class ReportRepository implements ReportRepositoryPort {
     return reports.map((report) =>
       toRecord(report as unknown as Record<string, unknown>),
     );
+  }
+
+  async countBySubjectId(subjectId: string): Promise<number> {
+    return this.reportModel.countDocuments({ subjectId }).exec();
   }
 
   async deleteById(id: string): Promise<ReportRecord> {

@@ -2,7 +2,9 @@ import "dotenv/config";
 import { createServer } from "node:http";
 import type { Connection } from "mongoose";
 import { OpenAIReportExtractor } from "./adapters/extraction/openai-report-extractor.js";
+import { OpenAIReportChatProvider } from "./adapters/chat/openai-report-chat-provider.js";
 import { LocalReportStorage } from "./adapters/storage/local-report-storage.js";
+import { buildMetabolicChatPolicy } from "./config/chat-policy.js";
 import { MetabolicAssistantError } from "./contracts/errors.js";
 import {
   closeMetabolicDatabase,
@@ -10,6 +12,10 @@ import {
 } from "./database/connect.js";
 import { getMetabolicProcessingJobModel } from "./database/models/metabolic-processing-job.js";
 import { getMetabolicReportModel } from "./database/models/metabolic-report.js";
+import { getMetabolicReportUsageModel } from "./database/models/metabolic-report-usage.js";
+import { getMetabolicChatConversationModel } from "./database/models/metabolic-chat-conversation.js";
+import { getMetabolicChatMessageModel } from "./database/models/metabolic-chat-message.js";
+import { getMetabolicChatUsageModel } from "./database/models/metabolic-chat-usage.js";
 import {
   createMetabolicApp,
   createMetabolicLogger,
@@ -17,7 +23,11 @@ import {
   loadMetabolicEnvironment,
 } from "./index.js";
 import { ReportRepository } from "./repositories/report-repository.js";
+import { ReportUsageRepository } from "./repositories/report-usage-repository.js";
+import { ChatRepository } from "./repositories/chat-repository.js";
+import { ChatUsageRepository } from "./repositories/chat-usage-repository.js";
 import { ProcessingJobRepository } from "./repositories/processing-job-repository.js";
+import { DiabetesChatService } from "./services/diabetes-chat-service.js";
 import { ReportIngestionService } from "./services/report-ingestion-service.js";
 import {
   ExtractionWorker,
@@ -30,6 +40,7 @@ async function main(): Promise<void> {
   const flags = getMetabolicFeatureFlags(environment);
   let database: Connection | undefined;
   let reportService: ReportIngestionService | undefined;
+  let chatService: DiabetesChatService | undefined;
   let workerRunner: ExtractionWorkerRunner | undefined;
 
   if (flags.metabolicAssistantEnabled) {
@@ -52,13 +63,52 @@ async function main(): Promise<void> {
     const reportModel = getMetabolicReportModel(database);
     const jobModel = getMetabolicProcessingJobModel(database);
     const repository = new ReportRepository(reportModel, jobModel);
+    const reportUsage = new ReportUsageRepository(
+      getMetabolicReportUsageModel(database),
+    );
     const storage = new LocalReportStorage(
       environment.METABOLIC_LOCAL_STORAGE_DIR,
     );
     reportService = new ReportIngestionService(
       repository,
       storage,
+      {
+        usage: reportUsage,
+        maximum: environment.METABOLIC_MAX_REPORTS_PER_USER,
+        requireSubjectId:
+          environment.METABOLIC_REQUIRE_SUBJECT_ID_FOR_UPLOAD,
+      },
     );
+
+    const chatPolicy = buildMetabolicChatPolicy(environment);
+    if (chatPolicy.enabled) {
+      if (environment.METABOLIC_OPENAI_API_KEY === undefined) {
+        throw new MetabolicAssistantError(
+          "INVALID_CONFIGURATION",
+          "METABOLIC_OPENAI_API_KEY is required when diabetes chat is enabled.",
+        );
+      }
+      const chatRepository = new ChatRepository(
+        getMetabolicChatConversationModel(database),
+        getMetabolicChatMessageModel(database),
+      );
+      const chatUsage = new ChatUsageRepository(
+        getMetabolicChatUsageModel(database),
+      );
+      const chatProvider = new OpenAIReportChatProvider({
+        apiKey: environment.METABOLIC_OPENAI_API_KEY,
+        policy: chatPolicy,
+        store: environment.METABOLIC_OPENAI_STORE,
+        timeoutMs: environment.METABOLIC_OPENAI_TIMEOUT_MS,
+      });
+      chatService = new DiabetesChatService(
+        repository,
+        chatRepository,
+        chatUsage,
+        chatProvider,
+        chatPolicy,
+      );
+    }
 
     if (environment.METABOLIC_WORKER_ENABLED) {
       if (environment.METABOLIC_OPENAI_API_KEY === undefined) {
@@ -96,6 +146,7 @@ async function main(): Promise<void> {
     logger,
   };
   if (reportService !== undefined) appDependencies.reportService = reportService;
+  if (chatService !== undefined) appDependencies.chatService = chatService;
   const server = createServer(createMetabolicApp(appDependencies));
 
   server.listen(
@@ -109,6 +160,11 @@ async function main(): Promise<void> {
         apiPrefix: environment.METABOLIC_API_PREFIX,
         extractionWorkerEnabled: environment.METABOLIC_WORKER_ENABLED,
         extractionModel: environment.METABOLIC_EXTRACTION_MODEL,
+        chatEnabled: environment.METABOLIC_CHAT_ENABLED,
+        chatModel: environment.METABOLIC_CHAT_MODEL,
+        maxReportsPerUser: environment.METABOLIC_MAX_REPORTS_PER_USER,
+        maxReportsPerConversation:
+          environment.METABOLIC_CHAT_MAX_REPORTS_PER_CONVERSATION,
       });
       workerRunner?.start();
     },
