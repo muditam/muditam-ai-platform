@@ -12,11 +12,17 @@
     "extract": "npm run build --silent && node dist/cli.js",
     "structure": "npm run build --silent && node dist/structure-cli.js",
     "process": "npm run build --silent && node dist/process-cli.js",
+    "verify:report": "npm run build --silent && node dist/verify-cli.js",
+    "benchmark": "npm run build --silent && node dist/benchmark-cli.js",
+    "review": "npm run build --silent && node --env-file-if-exists=.env dist/review-server.js",
+    "review:mobile": "MUDITAM_REVIEW_HOST=0.0.0.0 npm run review",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^1.0.3",
+    "openai": "^7.1.0",
     "pdfjs-dist": "^6.2.108",
     "zod": "^4.4.3"
   },
