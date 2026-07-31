@@ -44,6 +44,11 @@ PDF.js inspects every page
 For direct PNG and JPEG uploads, the request starts at OpenAI Vision and then
 enters the same canonical mapping and validation pipeline.
 
+The mobile app can also submit an ordered batch of up to 10 PNG/JPEG report
+photos. Each photo is treated as one report page. Two photos are processed
+concurrently, page order is retained in source provenance, and all successful
+observations are merged before canonical mapping and duplicate validation.
+
 ### PDF page routing
 
 PDF.js extracts positioned text fragments, reconstructs lines, preserves source
@@ -161,6 +166,29 @@ curl --request POST http://127.0.0.1:4173/api/process \
   --data-binary @report.pdf
 ```
 
+### Process multiple report photos
+
+```http
+POST /api/process-images
+Content-Type: multipart/form-data
+
+pages=<ordered PNG/JPEG>
+pages=<ordered PNG/JPEG>
+```
+
+The multipart order defines report page order. The endpoint accepts 1–10
+photos, with a maximum of 10 MB per photo. If some photos fail, the response is
+`PARTIAL` and retains reliable observations from successful photos. If all
+photos fail, the response is `UNREADABLE`.
+
+Example:
+
+```bash
+curl --request POST http://127.0.0.1:4173/api/process-images \
+  --form "pages=@page-1.jpg;type=image/jpeg" \
+  --form "pages=@page-2.jpg;type=image/jpeg"
+```
+
 Uploaded bytes are processed in memory and are not intentionally persisted by
 the service. Structured logs include request ID, MIME type, byte size, routing,
 page numbers, durations, counts, and errors; they do not log extracted patient
@@ -228,8 +256,10 @@ cd ../muditam-app-frontend
 npx expo start -c
 ```
 
-Upload or replace a report through the onboarding report-upload screen. Keep
-the AI-platform terminal open to see the structured processing events.
+Upload or replace a report through the onboarding report-upload screen. The
+screen accepts one PDF or up to 10 photos, displays their page order, and lets
+the user add, remove, or reorder photos before extraction. Keep the AI-platform
+terminal open to see the structured processing events.
 
 For a physical device without ADB reverse, configure the frontend AI API URL to
 use the development machine's LAN IP and ensure the device can reach port 4173.
