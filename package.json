@@ -22,11 +22,13 @@
   },
   "dependencies": {
     "@napi-rs/canvas": "^1.0.3",
+    "busboy": "^1.6.0",
     "openai": "^7.1.0",
     "pdfjs-dist": "^6.2.108",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/busboy": "^1.5.4",
     "@types/node": "^26.1.2",
     "pdf-lib": "^1.17.1",
     "tsx": "^4.23.1",

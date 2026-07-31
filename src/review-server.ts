@@ -3,21 +3,28 @@ import { readFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { resolve } from "node:path";
 import process from "node:process";
+import Busboy from "busboy";
 import {
   ExtractionError,
   extractImageReport,
   extractPdf,
+  MAX_IMAGE_BATCH_PAGES,
+  MAX_IMAGE_PAGE_BYTES,
   mergeStructuredReports,
   normalizeReport,
   OpenAIImageObservationExtractor,
+  processImageBatch,
   renderPdfPages,
   structureReport,
+  type ImageBatchPage,
   type SupportedImageMimeType,
 } from "./index.js";
 
 const HOST = process.env.MUDITAM_REVIEW_HOST ?? "127.0.0.1";
 const PORT = Number(process.env.MUDITAM_REVIEW_PORT ?? 4173);
 const MAX_BYTES = 20 * 1024 * 1024;
+const MAX_IMAGE_BATCH_BYTES =
+  MAX_IMAGE_BATCH_PAGES * MAX_IMAGE_PAGE_BYTES;
 const MAX_VISION_PAGES = 10;
 const VISION_CONCURRENCY = 2;
 const htmlPath = resolve("local-test-ui/index.html");
@@ -100,6 +107,135 @@ async function readRequest(
   return new Uint8Array(Buffer.concat(chunks));
 }
 
+async function readImageBatch(
+  request: IncomingMessage,
+): Promise<ImageBatchPage[]> {
+  const contentType = request.headers["content-type"] ?? "";
+  if (!contentType.toLowerCase().startsWith("multipart/form-data")) {
+    throw new ExtractionError(
+      "INVALID_IMAGE",
+      "Multiple report photos must use multipart/form-data.",
+    );
+  }
+  const declaredLength = Number(request.headers["content-length"] ?? 0);
+  if (declaredLength > MAX_IMAGE_BATCH_BYTES) {
+    throw new ExtractionError(
+      "FILE_TOO_LARGE",
+      "The combined report-photo upload is too large.",
+    );
+  }
+
+  return new Promise((resolveBatch, rejectBatch) => {
+    let settled = false;
+    const rejectOnce = (error: unknown): void => {
+      if (settled) return;
+      settled = true;
+      rejectBatch(error);
+    };
+    let parser: ReturnType<typeof Busboy>;
+    try {
+      parser = Busboy({
+        headers: request.headers,
+        limits: {
+          files: MAX_IMAGE_BATCH_PAGES,
+          fileSize: MAX_IMAGE_PAGE_BYTES,
+          fields: 0,
+          parts: MAX_IMAGE_BATCH_PAGES,
+        },
+      });
+    } catch {
+      rejectOnce(
+        new ExtractionError("INVALID_IMAGE", "Invalid multipart upload."),
+      );
+      return;
+    }
+    const pages: Array<ImageBatchPage & { index: number }> = [];
+    let nextIndex = 0;
+    let totalBytes = 0;
+    parser.on("file", (_field, stream, info) => {
+      const index = nextIndex++;
+      const mimeType = info.mimeType.toLowerCase();
+      if (mimeType !== "image/png" && mimeType !== "image/jpeg") {
+        stream.resume();
+        rejectOnce(
+          new ExtractionError(
+            "INVALID_IMAGE",
+            "Every item in a multi-photo upload must be PNG or JPEG.",
+          ),
+        );
+        return;
+      }
+      const chunks: Buffer[] = [];
+      let fileBytes = 0;
+      stream.on("data", (chunk: Buffer) => {
+        fileBytes += chunk.length;
+        totalBytes += chunk.length;
+        if (totalBytes > MAX_IMAGE_BATCH_BYTES) {
+          rejectOnce(
+            new ExtractionError(
+              "FILE_TOO_LARGE",
+              "The combined report-photo upload is too large.",
+            ),
+          );
+          return;
+        }
+        chunks.push(chunk);
+      });
+      stream.on("limit", () => {
+        rejectOnce(
+          new ExtractionError(
+            "FILE_TOO_LARGE",
+            `${info.filename || `Photo ${index + 1}`} exceeds the 10 MB limit.`,
+          ),
+        );
+      });
+      stream.on("end", () => {
+        if (fileBytes === 0) {
+          rejectOnce(
+            new ExtractionError("INVALID_IMAGE", "An uploaded photo was empty."),
+          );
+          return;
+        }
+        pages.push({
+          index,
+          bytes: new Uint8Array(Buffer.concat(chunks)),
+          fileName: info.filename || `report-page-${index + 1}`,
+          mimeType: mimeType as SupportedImageMimeType,
+        });
+      });
+    });
+    parser.on("filesLimit", () => {
+      rejectOnce(
+        new ExtractionError(
+          "INVALID_IMAGE",
+          `Upload no more than ${MAX_IMAGE_BATCH_PAGES} report photos.`,
+        ),
+      );
+    });
+    parser.on("error", () => {
+      rejectOnce(
+        new ExtractionError("INVALID_IMAGE", "Could not read the photo upload."),
+      );
+    });
+    parser.on("close", () => {
+      if (settled) return;
+      if (pages.length === 0) {
+        rejectOnce(
+          new ExtractionError("INVALID_IMAGE", "No report photos were uploaded."),
+        );
+        return;
+      }
+      settled = true;
+      resolveBatch(
+        pages
+          .sort((left, right) => left.index - right.index)
+          .map(({ index: _index, ...page }) => page),
+      );
+    });
+    request.pipe(parser);
+  });
+}
+
 async function handle(
   request: IncomingMessage,
   response: ServerResponse,
@@ -127,6 +263,68 @@ async function handle(
 
   if (request.method === "GET" && url.pathname === "/api/health") {
     json(response, 200, { status: "ok" });
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    url.pathname === "/api/process-images"
+  ) {
+    const startedAt = Date.now();
+    const pages = await readImageBatch(request);
+    const apiKey =
+      process.env.MUDITAM_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new ExtractionError(
+        "INVALID_CONFIGURATION",
+        "Set MUDITAM_OPENAI_API_KEY to enable image report extraction.",
+      );
+    }
+    logEvent("image_batch.received", {
+      requestId,
+      pageCount: pages.length,
+      byteSize: pages.reduce(
+        (total, page) => total + page.bytes.byteLength,
+        0,
+      ),
+    });
+    const result = await processImageBatch(
+      pages,
+      new OpenAIImageObservationExtractor({ apiKey }),
+      (event, pageNumber, fields = {}) => {
+        logEvent(`image_batch.page.${event}`, {
+          requestId,
+          pageNumber,
+          ...fields,
+        });
+      },
+    );
+    const unreadable = result.structured.statistics.observationCount === 0;
+    const partial = result.failedPages.length > 0 && !unreadable;
+    const warnings = unreadable
+      ? ["Couldn’t read your report. Please contact our dietitian."]
+      : partial
+        ? [
+            "Some pages could not be read. Reliable extracted values are shown below.",
+          ]
+        : [];
+    const normalized = normalizeReport(result.structured, {
+      status: unreadable ? "UNREADABLE" : partial ? "PARTIAL" : "COMPLETE",
+      totalPages: pages.length,
+      pdfTextPages: [],
+      visionPages: result.successfulPages,
+      failedPages: result.failedPages,
+      warnings,
+    });
+    logEvent("image_batch.completed", {
+      requestId,
+      durationMs: Date.now() - startedAt,
+      processingStatus: normalized.processing.status,
+      observationCount: normalized.statistics.observationCount,
+      successfulPages: result.successfulPages,
+      failedPages: result.failedPages,
+    });
+    json(response, 200, normalized);
     return;
   }
 
