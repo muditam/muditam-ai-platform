@@ -122,6 +122,7 @@ export const metabolicEnvironmentSchema = z.object({
     ["NEEDS_REVIEW", "READY"],
   ),
   METABOLIC_CHAT_MAX_QUESTIONS_PER_WINDOW: integerFromEnvironment(20),
+  METABOLIC_CHAT_MAX_CONVERSATIONS_PER_USER: integerFromEnvironment(5),
   METABOLIC_CHAT_MAX_REPORTS_PER_CONVERSATION:
     integerFromEnvironment(3),
   METABOLIC_CHAT_LIMIT_WINDOW_MINUTES: integerFromEnvironment(1_440),

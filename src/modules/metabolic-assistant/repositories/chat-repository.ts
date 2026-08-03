@@ -70,6 +70,8 @@ export interface ChatRepositoryPort {
     userKey: string,
     limit: number,
   ): Promise<ChatConversationRecord[]>;
+  countConversations(userKey: string): Promise<number>;
+  deleteConversation(conversationId: string): Promise<void>;
   attachReports(
     conversationId: string,
     reportIds: string[],
@@ -201,6 +203,17 @@ export class ChatRepository implements ChatRepositoryPort {
     return conversations.map((conversation) =>
       toConversation(conversation as unknown as Record<string, unknown>),
     );
+  }
+
+  async countConversations(userKey: string): Promise<number> {
+    return this.conversationModel.countDocuments({ userKey, status: "ACTIVE" }).exec();
+  }
+
+  async deleteConversation(conversationId: string): Promise<void> {
+    const id = objectId(conversationId, "CHAT_CONVERSATION_NOT_FOUND");
+    const result = await this.conversationModel.deleteOne({ _id: id }).exec();
+    if (result.deletedCount === 0) throw new MetabolicAssistantError("CHAT_CONVERSATION_NOT_FOUND", "Chat conversation not found.", { status: 404 });
+    await this.messageModel.deleteMany({ conversationId: id }).exec();
   }
 
   async attachReports(

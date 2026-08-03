@@ -13,5 +13,6 @@ export function createChatRouter(controller: ChatController): Router {
     "/conversations/:conversationId",
     controller.history,
   );
+  router.delete("/conversations/:conversationId", controller.deleteConversation);
   return router;
 }

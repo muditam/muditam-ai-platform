@@ -108,6 +108,22 @@ export class ChatController {
     }
   };
 
+  deleteConversation = async (
+    request: Request,
+    response: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      await this.chat.deleteConversation({
+        conversationId: String(request.params.conversationId),
+        userId: queryUserId(request),
+      });
+      response.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  };
+
   private normalizeInputError(error: unknown): unknown {
     return error instanceof ZodError
       ? new MetabolicAssistantError(

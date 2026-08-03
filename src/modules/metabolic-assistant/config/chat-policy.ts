@@ -9,6 +9,7 @@ export interface MetabolicChatPolicy {
   allowedCategories: readonly AllowableChatCategory[];
   allowedReportStatuses: readonly ("NEEDS_REVIEW" | "READY")[];
   maxQuestionsPerWindow: number;
+  maxConversationsPerUser: number;
   maxReportsPerConversation: number;
   limitWindowMinutes: number;
   maxQuestionChars: number;
@@ -43,6 +44,8 @@ export function buildMetabolicChatPolicy(
       )[],
     maxQuestionsPerWindow:
       environment.METABOLIC_CHAT_MAX_QUESTIONS_PER_WINDOW,
+    maxConversationsPerUser:
+      environment.METABOLIC_CHAT_MAX_CONVERSATIONS_PER_USER,
     maxReportsPerConversation:
       environment.METABOLIC_CHAT_MAX_REPORTS_PER_CONVERSATION,
     limitWindowMinutes: environment.METABOLIC_CHAT_LIMIT_WINDOW_MINUTES,

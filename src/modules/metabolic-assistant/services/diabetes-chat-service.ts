@@ -75,6 +75,7 @@ export interface DiabetesChatHistory {
 export interface DiabetesChatOperations {
   createConversation(userId: string): Promise<PublicConversation>;
   listConversations(userId: string): Promise<PublicConversation[]>;
+  deleteConversation(input: { conversationId: string; userId: string }): Promise<void>;
   ask(input: {
     conversationId: string;
     userId: string;
@@ -171,6 +172,9 @@ export class DiabetesChatService
   async createConversation(userId: string): Promise<PublicConversation> {
     this.assertEnabled();
     const normalizedUserId = this.validateUserId(userId);
+    if (await this.chats.countConversations(userKey(normalizedUserId)) >= this.policy.maxConversationsPerUser) {
+      throw new MetabolicAssistantError("CHAT_CONVERSATION_LIMIT_REACHED", "This user has reached the chat-session limit.", { status: 429, details: { maximum: this.policy.maxConversationsPerUser } });
+    }
     return publicConversation(
       await this.chats.createConversation({
         userKey: userKey(normalizedUserId),
@@ -185,6 +189,11 @@ export class DiabetesChatService
     return (
       await this.chats.listConversations(userKey(normalizedUserId), 100)
     ).map(publicConversation);
+  }
+
+  async deleteConversation(input: { conversationId: string; userId: string }): Promise<void> {
+    const conversation = await this.ownedConversation(input.conversationId, userKey(this.validateUserId(input.userId)));
+    await this.chats.deleteConversation(conversation.id);
   }
 
   async ask(input: {
