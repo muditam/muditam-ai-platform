@@ -5,6 +5,12 @@ import { resolve } from "node:path";
 import process from "node:process";
 import Busboy from "busboy";
 import {
+  assertAllowedSignedUrl,
+  internalExtractionRequestSchema,
+  validServiceSecret,
+  type InternalExtractionRequest,
+} from "./internal/extraction-request.js";
+import {
   ExtractionError,
   extractImageReport,
   extractPdf,
@@ -27,6 +33,7 @@ const MAX_IMAGE_BATCH_BYTES =
   MAX_IMAGE_BATCH_PAGES * MAX_IMAGE_PAGE_BYTES;
 const MAX_VISION_PAGES = 10;
 const VISION_CONCURRENCY = 2;
+const MAX_INTERNAL_JSON_BYTES = 64 * 1024;
 const htmlPath = resolve("local-test-ui/index.html");
 
 function logEvent(
@@ -105,6 +112,108 @@ async function readRequest(
     chunks.push(buffer);
   }
   return new Uint8Array(Buffer.concat(chunks));
+}
+
+async function readInternalJson(
+  request: IncomingMessage,
+): Promise<InternalExtractionRequest> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of request) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    size += buffer.length;
+    if (size > MAX_INTERNAL_JSON_BYTES) {
+      throw new ExtractionError("FILE_TOO_LARGE", "Internal request is too large.");
+    }
+    chunks.push(buffer);
+  }
+  let value: unknown;
+  try {
+    value = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch {
+    throw new ExtractionError("INVALID_CONFIGURATION", "Invalid internal request JSON.");
+  }
+  const parsed = internalExtractionRequestSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new ExtractionError("INVALID_CONFIGURATION", "Invalid internal extraction request.");
+  }
+  parsed.data.files.forEach((file) => assertAllowedSignedUrl(file.url));
+  return parsed.data;
+}
+
+async function downloadSignedFile(
+  file: InternalExtractionRequest["files"][number],
+): Promise<Uint8Array> {
+  const response = await fetch(file.url, { signal: AbortSignal.timeout(30_000) });
+  if (!response.ok) {
+    throw new ExtractionError(
+      "INVALID_CONFIGURATION",
+      `Could not download stored report file (${response.status}).`,
+    );
+  }
+  const declaredBytes = Number(response.headers.get("content-length") ?? 0);
+  if (declaredBytes > MAX_BYTES) {
+    throw new ExtractionError("FILE_TOO_LARGE", "Stored report file is too large.");
+  }
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (bytes.byteLength === 0 || bytes.byteLength > MAX_BYTES) {
+    throw new ExtractionError("FILE_TOO_LARGE", "Stored report file is empty or too large.");
+  }
+  return bytes;
+}
+
+async function processStoredFiles(
+  payload: InternalExtractionRequest,
+): Promise<{ status: number; body: unknown }> {
+  const ordered = [...payload.files].sort((left, right) => left.order - right.order);
+  const downloaded = await Promise.all(
+    ordered.map(async (file) => ({ file, bytes: await downloadSignedFile(file) })),
+  );
+  const totalBytes = downloaded.reduce((total, item) => total + item.bytes.byteLength, 0);
+  if (totalBytes > MAX_IMAGE_BATCH_BYTES) {
+    throw new ExtractionError("FILE_TOO_LARGE", "Stored report batch is too large.");
+  }
+
+  let processingResponse: Response;
+  if (downloaded.length === 1) {
+    const item = downloaded[0] as (typeof downloaded)[number];
+    processingResponse = await fetch(`http://127.0.0.1:${PORT}/api/process`, {
+      method: "POST",
+      headers: {
+        "Content-Type": item.file.mimeType,
+        "X-File-Name": encodeURIComponent(item.file.originalName),
+      },
+      body: Buffer.from(item.bytes),
+    });
+  } else {
+    if (downloaded.some((item) => !["image/jpeg", "image/png"].includes(item.file.mimeType))) {
+      throw new ExtractionError(
+        "INVALID_CONFIGURATION",
+        "Multiple stored report files must all be JPG or PNG images.",
+      );
+    }
+    const form = new FormData();
+    downloaded.forEach((item) => {
+      const blobBytes = Uint8Array.from(item.bytes);
+      form.append(
+        "pages",
+        new Blob([blobBytes.buffer], { type: item.file.mimeType }),
+        item.file.originalName,
+      );
+    });
+    processingResponse = await fetch(`http://127.0.0.1:${PORT}/api/process-images`, {
+      method: "POST",
+      body: form,
+    });
+  }
+  const text = await processingResponse.text();
+  let body: unknown;
+  try {
+    body = text ? JSON.parse(text) : null;
+  } catch {
+    throw new ExtractionError("INVALID_CONFIGURATION", "Extraction returned invalid JSON.");
+  }
+  return { status: processingResponse.status, body };
 }
 
 async function readImageBatch(
@@ -263,6 +372,32 @@ async function handle(
 
   if (request.method === "GET" && url.pathname === "/api/health") {
     json(response, 200, { status: "ok" });
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    url.pathname === "/internal/report-extractions"
+  ) {
+    if (!validServiceSecret(request.headers["x-muditam-service-secret"] as string | undefined)) {
+      json(response, 401, { error: "Unauthorized service request." });
+      return;
+    }
+    const startedAt = Date.now();
+    const payload = await readInternalJson(request);
+    logEvent("internal_report.received", {
+      requestId,
+      reportId: payload.reportId,
+      fileCount: payload.files.length,
+    });
+    const result = await processStoredFiles(payload);
+    logEvent("internal_report.completed", {
+      requestId,
+      reportId: payload.reportId,
+      durationMs: Date.now() - startedAt,
+      upstreamStatus: result.status,
+    });
+    json(response, result.status, result.body);
     return;
   }
 

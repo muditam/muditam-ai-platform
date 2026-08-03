@@ -44,6 +44,20 @@ PDF.js inspects every page
 For direct PNG and JPEG uploads, the request starts at OpenAI Vision and then
 enters the same canonical mapping and validation pipeline.
 
+### App-backend integration
+
+Production report processing is backend-owned. The app backend calls
+`POST /internal/report-extractions` with an ordered list of short-lived private
+Wasabi download URLs. This endpoint requires `X-Muditam-Service-Secret`; it is
+not a mobile/public API. Download URLs must be HTTPS and hosted under
+`wasabisys.com`, preventing the service from being used as a general URL
+fetcher.
+
+The internal endpoint downloads each original into memory within existing size
+limits, reuses the same PDF/image extraction paths described below, and returns
+one normalized report. Originals and signed URLs are never persisted by this
+service.
+
 The mobile app can also submit an ordered batch of up to 10 PNG/JPEG report
 photos. Each photo is treated as one report page. Two photos are processed
 concurrently, page order is retained in source provenance, and all successful
@@ -75,6 +89,9 @@ infer missing values, or choose canonical biomarker codes.
 
 The OpenAI API key exists only in this server. Never expose it through an
 `EXPO_PUBLIC_*` mobile variable.
+
+`AI_PLATFORM_SERVICE_SECRET` must contain at least 32 characters and exactly
+match the value configured in the app backend for that environment.
 
 ### Canonical mapping and validation
 
