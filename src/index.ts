@@ -30,9 +30,49 @@ export {
   type BiomarkerDefinition,
 } from "./catalogue/biomarkers.js";
 export {
+  resolveBiomarker,
+  type BiomarkerResolution,
+  type MappingMethod,
+  type MappingStatus,
+  type ResolveBiomarkerInput,
+} from "./catalogue/biomarker-resolver.js";
+export {
   ExtractionError,
   type ExtractionErrorCode,
 } from "./errors/extraction-error.js";
 export { extractPdf, type ExtractPdfOptions } from "./pdf/extract-pdf.js";
+export {
+  renderPdfPages,
+  type RenderedPdfPage,
+} from "./pdf/render-pdf-pages.js";
+export {
+  extractImageReport,
+  OpenAIImageObservationExtractor,
+  type ExtractImageInput,
+  type ImageObservationExtractor,
+  type OpenAIImageExtractorOptions,
+  type SupportedImageMimeType,
+} from "./image/image-report-extractor.js";
+export {
+  MAX_IMAGE_BATCH_PAGES,
+  MAX_IMAGE_PAGE_BYTES,
+  processImageBatch,
+  type ImageBatchPage,
+  type ImageBatchResult,
+} from "./image/process-image-batch.js";
 export { normalizeReport } from "./report/normalize-report.js";
+export { mergeStructuredReports } from "./report/merge-structured-reports.js";
 export { structureReport } from "./report/structure-report.js";
+export {
+  detectColumnModel,
+  nearestColumn,
+  type ColumnAnchors,
+  type ColumnModel,
+} from "./report/column-model.js";
+export {
+  verifyGoldenReport,
+  type GoldenCheck,
+  type GoldenObservation,
+  type GoldenReport,
+  type GoldenVerification,
+} from "./report/verify-golden-report.js";

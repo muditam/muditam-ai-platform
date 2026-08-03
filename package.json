@@ -15,6 +15,10 @@
     "start:metabolic": "tsx src/modules/metabolic-assistant/server.ts",
     "structure": "npm run build --silent && node dist/structure-cli.js",
     "process": "npm run build --silent && node dist/process-cli.js",
+    "verify:report": "npm run build --silent && node dist/verify-cli.js",
+    "benchmark": "npm run build --silent && node dist/benchmark-cli.js",
+    "review": "npm run build --silent && node --env-file-if-exists=.env dist/review-server.js",
+    "review:mobile": "MUDITAM_REVIEW_HOST=0.0.0.0 npm run review",
     "test": "vitest run",
     "test:metabolic": "vitest run tests/metabolic-assistant",
     "test:watch": "vitest",
@@ -25,6 +29,8 @@
     "express": "^5.2.1",
     "mongoose": "^9.8.1",
     "multer": "^2.2.0",
+    "@napi-rs/canvas": "^1.0.3",
+    "busboy": "^1.6.0",
     "openai": "^7.1.0",
     "pdfjs-dist": "^6.2.108",
     "zod": "^4.4.3"
@@ -32,6 +38,7 @@
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/multer": "^2.2.0",
+    "@types/busboy": "^1.5.4",
     "@types/node": "^26.1.2",
     "pdf-lib": "^1.17.1",
     "tsx": "^4.23.1",

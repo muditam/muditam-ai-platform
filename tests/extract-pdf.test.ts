@@ -5,6 +5,7 @@ import {
   ExtractionError,
   extractPdf,
   extractedDocumentSchema,
+  renderPdfPages,
 } from "../src/index.js";
 
 async function createTextPdf(pageCount = 1): Promise<Uint8Array> {
@@ -88,13 +89,23 @@ describe("extractPdf", () => {
   });
 
   it("classifies an image-only page as requiring OCR without invoking OCR", async () => {
-    const result = await extractPdf(await createImageOnlyPdf());
+    const bytes = await createImageOnlyPdf();
+    const result = await extractPdf(bytes);
 
     expect(result.quality.status).toBe("OCR_REQUIRED");
     expect(result.quality.pagesRequiringOcr).toEqual([1]);
     expect(result.pages[0]?.quality.status).toBe("OCR_REQUIRED");
     expect(result.pages[0]?.quality.imageObjects).toBeGreaterThan(0);
     expect(result.pages[0]?.items).toEqual([]);
+
+    const rendered = await renderPdfPages(bytes, [1]);
+    expect(rendered).toHaveLength(1);
+    expect(rendered[0]?.pageNumber).toBe(1);
+    expect(rendered[0]?.width).toBeGreaterThan(1_000);
+    expect(rendered[0]?.height).toBeGreaterThan(2_000);
+    expect(rendered[0]?.pngBytes.subarray(0, 8)).toEqual(
+      new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    );
   });
 
   it("reports mixed digital and image-only pages as partial extraction", async () => {

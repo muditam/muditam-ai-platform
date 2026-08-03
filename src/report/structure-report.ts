@@ -9,6 +9,12 @@ import type {
   ExtractedPage,
   TextLine,
 } from "../contracts/extracted-document.js";
+import {
+  detectColumnModel,
+  nearestColumn,
+  type ColumnModel,
+} from "./column-model.js";
+import { findBiomarker } from "../catalogue/biomarkers.js";
 
 interface Columns {
   description: string;
@@ -17,7 +23,11 @@ interface Columns {
   referenceRange: string;
 }
 
-function lineColumns(page: ExtractedPage, line: TextLine): Columns {
+function lineColumns(
+  page: ExtractedPage,
+  line: TextLine,
+  model: ColumnModel,
+): Columns {
   const columns: Record<keyof Columns, string[]> = {
     description: [],
     value: [],
@@ -30,14 +40,14 @@ function lineColumns(page: ExtractedPage, line: TextLine): Columns {
 
   for (const item of items) {
     const ratio = item.boundingBox.x / page.width;
-    const key: keyof Columns =
-      ratio < 0.44
-        ? "description"
-        : ratio < 0.6
-          ? "value"
-          : ratio < 0.75
-            ? "unit"
-            : "referenceRange";
+    const key = nearestColumn(ratio, model.anchors);
+    const tolerances: Record<keyof Columns, number> = {
+      description: 0.2,
+      value: 0.075,
+      unit: 0.08,
+      referenceRange: 0.12,
+    };
+    if (Math.abs(ratio - model.anchors[key]) > tolerances[key]) continue;
     columns[key].push(item.text.trim());
   }
   return {
@@ -114,6 +124,12 @@ function isAnalyzerAppendix(page: ExtractedPage): boolean {
   );
 }
 
+function startsInterpretiveTable(text: string): boolean {
+  return /^(?:reference group\b|risk group\s+treatment goals\b|national lipid association recommendations\b|newer treatment goals\b)/i.test(
+    text.trim(),
+  );
+}
+
 function sourceFor(page: ExtractedPage, line: TextLine) {
   return {
     pageNumber: page.pageNumber,
@@ -157,6 +173,7 @@ function isMethodLine(
 export function structureReport(
   document: ExtractedDocument,
 ): StructuredReport {
+  const columnModel = detectColumnModel(document);
   const panelMap = new Map<string, Observation[]>();
   const unclassifiedContent: StructuredReport["unclassifiedContent"] = [];
   let currentPanel = "Uncategorized";
@@ -164,6 +181,7 @@ export function structureReport(
   let previousObservation: Observation | undefined;
   let observationNumber = 0;
   let classifiedLineCount = 0;
+  let insideInterpretiveTable = false;
 
   for (const page of document.pages) {
     if (isAnalyzerAppendix(page)) {
@@ -178,7 +196,28 @@ export function structureReport(
     }
 
     for (const line of page.lines) {
-      const columns = lineColumns(page, line);
+      if (startsInterpretiveTable(line.text)) {
+        insideInterpretiveTable = true;
+        unclassifiedContent.push({
+          text: line.text,
+          source: sourceFor(page, line),
+        });
+        previousObservation = undefined;
+        continue;
+      }
+
+      const prospectiveHeading = headingType(page, line);
+      if (prospectiveHeading === "PANEL") insideInterpretiveTable = false;
+      if (insideInterpretiveTable && !prospectiveHeading) {
+        unclassifiedContent.push({
+          text: line.text,
+          source: sourceFor(page, line),
+        });
+        previousObservation = undefined;
+        continue;
+      }
+
+      const columns = lineColumns(page, line, columnModel);
       if (/^eGFR\b/i.test(columns.description)) {
         const valueWithUnit = columns.value.match(
           /^(-?\d+(?:\.\d+)?)\s+(.+)$/,
@@ -194,7 +233,9 @@ export function structureReport(
         columns.value.length > 0 &&
         looksLikeResultValue(columns.value) &&
         (columns.referenceRange.length > 0 ||
-          /^eGFR\b/i.test(columns.description));
+          /^eGFR\b/i.test(columns.description) ||
+          (columns.unit.length > 0 &&
+            findBiomarker(columns.description) !== undefined));
 
       if (isCandidateRow) {
         const flagged = parseFlag(columns.value);
@@ -230,7 +271,7 @@ export function structureReport(
         continue;
       }
 
-      const heading = headingType(page, line);
+      const heading = prospectiveHeading;
       if (heading === "PANEL") {
         currentPanel = line.text;
         currentSection = undefined;
@@ -261,6 +302,7 @@ export function structureReport(
     documentId: document.documentId,
     sourceExtractionSchemaVersion: document.schemaVersion,
     status: unclassifiedContent.length > 0 ? "PARTIAL" : "STRUCTURED",
+    layoutAnalysis: columnModel,
     panels,
     unclassifiedContent,
     statistics: {

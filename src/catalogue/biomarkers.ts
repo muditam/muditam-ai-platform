@@ -27,16 +27,18 @@ function definition(
 export const biomarkerCatalogue: readonly BiomarkerDefinition[] = [
   definition("HBA1C", "HbA1c", "DIABETES", "%", [
     "Glycosylated Hemoglobin (HbA1c)",
+    "HbA1c (Glycosylated Hemoglobin)",
     "Glycated Hemoglobin",
     "Glycosylated Haemoglobin",
     "A1C",
+    "HbA1c (IFCC)",
   ]),
   definition(
     "ESTIMATED_AVERAGE_GLUCOSE",
     "Estimated Average Glucose",
     "DIABETES",
     "mg/dL",
-    ["eAG"],
+    ["eAG", "Average Estimated Glucose"],
   ),
   definition("FASTING_GLUCOSE", "Fasting Glucose", "DIABETES", "mg/dL", [
     "Glucose Fasting",
@@ -70,11 +72,13 @@ export const biomarkerCatalogue: readonly BiomarkerDefinition[] = [
     "AST",
     "SGOT",
     "SGOT/AST",
+    "Aspartate Aminotransferase (AST/SGOT)",
   ]),
   definition("ALT", "Alanine Aminotransferase", "LIVER", "U/L", [
     "ALT",
     "SGPT",
     "SGPT/ALT",
+    "Alanine Aminotransferase (ALT/SGPT)",
   ]),
   definition("AST_ALT_RATIO", "AST/ALT Ratio", "LIVER", "ratio", [
     "SGOT/SGPT Ratio",
@@ -123,11 +127,17 @@ export const biomarkerCatalogue: readonly BiomarkerDefinition[] = [
   definition("CHLORIDE", "Chloride", "KIDNEY", "mmol/L"),
 
   definition("TOTAL_CHOLESTEROL", "Total Cholesterol", "LIPID", "mg/dL"),
-  definition("TRIGLYCERIDES", "Triglycerides", "LIPID", "mg/dL"),
-  definition("HDL_CHOLESTEROL", "HDL Cholesterol", "LIPID", "mg/dL", ["HDL"]),
+  definition("TRIGLYCERIDES", "Triglycerides", "LIPID", "mg/dL", [
+    "Serum Triglycerides",
+  ]),
+  definition("HDL_CHOLESTEROL", "HDL Cholesterol", "LIPID", "mg/dL", [
+    "HDL",
+    "Serum HDL Cholesterol",
+  ]),
   definition("LDL_CHOLESTEROL", "LDL Cholesterol", "LIPID", "mg/dL", [
     "LDL",
     "LDL Cholesterol Direct",
+    "LDL Cholesterol Calculated",
   ]),
   definition("VLDL_CHOLESTEROL", "VLDL Cholesterol", "LIPID", "mg/dL", [
     "V.L.D.L Cholesterol",
