@@ -5,6 +5,11 @@ import { resolve } from "node:path";
 import process from "node:process";
 import Busboy from "busboy";
 import {
+  directProcessingAllowed,
+  isProduction,
+  reviewUiAllowed,
+} from "./server/access-policy.js";
+import {
   assertAllowedSignedUrl,
   internalExtractionRequestSchema,
   validServiceSecret,
@@ -26,8 +31,10 @@ import {
   type SupportedImageMimeType,
 } from "./index.js";
 
-const HOST = process.env.MUDITAM_REVIEW_HOST ?? "127.0.0.1";
-const PORT = Number(process.env.MUDITAM_REVIEW_PORT ?? 4173);
+const HOST = isProduction()
+  ? "0.0.0.0"
+  : process.env.MUDITAM_REVIEW_HOST ?? "127.0.0.1";
+const PORT = Number(process.env.PORT ?? process.env.MUDITAM_REVIEW_PORT ?? 4173);
 const MAX_BYTES = 20 * 1024 * 1024;
 const MAX_IMAGE_BATCH_BYTES =
   MAX_IMAGE_BATCH_PAGES * MAX_IMAGE_PAGE_BYTES;
@@ -85,13 +92,16 @@ function json(
   status: number,
   body: unknown,
 ): void {
-  response.writeHead(status, {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type, X-File-Name",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  });
+  };
+  if (!isProduction()) {
+    headers["Access-Control-Allow-Origin"] = "*";
+    headers["Access-Control-Allow-Headers"] = "Content-Type, X-File-Name";
+    headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS";
+  }
+  response.writeHead(status, headers);
   response.end(JSON.stringify(body));
 }
 
@@ -351,7 +361,7 @@ async function handle(
   requestId: string,
 ): Promise<void> {
   const url = new URL(request.url ?? "/", `http://${HOST}:${PORT}`);
-  if (request.method === "OPTIONS") {
+  if (request.method === "OPTIONS" && !isProduction()) {
     response.writeHead(204, {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Headers": "Content-Type, X-File-Name",
@@ -360,7 +370,11 @@ async function handle(
     response.end();
     return;
   }
-  if (request.method === "GET" && url.pathname === "/") {
+  if (
+    request.method === "GET" &&
+    url.pathname === "/" &&
+    reviewUiAllowed()
+  ) {
     const html = await readFile(htmlPath);
     response.writeHead(200, {
       "Content-Type": "text/html; charset=utf-8",
@@ -405,6 +419,10 @@ async function handle(
     request.method === "POST" &&
     url.pathname === "/api/process-images"
   ) {
+    if (!directProcessingAllowed(process.env.NODE_ENV, request.socket.remoteAddress)) {
+      json(response, 404, { error: "Not found." });
+      return;
+    }
     const startedAt = Date.now();
     const pages = await readImageBatch(request);
     const apiKey =
@@ -464,6 +482,10 @@ async function handle(
   }
 
   if (request.method === "POST" && url.pathname === "/api/process") {
+    if (!directProcessingAllowed(process.env.NODE_ENV, request.socket.remoteAddress)) {
+      json(response, 404, { error: "Not found." });
+      return;
+    }
     const startedAt = Date.now();
     const contentType = request.headers["content-type"]?.split(";")[0]?.trim();
     const encodedName = request.headers["x-file-name"];

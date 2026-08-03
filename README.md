@@ -11,6 +11,13 @@ invent missing results, or generate estimated dashboard values.
 DOCX extraction, clinical interpretation, AI chat, and voice are not included
 in this milestone.
 
+In production, only `GET /api/health` and the service-authenticated
+`POST /internal/report-extractions` integration are externally available. The
+local reviewer UI, `POST /api/process`, and `POST /api/process-images` are
+development tools and return `404` to external production requests. Internal
+loopback calls remain available so the authenticated integration can reuse the
+same extraction pipeline.
+
 ## Current architecture
 
 ```text
@@ -158,6 +165,9 @@ GET /api/health
 ```
 
 ### Process a report
+
+The following direct routes are for local development and benchmark testing;
+they are not public production APIs.
 
 ```http
 POST /api/process

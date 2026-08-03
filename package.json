@@ -8,6 +8,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "start": "npm run build --silent && node --env-file-if-exists=.env dist/review-server.js",
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "extract": "npm run build --silent && node dist/cli.js",
     "structure": "npm run build --silent && node dist/structure-cli.js",

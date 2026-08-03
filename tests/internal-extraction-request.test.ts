@@ -36,4 +36,17 @@ describe("internal extraction security", () => {
     });
     expect(parsed.success).toBe(true);
   });
+
+  it("rejects DOCX until a real DOCX extraction path exists", () => {
+    const parsed = internalExtractionRequestSchema.safeParse({
+      reportId: "report-1",
+      files: [{
+        url: "https://bucket.s3.ap-southeast-2.wasabisys.com/report.docx",
+        mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        originalName: "report.docx",
+        order: 0,
+      }],
+    });
+    expect(parsed.success).toBe(false);
+  });
 });
