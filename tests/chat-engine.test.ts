@@ -38,6 +38,22 @@ describe("AI chat guardrails", () => {
     expect(response.model).toBeNull();
   });
 
+  it("treats an explicit medical emergency statement as urgent before calling the model", async () => {
+    let called = false;
+    const response = await answerChat({ ...baseRequest, message: "I may be having a medical emergency" }, {
+      answer: async () => {
+        called = true;
+        throw new Error("should not run");
+      },
+    });
+
+    expect(called).toBe(false);
+    expect(response.decision).toBe("SAFETY");
+    expect(response.category).toBe("URGENT_SAFETY");
+    expect(response.guardrailStage).toBe("INPUT");
+    expect(response.usage.totalTokens).toBe(0);
+  });
+
   it("keeps only citations that exist in trusted observations", async () => {
     const response = await answerChat({ ...baseRequest, message: "What does my HbA1c mean?" }, {
       answer: async () => ({

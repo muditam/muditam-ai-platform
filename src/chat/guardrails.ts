@@ -23,7 +23,7 @@ function localized(language: InternalChatRequest["language"]) {
   return messages[language];
 }
 
-const urgentPattern = /\b(unconscious|unresponsive|seizure|cannot breathe|can't breathe|chest pain|fainted|fainting|severe confusion|suicid(?:e|al)|overdos(?:e|ed|ing))\b/i;
+const urgentPattern = /\b(unconscious|unresponsive|seizure|cannot breathe|can't breathe|chest pain|fainted|fainting|severe confusion|medical emergency|emergency care|suicid(?:e|al)|overdos(?:e|ed|ing))\b/i;
 const medicationPattern = /\b(start|stop|change|increase|decrease|double|skip|dose|dosage|prescribe)\b.{0,45}\b(medicine|medication|tablet|insulin|metformin|drug|mg|units?)\b|\bhow much (insulin|metformin|medicine)\b|\bhow many units?(?: of)? insulin\b/i;
 const diagnosisPattern = /\b(do i have|diagnose me|am i diabetic|confirm (?:that )?i have)\b/i;
 const urgentHindiPattern = /(बेहोश|सांस नहीं ले|साँस नहीं ले|दौरा पड़|सीने में दर्द|आत्महत्या|ओवरडोज)/u;
