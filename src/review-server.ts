@@ -4,6 +4,8 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { resolve } from "node:path";
 import process from "node:process";
 import Busboy from "busboy";
+import { ZodError } from "zod";
+import { answerChat } from "./chat/chat-engine.js";
 import {
   directProcessingAllowed,
   isProduction,
@@ -41,6 +43,7 @@ const MAX_IMAGE_BATCH_BYTES =
 const MAX_VISION_PAGES = 10;
 const VISION_CONCURRENCY = 2;
 const MAX_INTERNAL_JSON_BYTES = 64 * 1024;
+const MAX_CHAT_JSON_BYTES = 256 * 1024;
 const htmlPath = resolve("local-test-ui/index.html");
 
 function logEvent(
@@ -149,6 +152,18 @@ async function readInternalJson(
   }
   parsed.data.files.forEach((file) => assertAllowedSignedUrl(file.url));
   return parsed.data;
+}
+
+async function readJson(request: IncomingMessage, maximumBytes: number): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of request) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    size += buffer.length;
+    if (size > maximumBytes) throw new Error("REQUEST_TOO_LARGE");
+    chunks.push(buffer);
+  }
+  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
 async function downloadSignedFile(
@@ -412,6 +427,44 @@ async function handle(
       upstreamStatus: result.status,
     });
     json(response, result.status, result.body);
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/internal/ai-chat/messages") {
+    if (!validServiceSecret(request.headers["x-muditam-service-secret"] as string | undefined)) {
+      json(response, 401, { error: "Unauthorized service request." });
+      return;
+    }
+    if (String(process.env.MUDITAM_CHAT_ENABLED ?? "true").toLowerCase() === "false") {
+      json(response, 503, { error: "AI chat is temporarily disabled.", code: "CHAT_DISABLED" });
+      return;
+    }
+    const startedAt = Date.now();
+    try {
+      const payload = await readJson(request, MAX_CHAT_JSON_BYTES);
+      const result = await answerChat(payload);
+      logEvent("internal_chat.completed", {
+        requestId,
+        durationMs: Date.now() - startedAt,
+        decision: result.decision,
+        category: result.category,
+        citationCount: result.citations.length,
+        guardrailStage: result.guardrailStage,
+        model: result.model,
+        inputTokens: result.usage.inputTokens,
+        outputTokens: result.usage.outputTokens,
+        totalTokens: result.usage.totalTokens,
+      });
+      json(response, 200, result);
+    } catch (error) {
+      if (error instanceof ZodError || error instanceof SyntaxError || (error instanceof Error && error.message === "REQUEST_TOO_LARGE")) {
+        json(response, 400, { error: "Invalid chat request.", code: "INVALID_CHAT_REQUEST" });
+        return;
+      }
+      logEvent("internal_chat.failed", { requestId, durationMs: Date.now() - startedAt });
+      console.error(error);
+      json(response, 502, { error: "The AI assistant is temporarily unavailable.", code: "CHAT_PROVIDER_ERROR" });
+    }
     return;
   }
 

@@ -376,3 +376,70 @@ The extraction/OCR MVP is functional, but production rollout still requires:
 
 Medical interpretation and patient-facing recommendations must be implemented
 as a separate, versioned clinical layer with appropriate professional review.
+
+## Local AI chat engine
+
+The private chat endpoint is available only to the application backend:
+
+```text
+POST /internal/ai-chat/messages
+X-Muditam-Service-Secret: <shared secret>
+```
+
+It accepts a limited recent history and a trusted allow-list of normalized
+observations prepared by the main backend. It never loads a report using a
+client-supplied patient ID. The response is a structured decision, answer,
+verified observation citations, and verified knowledge references.
+
+The local processing order is:
+
+```text
+deterministic emergency/medication guardrail
+  -> keyword retrieval from versioned curated knowledge
+  -> OpenAI Responses API with Structured Outputs and store=false
+  -> category/decision enforcement
+  -> observation and knowledge citation allow-listing
+  -> safe normalized response
+```
+
+Configure:
+
+```dotenv
+AI_PLATFORM_SERVICE_SECRET=<same 32+ character backend secret>
+MUDITAM_OPENAI_API_KEY=<server-side key>
+MUDITAM_CHAT_MODEL=gpt-5.6-luna
+```
+
+The bundled knowledge entries are intentionally a small development seed and
+must be expanded, clinically reviewed, versioned, and evaluated before a
+patient production release. Text chat and the future LiveKit voice agent should
+both call this same engine; LiveKit supplies speech-to-text and text-to-speech,
+not a separate medical reasoning path.
+
+### Chat evaluation
+
+The initial evaluation corpus contains 50 synthetic English/Hindi cases across
+report grounding, missing values, education, medication, diagnosis, emergency,
+prompt injection, and off-topic requests. Every case is marked `DRAFT` until a
+qualified clinical reviewer approves its expected behavior.
+
+The full live evaluation is opt-in because it makes one or more billable OpenAI
+requests. Start with a small group or limit:
+
+```bash
+MUDITAM_RUN_LIVE_CHAT_EVAL=true npm run eval:chat -- --group EMERGENCY
+MUDITAM_RUN_LIVE_CHAT_EVAL=true npm run eval:chat -- --limit 5
+```
+
+Run the entire 50-case corpus only after the draft expectations have been
+reviewed:
+
+```bash
+MUDITAM_RUN_LIVE_CHAT_EVAL=true npm run eval:chat
+```
+
+The runner prints pass rate, failure IDs/reasons, and total tokens without
+printing prompts, answers, credentials, or patient data. Normal service logs
+contain request ID, decision, category, guardrail stage, model, latency, token
+counts, and citation count; they intentionally exclude message text and report
+values.
