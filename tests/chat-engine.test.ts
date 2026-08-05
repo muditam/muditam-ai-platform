@@ -131,6 +131,47 @@ describe("AI chat guardrails", () => {
     expect(response.answer).toContain("not automatically verified");
   });
 
+  it("lists extracted report values deterministically without calling the model", async () => {
+    let called = false;
+    const observations = [
+      baseRequest.observations[0],
+      {
+        ...baseRequest.observations[0],
+        observationId: "obs-review-list",
+        displayName: "Vendor marker",
+        value: { type: "NUMERIC", numeric: 42 },
+        unit: "mg/dL",
+        mappingStatus: "AMBIGUOUS" as const,
+        validationStatus: "REVIEW_REQUIRED" as const,
+        decision: "REVIEW_REQUIRED" as const,
+        confidence: 0.4,
+      },
+    ];
+    const response = await answerChat({ ...baseRequest, observations, message: "Can you tell me all values extracted from my report?" }, {
+      answer: async () => {
+        called = true;
+        throw new Error("should not run");
+      },
+    });
+    expect(called).toBe(false);
+    expect(response.decision).toBe("ALLOW");
+    expect(response.model).toBeNull();
+    expect(response.usage.totalTokens).toBe(0);
+    expect(response.answer).toContain("HbA1c: 10 % (verified)");
+    expect(response.answer).toContain("Vendor marker: 42 mg/dL (needs review)");
+    expect(response.answer).toContain("not automatically verified");
+    expect(response.citations).toHaveLength(2);
+  });
+
+  it("lists extracted report values deterministically in Hindi", async () => {
+    const response = await answerChat({ ...baseRequest, language: "hi", message: "मेरी रिपोर्ट की सभी वैल्यूज़ बताओ" }, {
+      answer: async () => { throw new Error("should not run"); },
+    });
+    expect(response.answer).toContain("आपकी रिपोर्ट से निकाली गई वैल्यूज़");
+    expect(response.answer).toContain("सत्यापित");
+    expect(response.usage.totalTokens).toBe(0);
+  });
+
   it("refuses a report answer without a verified citation", async () => {
     const response = await answerChat({ ...baseRequest, message: "What is my glucose?" }, {
       answer: async () => ({

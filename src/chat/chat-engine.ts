@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { internalChatRequestSchema, modelChatResultSchema, type InternalChatRequest, type InternalChatResponse, type ModelChatResult } from "./contracts.js";
-import { CHAT_PROMPT_VERSION, deterministicGuardrail, enforceModelResult } from "./guardrails.js";
+import { CHAT_PROMPT_VERSION, deterministicGuardrail, enforceModelResult, extractedValuesResponse } from "./guardrails.js";
 import { retrieveKnowledge } from "./knowledge.js";
 
 export interface ChatModelProvider {
@@ -52,7 +52,14 @@ export class OpenAIChatModelProvider implements ChatModelProvider {
       ],
       text: { format: zodTextFormat(modelChatResultSchema, "muditam_diabetes_chat") },
     });
-    if (!response.output_parsed) throw new Error("OpenAI returned an invalid structured chat response");
+    if (!response.output_parsed) {
+      throw Object.assign(new Error("OpenAI returned an invalid structured chat response"), {
+        code: "INVALID_STRUCTURED_CHAT_RESPONSE",
+        responseStatus: response.status,
+        incompleteReason: response.incomplete_details?.reason ?? null,
+        hasRefusal: response.output.some((item) => item.type === "message" && item.content.some((content) => content.type === "refusal")),
+      });
+    }
     return {
       result: response.output_parsed,
       model: this.#model,
@@ -69,6 +76,8 @@ export async function answerChat(value: unknown, provider?: ChatModelProvider): 
   const input = internalChatRequestSchema.parse(value);
   const deterministic = deterministicGuardrail(input.message, input.language);
   if (deterministic) return deterministic;
+  const extractedValues = extractedValuesResponse(input);
+  if (extractedValues) return extractedValues;
   const knowledge = retrieveKnowledge(input.message);
   const activeProvider = provider ?? new OpenAIChatModelProvider(process.env.MUDITAM_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY ?? "");
   const generated = await activeProvider.answer(input, knowledge);

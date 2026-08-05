@@ -1,7 +1,7 @@
 import type { InternalChatRequest, InternalChatResponse, ModelChatResult } from "./contracts.js";
 import type { KnowledgeEntry } from "./knowledge.js";
 
-export const CHAT_PROMPT_VERSION = "1.1.0";
+export const CHAT_PROMPT_VERSION = "1.2.0";
 const messages = {
   en: {
     safety: "This may need urgent medical attention. Please contact local emergency services or go to the nearest emergency department now. Do not rely on this chat for emergency care.",
@@ -37,6 +37,61 @@ const unsafeGeneratedHindiPattern = /(इंसुलिन|मेटफॉर�
 const allowedCategories = new Set(["GREETING", "REPORT_VALUES", "DIABETES_EDUCATION", "LIFESTYLE_EDUCATION"]);
 const noUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
 
+const reportListPattern = /\b(?:what|which|show|tell|list|give)\b.{0,70}\b(?:all\s+)?(?:values|results|markers|biomarkers)\b.{0,70}\b(?:report|extracted)\b|\b(?:report|extracted)\b.{0,70}\b(?:values|results|markers|biomarkers)\b/i;
+const reportListHindiPattern = /(रिपोर्ट).{0,50}(वैल्यू|वैल्यूज़|मान|रिजल्ट|नतीजे)|(वैल्यू|वैल्यूज़|मान|रिजल्ट|नतीजे).{0,50}(रिपोर्ट)/u;
+
+function observationValueText(value: InternalChatRequest["observations"][number]["value"]): string {
+  if (typeof value === "number" || typeof value === "string") return String(value);
+  if (value.type === "NUMERIC" && value.numeric !== undefined) return String(value.numeric);
+  if (value.type === "INEQUALITY" && value.numeric !== undefined) return `${value.comparator ?? ""} ${value.numeric}`.trim();
+  if (value.type === "RANGE" && value.lower !== undefined && value.upper !== undefined) return `${value.lower}–${value.upper}`;
+  return value.text ?? "—";
+}
+
+function observationCitation(item: InternalChatRequest["observations"][number]) {
+  return {
+    observationId: item.observationId,
+    reportId: item.reportId,
+    displayName: item.displayName,
+    value: item.value,
+    ...(item.unit === undefined ? {} : { unit: item.unit }),
+    mappingStatus: item.mappingStatus,
+    validationStatus: item.validationStatus,
+    decision: item.decision,
+    confidence: item.confidence,
+  };
+}
+
+export function extractedValuesResponse(input: InternalChatRequest): InternalChatResponse | null {
+  if (!reportListPattern.test(input.message) && !reportListHindiPattern.test(input.message)) return null;
+  const copy = localized(input.language);
+  if (!input.observations.length) {
+    return { decision: "REFUSE", category: "REPORT_VALUES", answer: copy.missingValue, citations: [], knowledgeReferences: [], model: null, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: "OUTPUT", usage: noUsage };
+  }
+  const heading = input.language === "hi" ? "आपकी रिपोर्ट से निकाली गई वैल्यूज़:" : "Values extracted from your report:";
+  const verifiedLabel = input.language === "hi" ? "सत्यापित" : "verified";
+  const reviewLabel = input.language === "hi" ? "जाँच आवश्यक" : "needs review";
+  const lines = [heading];
+  const cited = [];
+  for (const item of input.observations) {
+    const verified = item.decision === "AUTO_ACCEPT" && item.mappingStatus === "MAPPED" && item.validationStatus === "VALID";
+    const unit = item.unit ? ` ${item.unit}` : "";
+    const line = `• ${item.displayName}: ${observationValueText(item.value)}${unit} (${verified ? verifiedLabel : reviewLabel})`;
+    if ([...lines, line].join("\n").length > 7600) break;
+    lines.push(line);
+    cited.push(observationCitation(item));
+  }
+  if (cited.length < input.observations.length) {
+    lines.push(input.language === "hi"
+      ? `• ${input.observations.length - cited.length} अतिरिक्त वैल्यूज़ इस संदेश की सीमा के कारण नहीं दिखाई गईं।`
+      : `• ${input.observations.length - cited.length} additional values were omitted because of the message-size limit.`);
+  }
+  if (cited.some((item) => item.decision !== "AUTO_ACCEPT" || item.mappingStatus !== "MAPPED" || item.validationStatus !== "VALID")) {
+    lines.push(copy.unconfirmedValue);
+  }
+  return { decision: "ALLOW", category: "REPORT_VALUES", answer: lines.join("\n"), citations: cited, knowledgeReferences: [], model: null, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: "INPUT", usage: noUsage };
+}
+
 export function deterministicGuardrail(message: string, language: InternalChatRequest["language"]): InternalChatResponse | null {
   const copy = localized(language);
   if (urgentPattern.test(message) || urgentHindiPattern.test(message)) {
@@ -71,17 +126,7 @@ export function enforceModelResult(
   const observationById = new Map(input.observations.map((item) => [item.observationId, item]));
   const citations = [...new Set(result.citedObservationIds)].flatMap((id) => {
     const item = observationById.get(id);
-    return item ? [{
-      observationId: item.observationId,
-      reportId: item.reportId,
-      displayName: item.displayName,
-      value: item.value,
-      ...(item.unit === undefined ? {} : { unit: item.unit }),
-      mappingStatus: item.mappingStatus,
-      validationStatus: item.validationStatus,
-      decision: item.decision,
-      confidence: item.confidence,
-    }] : [];
+    return item ? [observationCitation(item)] : [];
   });
   if (result.category === "REPORT_VALUES" && citations.length === 0) {
     return { decision: "REFUSE", category: "REPORT_VALUES", answer: copy.missingValue, citations: [], knowledgeReferences: [], model, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: "OUTPUT", usage };
