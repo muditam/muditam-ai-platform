@@ -7,7 +7,7 @@ export interface KnowledgeEntry {
   sourceName: string;
   sourceUrl: string;
   version: string;
-  sourceType?: "curated" | "product";
+  sourceType?: "curated" | "product" | "platform";
   productSlug?: string;
   recommendationEligible?: boolean;
 }

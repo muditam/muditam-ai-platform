@@ -10,6 +10,7 @@ const messages = {
     inactiveProduct: "That product does not currently have an active page in our product catalogue, so I can’t provide or recommend it. Please ask your Muditam dietitian about available options.",
     lifestyleUnavailable: "I can share general nutrition information, but I can’t decide what you personally should eat without enough verified context. Please discuss your food choices and portions with a Muditam dietitian or doctor.",
     productUnavailable: "I couldn’t find enough verified information about that product or product category. Please ask your Muditam dietitian about the available options.",
+    platformUnavailable: "I couldn’t find enough verified information about that Muditam service or feature. Please ask a Muditam team member for help.",
     educationUnavailable: "I don’t have enough verified information to answer that specific diabetes question reliably. Please ask your Muditam dietitian or doctor.",
     missingValue: "I couldn’t find that value in the verified results from your uploaded report.",
     unavailable: "I’m unable to answer that safely right now.",
@@ -23,6 +24,7 @@ const messages = {
     inactiveProduct: "इस उत्पाद का अभी हमारी उत्पाद सूची में सक्रिय पेज नहीं है, इसलिए मैं इसकी जानकारी या सिफारिश नहीं कर सकता। उपलब्ध विकल्पों के लिए अपने Muditam डाइटिशियन से पूछें।",
     lifestyleUnavailable: "मैं पोषण की सामान्य जानकारी साझा कर सकता हूँ, लेकिन पर्याप्त सत्यापित संदर्भ के बिना यह तय नहीं कर सकता कि आपको व्यक्तिगत रूप से क्या खाना चाहिए। भोजन और उसकी मात्रा के बारे में Muditam डाइटिशियन या डॉक्टर से बात करें।",
     productUnavailable: "मुझे उस उत्पाद या उत्पाद श्रेणी के बारे में पर्याप्त सत्यापित जानकारी नहीं मिली। उपलब्ध विकल्पों के लिए अपने Muditam डाइटिशियन से पूछें।",
+    platformUnavailable: "मुझे Muditam की उस सेवा या फीचर के बारे में पर्याप्त सत्यापित जानकारी नहीं मिली। कृपया Muditam टीम से सहायता लें।",
     educationUnavailable: "मेरे पास उस विशेष डायबिटीज़ प्रश्न का विश्वसनीय उत्तर देने के लिए पर्याप्त सत्यापित जानकारी नहीं है। कृपया Muditam डाइटिशियन या डॉक्टर से पूछें।",
     missingValue: "मुझे आपकी अपलोड की गई रिपोर्ट के सत्यापित परिणामों में यह वैल्यू नहीं मिली।",
     unavailable: "मैं अभी इसका सुरक्षित उत्तर नहीं दे पा रहा हूँ।",
@@ -46,7 +48,7 @@ const productDosageHindiPattern = /(प्रोडक्ट|सप्लीम�
 const privacyExfiltrationPattern = /(output|show|reveal|list|dump).{0,60}(all patient data|patient data|all data|hidden prompt|system prompt)|(सिस्टम प्रॉम्प्ट|छिपे निर्देश|मरीज का सारा डेटा|सभी मरीज डेटा)/iu;
 const unsafeGeneratedAdvicePattern = /\b(start|stop|increase|decrease|double|skip|take)\b.{0,35}\b(insulin|metformin|medicine|medication|supplement|product|capsule|tablet|sachet|mg|ml|units?)\b|\b(?:once|twice|three times)\s+(?:a|per)\s+day\b|\byou (?:have|definitely have|are diagnosed with) diabetes\b/i;
 const unsafeGeneratedHindiPattern = /(इंसुलिन|मेटफॉर्मिन|दवा|गोली).{0,35}(बढ़ा|घटा|बंद|शुरू|ले लो)|(आपको|तुम्हें) डायबिटीज है/u;
-const allowedCategories = new Set(["GREETING", "REPORT_VALUES", "DIABETES_EDUCATION", "LIFESTYLE_EDUCATION", "PRODUCT_INFORMATION"]);
+const allowedCategories = new Set(["GREETING", "REPORT_VALUES", "DIABETES_EDUCATION", "LIFESTYLE_EDUCATION", "PRODUCT_INFORMATION", "PLATFORM_INFORMATION"]);
 const noUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
 
 const reportListPattern = /\b(?:what|which|show|tell|list|give)\b.{0,70}\b(?:all\s+)?(?:values|results|markers|biomarkers)\b.{0,70}\b(?:report|extracted)\b|\b(?:report|extracted)\b.{0,70}\b(?:values|results|markers|biomarkers)\b/i;
@@ -149,6 +151,7 @@ function unavailableForCategory(category: ModelChatResult["category"], language:
   const copy = localized(language);
   if (category === "LIFESTYLE_EDUCATION") return copy.lifestyleUnavailable;
   if (category === "PRODUCT_INFORMATION") return copy.productUnavailable;
+  if (category === "PLATFORM_INFORMATION") return copy.platformUnavailable;
   if (category === "DIABETES_EDUCATION") return copy.educationUnavailable;
   if (category === "REPORT_VALUES") return copy.missingValue;
   return copy.unavailable;
@@ -188,7 +191,7 @@ export function enforceModelResult(
     return item ? [{ key: item.key, title: item.title, sourceName: item.sourceName, sourceUrl: item.sourceUrl }] : [];
   });
   if (
-    ["DIABETES_EDUCATION", "LIFESTYLE_EDUCATION", "PRODUCT_INFORMATION"].includes(result.category) &&
+    ["DIABETES_EDUCATION", "LIFESTYLE_EDUCATION", "PRODUCT_INFORMATION", "PLATFORM_INFORMATION"].includes(result.category) &&
     knowledgeReferences.length === 0
   ) {
     return { decision: "REFUSE", category: result.category, answer: unavailableForCategory(result.category, input.language), citations: [], knowledgeReferences: [], model, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: "OUTPUT", usage };

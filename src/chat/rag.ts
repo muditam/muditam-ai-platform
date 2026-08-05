@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import type { KnowledgeEntry } from "./knowledge.js";
 
 const PRODUCT_INTENT = /\b(product|products|supplement|supplements|ingredient|ingredients|price|buy|purchase|fizz|defend|fix|fuel|essentials|dense|snooze|shilajit|berberine|karela|jamun|ras|vati|gut|liver|heart|thyroid|nerve|bone|sleep)\b|(प्रोडक्ट|उत्पाद|सप्लीमेंट|सामग्री|कीमत|खरीद|शिलाजीत|करेला|जामुन|लिवर|हार्ट|थायराइड|नींद)/iu;
+const PLATFORM_INTENT = /\b(muditam|company|platform|app|service|services|dietitian|dietician|doctor support|expert|consultation|upload(?:ed|ing)? (?:a )?report|report upload|analy[sz](?:e|ed|ing|is) (?:my |a |the )?report|how (?:does|do) (?:the )?report|ocr|multiple (?:report )?photos)\b|(मुदितम|कंपनी|प्लेटफॉर्म|एप|सेवा|डाइटिशियन|डायटीशियन|डॉक्टर|विशेषज्ञ|परामर्श|रिपोर्ट अपलोड|रिपोर्ट एनालिसिस|रिपोर्ट कैसे)/iu;
 const DEFAULT_MODEL = "text-embedding-3-small";
 const DEFAULT_DIMENSIONS = 1024;
 
@@ -56,13 +57,13 @@ function toKnowledgeEntry(item: Document): KnowledgeEntry {
     sourceName: String(item.sourceName || "Muditam Ayurveda"),
     sourceUrl: String(item.sourceUrl),
     version: String(item.version),
-    sourceType: "product",
-    productSlug: String(item.productSlug),
+    sourceType: item.sourceType === "platform" ? "platform" : "product",
+    ...(item.productSlug ? { productSlug: String(item.productSlug) } : {}),
     recommendationEligible: item.recommendationEligible === true,
   };
 }
 
-async function vectorResults(question: string): Promise<KnowledgeEntry[]> {
+async function vectorResults(question: string, sourceType: "product" | "platform"): Promise<KnowledgeEntry[]> {
   const db = await database();
   if (!db) return [];
   const embedding = await queryEmbedding(question);
@@ -75,7 +76,9 @@ async function vectorResults(question: string): Promise<KnowledgeEntry[]> {
       queryVector: embedding,
       numCandidates: 100,
       limit: 6,
-      filter: { active: true, recommendationEligible: true, sourceType: "product" },
+      filter: sourceType === "product"
+        ? { active: true, recommendationEligible: true, sourceType }
+        : { active: true, sourceType },
     } },
     { $project: { embedding: 0, score: { $meta: "vectorSearchScore" } } },
     { $match: { score: { $gte: 0.35 } } },
@@ -139,11 +142,13 @@ async function exactProductResults(productSlug: string, question: string): Promi
     .map(({ row }) => toKnowledgeEntry(row));
 }
 
-async function lexicalResults(question: string): Promise<KnowledgeEntry[]> {
+async function lexicalResults(question: string, sourceType: "product" | "platform"): Promise<KnowledgeEntry[]> {
   const db = await database();
   if (!db) return [];
   const collection = db.collection("knowledge_chunks");
-  const base = { active: true, recommendationEligible: true, sourceType: "product" };
+  const base = sourceType === "product"
+    ? { active: true, recommendationEligible: true, sourceType }
+    : { active: true, sourceType };
   let rows: Document[] = [];
   try {
     rows = await collection.find({ ...base, $text: { $search: question } }, { projection: { embedding: 0 } })
@@ -162,14 +167,19 @@ export async function retrieveRagKnowledge(
   question: string,
   curated: KnowledgeEntry[] = [],
 ): Promise<KnowledgeEntry[]> {
-  if (!enabled() || !mongoUri() || !PRODUCT_INTENT.test(question)) return curated;
-  let products: KnowledgeEntry[] = [];
+  const wantsProducts = PRODUCT_INTENT.test(question);
+  const wantsPlatform = PLATFORM_INTENT.test(question);
+  if (!enabled() || !mongoUri() || (!wantsProducts && !wantsPlatform)) return curated;
+  let retrieved: KnowledgeEntry[] = [];
   try {
-    const explicitlyNamed = await explicitlyReferencedProduct(question);
-    if (explicitlyNamed && !explicitlyNamed.eligible) return curated;
-    products = explicitlyNamed
-      ? await exactProductResults(explicitlyNamed.slug, question)
-      : await vectorResults(question);
+    if (wantsProducts) {
+      const explicitlyNamed = await explicitlyReferencedProduct(question);
+      if (explicitlyNamed && !explicitlyNamed.eligible) return curated;
+      retrieved.push(...(explicitlyNamed
+        ? await exactProductResults(explicitlyNamed.slug, question)
+        : await vectorResults(question, "product")));
+    }
+    if (wantsPlatform) retrieved.push(...await vectorResults(question, "platform"));
   } catch (error) {
     console.warn(JSON.stringify({
       service: "muditam-ai-platform",
@@ -177,7 +187,8 @@ export async function retrieveRagKnowledge(
       error: error instanceof Error ? error.message : String(error),
     }));
     try {
-      products = await lexicalResults(question);
+      if (wantsProducts) retrieved.push(...await lexicalResults(question, "product"));
+      if (wantsPlatform) retrieved.push(...await lexicalResults(question, "platform"));
     } catch (fallbackError) {
       console.error(JSON.stringify({
         service: "muditam-ai-platform",
@@ -186,7 +197,7 @@ export async function retrieveRagKnowledge(
       }));
     }
   }
-  const unique = new Map([...curated, ...products].map((item) => [item.key, item]));
+  const unique = new Map([...curated, ...retrieved].map((item) => [item.key, item]));
   return [...unique.values()].slice(0, 8);
 }
 

@@ -12,9 +12,9 @@ interface ChunkInput {
   key: string;
   title: string;
   content: string;
-  sourceType: "product";
-  productId: unknown;
-  productSlug: string;
+  sourceType: "product" | "platform";
+  productId?: unknown;
+  productSlug?: string;
   sourceName: string;
   sourceUrl: string;
   language: "en";
@@ -24,6 +24,65 @@ interface ChunkInput {
   version: string;
   contentHash: string;
 }
+
+interface PlatformSourceInput {
+  key: string;
+  title: string;
+  sourceName: string;
+  sourceUrl: string;
+  version: string;
+  chunks: Array<{ suffix: string; title: string; content: string; keywords: string[] }>;
+}
+
+export const platformKnowledgeSources: readonly PlatformSourceInput[] = [
+  {
+    key: "platform:muditam-overview",
+    title: "About Muditam",
+    sourceName: "Muditam Ayurveda — About Us",
+    sourceUrl: "https://www.muditam.com/pages/about-us",
+    version: "2026-08-05.1",
+    chunks: [{
+      suffix: "overview",
+      title: "Muditam company and platform information",
+      content: "Muditam Ayurveda is an India-based wellness company combining Ayurvedic herbs, nutrition, lifestyle guidance, and modern research. Its stated approach is to support wellness through natural solutions and personalized wellness plans guided by experts. Muditam products are described on its website as FSSAI and GMP certified. The Muditam mobile platform supports users with health-report tracking, general educational AI assistance, and access to human dietitian and doctor guidance. The AI assistant provides education and platform information; it does not diagnose, prescribe medicines, or decide personalized supplement dosage.",
+      keywords: ["Muditam", "company", "platform", "app", "about", "Ayurveda", "wellness", "what is Muditam"],
+    }],
+  },
+  {
+    key: "platform:expert-support",
+    title: "Muditam dietitian and doctor support",
+    sourceName: "Muditam Ayurveda — Expert Details",
+    sourceUrl: "https://www.muditam.com/pages/dietcian-details",
+    version: "2026-08-05.1",
+    chunks: [{
+      suffix: "services",
+      title: "Dietitian and doctor support at Muditam",
+      content: "Muditam provides access to human experts for personalized support. Its published expert pages describe clinical dietitians and metabolic-health experts who provide personalized diet guidance and practical support for diabetes, fatty liver, obesity, and related metabolic-health concerns. Medical diagnosis, medicine changes, and clinical treatment decisions must be discussed with a qualified doctor. Personalized food plans and supplement dosage or suitability must be decided by the user's assigned dietitian or doctor, using the person's health history, reports, and current medicines.",
+      keywords: ["dietitian", "doctor", "expert", "consultation", "support", "personalized diet", "metabolic health"],
+    }],
+  },
+  {
+    key: "platform:report-workflow",
+    title: "Muditam report upload and analysis",
+    sourceName: "Muditam Mobile Platform",
+    sourceUrl: "https://www.muditam.com/",
+    version: "2026-08-05.1",
+    chunks: [
+      {
+        suffix: "upload",
+        title: "How report upload works in the Muditam app",
+        content: "In the Muditam mobile app, a user can upload a supported health-report document or one or more report photos. Digital PDF pages with usable embedded text are read directly. Image files, photographed pages, and PDF pages without usable text are sent through the configured vision extraction path. For a mixed PDF, readable pages and vision-required pages are processed through their appropriate paths and then merged into one report result.",
+        keywords: ["report", "upload", "PDF", "photo", "image", "multiple photos", "OCR", "vision", "document"],
+      },
+      {
+        suffix: "analysis",
+        title: "How Muditam extracts and validates report values",
+        content: "After report text or image content is extracted, Muditam maps laboratory test names to canonical biomarker identities, retains the reported value, unit, and reference range where available, and validates the normalized observation. Values that are absent from the report are not estimated or invented and appear as missing. If the report cannot be read reliably, the app should show empty values with a report-readability warning. If only some pages succeed, values from the successfully processed pages may still be shown. Extracted results support review and education but are not a medical diagnosis; users should compare uncertain values with the original report and discuss clinical interpretation with their dietitian or doctor.",
+        keywords: ["report analysis", "extract", "biomarker", "validation", "missing value", "unreadable report", "reference range"],
+      },
+    ],
+  },
+];
 
 function hash(value: string): string {
   return crypto.createHash("sha256").update(value).digest("hex");
@@ -87,6 +146,26 @@ function productChunks(product: Document): ChunkInput[] {
   return chunks.filter((chunk) => chunk.content.length >= 20);
 }
 
+export function platformChunks(): ChunkInput[] {
+  return platformKnowledgeSources.flatMap((source) => source.chunks.map((chunk) => {
+    const contentHash = hash(chunk.content);
+    return {
+      key: `${source.key}:${chunk.suffix}`,
+      title: chunk.title,
+      content: chunk.content,
+      sourceType: "platform" as const,
+      sourceName: source.sourceName,
+      sourceUrl: source.sourceUrl,
+      language: "en" as const,
+      keywords: chunk.keywords,
+      active: true,
+      recommendationEligible: false,
+      version: source.version,
+      contentHash,
+    };
+  }));
+}
+
 async function embeddings(client: OpenAI, inputs: string[]): Promise<number[][]> {
   const output: number[][] = [];
   for (let index = 0; index < inputs.length; index += 64) {
@@ -128,7 +207,9 @@ async function main() {
   const products = await db.collection("metabolic_products").find({}).toArray();
   const sources = db.collection("knowledge_sources");
   const chunksCollection = db.collection("knowledge_chunks");
-  const chunks = products.flatMap(productChunks);
+  const productKnowledgeChunks = products.flatMap(productChunks);
+  const platformKnowledgeChunks = platformChunks();
+  const chunks = [...productKnowledgeChunks, ...platformKnowledgeChunks];
   const existing = await chunksCollection.find({ key: { $in: chunks.map((chunk) => chunk.key) } }, {
     projection: { key: 1, contentHash: 1, embeddingModel: 1, embeddingDimensions: 1 },
   }).toArray();
@@ -145,6 +226,8 @@ async function main() {
     products: products.length,
     eligibleProducts: products.filter((product) => product.recommendationEligible === true).length,
     chunks: chunks.length,
+    platformSources: platformKnowledgeSources.length,
+    platformChunks: platformKnowledgeChunks.length,
     changedChunks: changed.length,
     embeddingModel: ragConfig.embeddingModel(),
     embeddingDimensions: ragConfig.embeddingDimensions(),
@@ -170,6 +253,21 @@ async function main() {
         upsert: true,
       } })), { ordered: false });
     }
+    await sources.bulkWrite(platformKnowledgeSources.map((source) => ({ updateOne: {
+      filter: { key: source.key },
+      update: { $set: {
+        key: source.key,
+        sourceType: "platform",
+        title: source.title,
+        sourceName: source.sourceName,
+        sourceUrl: source.sourceUrl,
+        active: true,
+        recommendationEligible: false,
+        version: source.version,
+        updatedAt: now,
+      }, $setOnInsert: { createdAt: now } },
+      upsert: true,
+    } })), { ordered: false });
     if (chunks.length) {
       await chunksCollection.bulkWrite(chunks.map((chunk) => ({ updateOne: {
         filter: { key: chunk.key },
@@ -183,6 +281,7 @@ async function main() {
         upsert: true,
       } })), { ordered: false });
       await chunksCollection.updateMany({ sourceType: "product", key: { $nin: chunks.map((chunk) => chunk.key) } }, { $set: { active: false, recommendationEligible: false, updatedAt: now } });
+      await chunksCollection.updateMany({ sourceType: "platform", key: { $nin: platformKnowledgeChunks.map((chunk) => chunk.key) } }, { $set: { active: false, updatedAt: now } });
     }
     await Promise.all([
       sources.createIndex({ key: 1 }, { unique: true }),

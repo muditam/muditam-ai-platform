@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { answerChat, type ChatModelProvider } from "../src/chat/chat-engine.js";
-import { formatChatAnswer, inactiveProductResponse } from "../src/chat/guardrails.js";
+import { enforceModelResult, formatChatAnswer, inactiveProductResponse } from "../src/chat/guardrails.js";
 
 const baseRequest = {
   conversationId: "conversation-1",
@@ -42,6 +42,51 @@ describe("AI chat guardrails", () => {
     expect(response.category).toBe("PRODUCT_INFORMATION");
     expect(response.answer).toContain("does not currently have an active page");
     expect(response.model).toBeNull();
+  });
+
+  it("allows cited Muditam platform information without treating it as a product", () => {
+    const knowledge = [{
+      key: "platform:muditam-overview:overview",
+      title: "Muditam company and platform information",
+      content: "Muditam is a wellness company and mobile platform.",
+      contentHi: "Muditam एक वेलनेस कंपनी और मोबाइल प्लेटफॉर्म है।",
+      keywords: ["Muditam", "platform"],
+      sourceName: "Muditam Ayurveda — About Us",
+      sourceUrl: "https://www.muditam.com/pages/about-us",
+      version: "test",
+      sourceType: "platform" as const,
+      recommendationEligible: false,
+    }];
+    const response = enforceModelResult({
+      decision: "ALLOW",
+      category: "PLATFORM_INFORMATION",
+      answer: "Muditam is a wellness company and mobile platform.",
+      citedObservationIds: [],
+      citedKnowledgeKeys: ["platform:muditam-overview:overview"],
+    }, { ...baseRequest, message: "What do you know about Muditam?" }, knowledge, "test-model", {
+      inputTokens: 10,
+      outputTokens: 10,
+      totalTokens: 20,
+    });
+    expect(response.decision).toBe("ALLOW");
+    expect(response.category).toBe("PLATFORM_INFORMATION");
+    expect(response.knowledgeReferences[0]?.sourceUrl).toBe("https://www.muditam.com/pages/about-us");
+  });
+
+  it("uses a platform-specific fallback for uncited service information", () => {
+    const response = enforceModelResult({
+      decision: "REFUSE",
+      category: "PLATFORM_INFORMATION",
+      answer: "",
+      citedObservationIds: [],
+      citedKnowledgeKeys: [],
+    }, { ...baseRequest, message: "How does report upload work?" }, [], "test-model", {
+      inputTokens: 5,
+      outputTokens: 2,
+      totalTokens: 7,
+    });
+    expect(response.answer).toContain("Muditam service or feature");
+    expect(response.answer).not.toContain("product or product category");
   });
 
   it("blocks medication changes before calling the model", async () => {

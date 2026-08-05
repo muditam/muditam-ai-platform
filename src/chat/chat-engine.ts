@@ -36,6 +36,7 @@ export class OpenAIChatModelProvider implements ChatModelProvider {
           "Keep necessary safety guidance concise and place it after the useful answer.",
           "Never diagnose, prescribe, or recommend starting, stopping, changing, or dosing medication.",
           "For products, only use supplied product knowledge whose recommendationEligible value is true.",
+          "For questions about Muditam, its platform, services, experts, report upload, or report analysis, use supplied platform knowledge and choose PLATFORM_INFORMATION.",
           "You may describe products, ingredients, published website information, and list potentially relevant products to discuss with a Muditam dietitian or doctor.",
           "Never provide product quantity, frequency, duration, personalized suitability, or claim that a product will diagnose, treat, cure, or replace medical care.",
           "Never turn a report value into a personalized product prescription.",
