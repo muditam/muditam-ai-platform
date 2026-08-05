@@ -3,9 +3,10 @@ import { zodTextFormat } from "openai/helpers/zod";
 import { internalChatRequestSchema, modelChatResultSchema, type InternalChatRequest, type InternalChatResponse, type ModelChatResult } from "./contracts.js";
 import { CHAT_PROMPT_VERSION, deterministicGuardrail, enforceModelResult, extractedValuesResponse } from "./guardrails.js";
 import { retrieveKnowledge } from "./knowledge.js";
+import { retrieveRagKnowledge } from "./rag.js";
 
 export interface ChatModelProvider {
-  answer(input: InternalChatRequest, knowledge: ReturnType<typeof retrieveKnowledge>): Promise<{ result: ModelChatResult; model: string; usage?: InternalChatResponse["usage"] }>;
+  answer(input: InternalChatRequest, knowledge: Awaited<ReturnType<typeof retrieveRagKnowledge>>): Promise<{ result: ModelChatResult; model: string; usage?: InternalChatResponse["usage"] }>;
 }
 
 export class OpenAIChatModelProvider implements ChatModelProvider {
@@ -17,7 +18,7 @@ export class OpenAIChatModelProvider implements ChatModelProvider {
     this.#model = model;
   }
 
-  async answer(input: InternalChatRequest, knowledge: ReturnType<typeof retrieveKnowledge>): Promise<{ result: ModelChatResult; model: string; usage: InternalChatResponse["usage"] }> {
+  async answer(input: InternalChatRequest, knowledge: Awaited<ReturnType<typeof retrieveRagKnowledge>>): Promise<{ result: ModelChatResult; model: string; usage: InternalChatResponse["usage"] }> {
     const language = input.language === "hi" ? "Hindi" : "English";
     const response = await this.#client.responses.parse({
       model: this.#model,
@@ -28,6 +29,10 @@ export class OpenAIChatModelProvider implements ChatModelProvider {
           "You are Muditam's diabetes education assistant.",
           `Respond in ${language} using clear, short language.`,
           "Never diagnose, prescribe, or recommend starting, stopping, changing, or dosing medication.",
+          "For products, only use supplied product knowledge whose recommendationEligible value is true.",
+          "You may describe products, ingredients, published website information, and list potentially relevant products to discuss with a Muditam dietitian or doctor.",
+          "Never provide product quantity, frequency, duration, personalized suitability, or claim that a product will diagnose, treat, cure, or replace medical care.",
+          "Never turn a report value into a personalized product prescription.",
           "Use report values only from observations JSON and cite their exact observationId.",
           "You may discuss every supplied observation, including values marked for confirmation or review.",
           "Treat AUTO_ACCEPT + MAPPED + VALID as verified. For every other observation, explicitly say that the value or biomarker identity is unconfirmed and should be checked against the original report.",
@@ -78,7 +83,7 @@ export async function answerChat(value: unknown, provider?: ChatModelProvider): 
   if (deterministic) return deterministic;
   const extractedValues = extractedValuesResponse(input);
   if (extractedValues) return extractedValues;
-  const knowledge = retrieveKnowledge(input.message);
+  const knowledge = await retrieveRagKnowledge(input.message, retrieveKnowledge(input.message));
   const activeProvider = provider ?? new OpenAIChatModelProvider(process.env.MUDITAM_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY ?? "");
   const generated = await activeProvider.answer(input, knowledge);
   return enforceModelResult(

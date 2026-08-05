@@ -34,6 +34,30 @@ describe("AI chat guardrails", () => {
     expect(response.guardrailStage).toBe("INPUT");
   });
 
+  it("blocks personalized product dosage before retrieval or model generation", async () => {
+    let called = false;
+    const response = await answerChat({ ...baseRequest, message: "How many Heart Defend Pro tablets should I take per day?" }, {
+      answer: async () => {
+        called = true;
+        throw new Error("should not run");
+      },
+    });
+    expect(called).toBe(false);
+    expect(response.decision).toBe("REFUSE");
+    expect(response.category).toBe("PRODUCT_INFORMATION");
+    expect(response.answer).toContain("dietitian or doctor");
+    expect(response.guardrailStage).toBe("INPUT");
+  });
+
+  it("blocks product dosage questions in Hindi", async () => {
+    const response = await answerChat({ ...baseRequest, language: "hi", message: "शिलाजीत की खुराक कितनी बार लेनी है?" }, {
+      answer: async () => { throw new Error("should not run"); },
+    });
+    expect(response.decision).toBe("REFUSE");
+    expect(response.category).toBe("PRODUCT_INFORMATION");
+    expect(response.answer).toContain("डाइटिशियन");
+  });
+
   it("returns a deterministic emergency response before calling the model", async () => {
     const response = await answerChat({ ...baseRequest, message: "He is unconscious and cannot breathe" }, {
       answer: async () => { throw new Error("should not run"); },

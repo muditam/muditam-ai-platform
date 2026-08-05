@@ -7,6 +7,9 @@ export interface KnowledgeEntry {
   sourceName: string;
   sourceUrl: string;
   version: string;
+  sourceType?: "curated" | "product";
+  productSlug?: string;
+  recommendationEligible?: boolean;
 }
 
 export const KNOWLEDGE_VERSION = "2026-08-04.1";

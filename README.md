@@ -395,9 +395,12 @@ The local processing order is:
 
 ```text
 deterministic emergency/medication guardrail
-  -> keyword retrieval from versioned curated knowledge
+  -> keyword retrieval from versioned curated medical knowledge
+  -> exact product lookup or MongoDB Atlas Vector Search
+  -> active + recommendationEligible + websiteStatus filtering
   -> OpenAI Responses API with Structured Outputs and store=false
   -> category/decision enforcement
+  -> product dosage and personalized-prescription enforcement
   -> observation and knowledge citation allow-listing
   -> safe normalized response
 ```
@@ -408,13 +411,39 @@ Configure:
 AI_PLATFORM_SERVICE_SECRET=<same 32+ character backend secret>
 MUDITAM_OPENAI_API_KEY=<server-side key>
 MUDITAM_CHAT_MODEL=gpt-5.6-luna
+MONGO_URI=<matching mobile app database for this environment>
+MUDITAM_RAG_ENABLED=true
+MUDITAM_EMBEDDING_MODEL=text-embedding-3-small
+MUDITAM_EMBEDDING_DIMENSIONS=1024
+MUDITAM_VECTOR_INDEX=muditam_knowledge_vector
 ```
 
-The bundled knowledge entries are intentionally a small development seed and
-must be expanded, clinically reviewed, versioned, and evaluated before a
-patient production release. Text chat and the future LiveKit voice agent should
-both call this same engine; LiveKit supplies speech-to-text and text-to-speech,
-not a separate medical reasoning path.
+The bundled medical entries remain a small curated seed. Website-backed product
+knowledge is stored in `knowledge_sources` and `knowledge_chunks`; each chunk
+retains its product slug, website URL, version, eligibility, and content hash.
+An explicitly named product uses deterministic catalogue lookup. Broader product
+questions use Atlas Vector Search, with MongoDB text retrieval as an operational
+fallback. Products without active website pages cannot enter retrieval.
+
+Product dosage, frequency, duration, and personalized product prescriptions are
+blocked. Those decisions belong to a Muditam dietitian or doctor.
+
+Refresh chunks after the mobile backend synchronizes `metabolic_products`:
+
+```bash
+# Read-only plan
+npm run knowledge:ingest
+
+# Generate embeddings and update MongoDB
+npm run knowledge:ingest -- --apply
+
+# First setup only: also create the Atlas vector index
+npm run knowledge:ingest -- --apply --create-index
+```
+
+Text chat and the future LiveKit voice agent should both call this same engine;
+LiveKit supplies speech-to-text and text-to-speech, not a separate medical
+reasoning path.
 
 ### Chat evaluation
 

@@ -16,6 +16,7 @@
     "verify:report": "npm run build --silent && node dist/verify-cli.js",
     "benchmark": "npm run build --silent && node dist/benchmark-cli.js",
     "eval:chat": "npm run build --silent && node --env-file-if-exists=.env dist/chat/evaluation/run-evaluation.js",
+    "knowledge:ingest": "npm run build --silent && node --env-file-if-exists=.env dist/chat/ingest-products.js",
     "review": "npm run build --silent && node --env-file-if-exists=.env dist/review-server.js",
     "review:mobile": "MUDITAM_REVIEW_HOST=0.0.0.0 npm run review",
     "test": "vitest run",
@@ -25,6 +26,7 @@
   "dependencies": {
     "@napi-rs/canvas": "^1.0.3",
     "busboy": "^1.6.0",
+    "mongodb": "^7.5.0",
     "openai": "^7.1.0",
     "pdfjs-dist": "^6.2.108",
     "zod": "^4.4.3"

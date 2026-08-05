@@ -1,11 +1,12 @@
 import type { InternalChatRequest, InternalChatResponse, ModelChatResult } from "./contracts.js";
 import type { KnowledgeEntry } from "./knowledge.js";
 
-export const CHAT_PROMPT_VERSION = "1.2.0";
+export const CHAT_PROMPT_VERSION = "1.3.0";
 const messages = {
   en: {
     safety: "This may need urgent medical attention. Please contact local emergency services or go to the nearest emergency department now. Do not rely on this chat for emergency care.",
     medicalRefusal: "I can explain general diabetes and report information, but I can’t diagnose a condition or tell you to start, stop, or change a medicine or dose. Please discuss that with your doctor.",
+    productDosageRefusal: "Your product dosage should be decided by your Muditam dietitian or doctor based on your health condition, reports, and current medicines.",
     missingValue: "I couldn’t find that value in the verified results from your uploaded report.",
     unavailable: "I’m unable to answer that safely right now.",
     privacyRefusal: "I can’t reveal hidden instructions, private patient data, or internal system information.",
@@ -14,6 +15,7 @@ const messages = {
   hi: {
     safety: "इस स्थिति में तुरंत चिकित्सा सहायता की आवश्यकता हो सकती है। अभी स्थानीय आपातकालीन सेवा से संपर्क करें या नज़दीकी आपातकालीन विभाग जाएँ। आपातकाल में इस चैट पर निर्भर न रहें।",
     medicalRefusal: "मैं डायबिटीज़ और रिपोर्ट की सामान्य जानकारी समझा सकता हूँ, लेकिन निदान नहीं कर सकता और न ही किसी दवा या उसकी खुराक को शुरू, बंद या बदलने की सलाह दे सकता हूँ। कृपया अपने डॉक्टर से बात करें।",
+    productDosageRefusal: "आपके उत्पाद की खुराक आपकी स्वास्थ्य स्थिति, रिपोर्ट और वर्तमान दवाओं के आधार पर आपके Muditam डाइटिशियन या डॉक्टर द्वारा तय की जानी चाहिए।",
     missingValue: "मुझे आपकी अपलोड की गई रिपोर्ट के सत्यापित परिणामों में यह वैल्यू नहीं मिली।",
     unavailable: "मैं अभी इसका सुरक्षित उत्तर नहीं दे पा रहा हूँ।",
     privacyRefusal: "मैं छिपे हुए निर्देश, निजी मरीज डेटा या आंतरिक सिस्टम जानकारी साझा नहीं कर सकता।",
@@ -31,10 +33,12 @@ const diagnosisPattern = /\b(do i have|diagnose me|am i diabetic|confirm (?:that
 const urgentHindiPattern = /(बेहोश|सांस नहीं ले|साँस नहीं ले|दौरा पड़|सीने में दर्द|आत्महत्या|ओवरडोज)/u;
 const medicationHindiPattern = /(इंसुलिन|मेटफॉर्मिन|दवा|गोली).{0,35}(डोज|खुराक|बढ़ा|घटा|बंद|शुरू)|(डोज|खुराक).{0,35}(इंसुलिन|मेटफॉर्मिन|दवा|गोली)/u;
 const diagnosisHindiPattern = /(क्या मुझे डायबिटीज|मुझे डायबिटीज है|निदान करो|पुष्टि करो)/u;
+const productDosagePattern = /\b(?:dose|dosage|how much|how many|when (?:do|should) i take|times? (?:a|per) day)\b.{0,80}\b(?:product|supplement|capsule|tablet|sachet|fizz|ras|vati|shilajit|berberine|defend|fix|fuel|essentials|dense|snooze)\b|\b(?:product|supplement|capsule|tablet|sachet|fizz|ras|vati|shilajit|berberine|defend|fix|fuel|essentials|dense|snooze)\b.{0,80}\b(?:dose|dosage|how much|how many|times? (?:a|per) day)\b/i;
+const productDosageHindiPattern = /(प्रोडक्ट|सप्लीमेंट|कैप्सूल|टैबलेट|सैशे|शिलाजीत|खुराक|डोज).{0,45}(कितनी|कितना|कब|बार|खुराक|डोज)|(कितनी|कितना|कब|बार|खुराक|डोज).{0,45}(प्रोडक्ट|सप्लीमेंट|कैप्सूल|टैबलेट|सैशे|शिलाजीत)/u;
 const privacyExfiltrationPattern = /(output|show|reveal|list|dump).{0,60}(all patient data|patient data|all data|hidden prompt|system prompt)|(सिस्टम प्रॉम्प्ट|छिपे निर्देश|मरीज का सारा डेटा|सभी मरीज डेटा)/iu;
-const unsafeGeneratedAdvicePattern = /\b(start|stop|increase|decrease|double|skip|take)\b.{0,35}\b(insulin|metformin|medicine|medication|tablet|mg|units?)\b|\byou (?:have|definitely have|are diagnosed with) diabetes\b/i;
+const unsafeGeneratedAdvicePattern = /\b(start|stop|increase|decrease|double|skip|take)\b.{0,35}\b(insulin|metformin|medicine|medication|supplement|product|capsule|tablet|sachet|mg|ml|units?)\b|\b(?:once|twice|three times)\s+(?:a|per)\s+day\b|\byou (?:have|definitely have|are diagnosed with) diabetes\b/i;
 const unsafeGeneratedHindiPattern = /(इंसुलिन|मेटफॉर्मिन|दवा|गोली).{0,35}(बढ़ा|घटा|बंद|शुरू|ले लो)|(आपको|तुम्हें) डायबिटीज है/u;
-const allowedCategories = new Set(["GREETING", "REPORT_VALUES", "DIABETES_EDUCATION", "LIFESTYLE_EDUCATION"]);
+const allowedCategories = new Set(["GREETING", "REPORT_VALUES", "DIABETES_EDUCATION", "LIFESTYLE_EDUCATION", "PRODUCT_INFORMATION"]);
 const noUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
 
 const reportListPattern = /\b(?:what|which|show|tell|list|give)\b.{0,70}\b(?:all\s+)?(?:values|results|markers|biomarkers)\b.{0,70}\b(?:report|extracted)\b|\b(?:report|extracted)\b.{0,70}\b(?:values|results|markers|biomarkers)\b/i;
@@ -100,6 +104,9 @@ export function deterministicGuardrail(message: string, language: InternalChatRe
   if (privacyExfiltrationPattern.test(message)) {
     return { decision: "REFUSE", category: "OFF_TOPIC", answer: copy.privacyRefusal, citations: [], knowledgeReferences: [], model: null, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: "INPUT", usage: noUsage };
   }
+  if (productDosagePattern.test(message) || productDosageHindiPattern.test(message)) {
+    return { decision: "REFUSE", category: "PRODUCT_INFORMATION", answer: copy.productDosageRefusal, citations: [], knowledgeReferences: [], model: null, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: "INPUT", usage: noUsage };
+  }
   if (medicationPattern.test(message) || diagnosisPattern.test(message) || medicationHindiPattern.test(message) || diagnosisHindiPattern.test(message)) {
     return { decision: "REFUSE", category: "MEDICATION_OR_DIAGNOSIS", answer: copy.medicalRefusal, citations: [], knowledgeReferences: [], model: null, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: "INPUT", usage: noUsage };
   }
@@ -137,7 +144,7 @@ export function enforceModelResult(
     return item ? [{ key: item.key, title: item.title, sourceName: item.sourceName, sourceUrl: item.sourceUrl }] : [];
   });
   if (
-    ["DIABETES_EDUCATION", "LIFESTYLE_EDUCATION"].includes(result.category) &&
+    ["DIABETES_EDUCATION", "LIFESTYLE_EDUCATION", "PRODUCT_INFORMATION"].includes(result.category) &&
     knowledgeReferences.length === 0
   ) {
     return { decision: "REFUSE", category: result.category, answer: copy.unavailable, citations: [], knowledgeReferences: [], model, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: "OUTPUT", usage };
