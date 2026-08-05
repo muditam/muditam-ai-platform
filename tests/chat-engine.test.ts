@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { answerChat, type ChatModelProvider } from "../src/chat/chat-engine.js";
-import { inactiveProductResponse } from "../src/chat/guardrails.js";
+import { formatChatAnswer, inactiveProductResponse } from "../src/chat/guardrails.js";
 
 const baseRequest = {
   conversationId: "conversation-1",
@@ -21,6 +21,21 @@ const baseRequest = {
 };
 
 describe("AI chat guardrails", () => {
+  it("preserves readable paragraphs and mobile list structure", () => {
+    const answer = formatChatAnswer("**Products**\n\n- Liver Fix: daily support\n- Liver Defend Pro: advanced support\n\nPlease discuss with your dietitian.");
+    expect(answer).toBe("Products\n\n• Liver Fix: daily support\n• Liver Defend Pro: advanced support\n\nPlease discuss with your dietitian.");
+  });
+
+  it("repairs inline dash-separated lists without collapsing line breaks", () => {
+    const answer = formatChatAnswer("Options include: - Liver Fix - Liver Defend Pro\n\nChoose with your care team.");
+    expect(answer).toBe("Options include:\n• Liver Fix\n• Liver Defend Pro\n\nChoose with your care team.");
+  });
+
+  it("truncates by word count while retaining existing formatting", () => {
+    const answer = formatChatAnswer("Intro\n\n• one two\n• three four five", 4);
+    expect(answer).toBe("Intro\n\n• one two\n• three…");
+  });
+
   it("returns a deterministic response for an explicitly named inactive product", () => {
     const response = inactiveProductResponse("en");
     expect(response.decision).toBe("REFUSE");

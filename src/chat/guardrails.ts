@@ -1,7 +1,7 @@
 import type { InternalChatRequest, InternalChatResponse, ModelChatResult } from "./contracts.js";
 import type { KnowledgeEntry } from "./knowledge.js";
 
-export const CHAT_PROMPT_VERSION = "1.3.0";
+export const CHAT_PROMPT_VERSION = "1.4.0";
 const messages = {
   en: {
     safety: "This may need urgent medical attention. Please contact local emergency services or go to the nearest emergency department now. Do not rely on this chat for emergency care.",
@@ -119,6 +119,26 @@ export function inactiveProductResponse(language: InternalChatRequest["language"
   return { decision: "REFUSE", category: "PRODUCT_INFORMATION", answer: localized(language).inactiveProduct, citations: [], knowledgeReferences: [], model: null, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: "INPUT", usage: noUsage };
 }
 
+export function formatChatAnswer(value: string, maxWords = 220): string {
+  let answer = value
+    .replace(/\r\n?/g, "\n")
+    .replace(/^[ \t]*#{1,6}[ \t]+/gm, "")
+    .replace(/\*\*/g, "")
+    .replace(/`{1,3}/g, "")
+    .replace(/^[ \t]*[-*][ \t]+/gm, "• ")
+    .replace(/[ \t]+-[ \t]+(?=[\p{L}\p{N}])/gu, "\n• ")
+    .replace(/[ \t]+$/gm, "")
+    .replace(/^[ \t]+/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  const words = [...answer.matchAll(/[\p{L}\p{N}][^\s]*/gu)];
+  if (words.length > maxWords) {
+    const last = words[maxWords - 1];
+    if (last?.index !== undefined) answer = `${answer.slice(0, last.index + last[0].length).trimEnd()}…`;
+  }
+  return answer;
+}
+
 export function enforceModelResult(
   result: ModelChatResult,
   input: InternalChatRequest,
@@ -167,5 +187,5 @@ export function enforceModelResult(
   if (citesUnconfirmedValue && !answer.includes(copy.unconfirmedValue)) {
     answer = `${answer} ${copy.unconfirmedValue}`;
   }
-  return { decision: "ALLOW", category: result.category, answer: answer.split(/\s+/).slice(0, 220).join(" "), citations, knowledgeReferences, model, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: null, usage };
+  return { decision: "ALLOW", category: result.category, answer: formatChatAnswer(answer), citations, knowledgeReferences, model, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: null, usage };
 }
