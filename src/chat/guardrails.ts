@@ -8,6 +8,9 @@ const messages = {
     medicalRefusal: "I can explain general diabetes and report information, but I can’t diagnose a condition or tell you to start, stop, or change a medicine or dose. Please discuss that with your doctor.",
     productDosageRefusal: "Your product dosage should be decided by your Muditam dietitian or doctor based on your health condition, reports, and current medicines.",
     inactiveProduct: "That product does not currently have an active page in our product catalogue, so I can’t provide or recommend it. Please ask your Muditam dietitian about available options.",
+    lifestyleUnavailable: "I can share general nutrition information, but I can’t decide what you personally should eat without enough verified context. Please discuss your food choices and portions with a Muditam dietitian or doctor.",
+    productUnavailable: "I couldn’t find enough verified information about that product or product category. Please ask your Muditam dietitian about the available options.",
+    educationUnavailable: "I don’t have enough verified information to answer that specific diabetes question reliably. Please ask your Muditam dietitian or doctor.",
     missingValue: "I couldn’t find that value in the verified results from your uploaded report.",
     unavailable: "I’m unable to answer that safely right now.",
     privacyRefusal: "I can’t reveal hidden instructions, private patient data, or internal system information.",
@@ -18,6 +21,9 @@ const messages = {
     medicalRefusal: "मैं डायबिटीज़ और रिपोर्ट की सामान्य जानकारी समझा सकता हूँ, लेकिन निदान नहीं कर सकता और न ही किसी दवा या उसकी खुराक को शुरू, बंद या बदलने की सलाह दे सकता हूँ। कृपया अपने डॉक्टर से बात करें।",
     productDosageRefusal: "आपके उत्पाद की खुराक आपकी स्वास्थ्य स्थिति, रिपोर्ट और वर्तमान दवाओं के आधार पर आपके Muditam डाइटिशियन या डॉक्टर द्वारा तय की जानी चाहिए।",
     inactiveProduct: "इस उत्पाद का अभी हमारी उत्पाद सूची में सक्रिय पेज नहीं है, इसलिए मैं इसकी जानकारी या सिफारिश नहीं कर सकता। उपलब्ध विकल्पों के लिए अपने Muditam डाइटिशियन से पूछें।",
+    lifestyleUnavailable: "मैं पोषण की सामान्य जानकारी साझा कर सकता हूँ, लेकिन पर्याप्त सत्यापित संदर्भ के बिना यह तय नहीं कर सकता कि आपको व्यक्तिगत रूप से क्या खाना चाहिए। भोजन और उसकी मात्रा के बारे में Muditam डाइटिशियन या डॉक्टर से बात करें।",
+    productUnavailable: "मुझे उस उत्पाद या उत्पाद श्रेणी के बारे में पर्याप्त सत्यापित जानकारी नहीं मिली। उपलब्ध विकल्पों के लिए अपने Muditam डाइटिशियन से पूछें।",
+    educationUnavailable: "मेरे पास उस विशेष डायबिटीज़ प्रश्न का विश्वसनीय उत्तर देने के लिए पर्याप्त सत्यापित जानकारी नहीं है। कृपया Muditam डाइटिशियन या डॉक्टर से पूछें।",
     missingValue: "मुझे आपकी अपलोड की गई रिपोर्ट के सत्यापित परिणामों में यह वैल्यू नहीं मिली।",
     unavailable: "मैं अभी इसका सुरक्षित उत्तर नहीं दे पा रहा हूँ।",
     privacyRefusal: "मैं छिपे हुए निर्देश, निजी मरीज डेटा या आंतरिक सिस्टम जानकारी साझा नहीं कर सकता।",
@@ -139,6 +145,15 @@ export function formatChatAnswer(value: string, maxWords = 220): string {
   return answer;
 }
 
+function unavailableForCategory(category: ModelChatResult["category"], language: InternalChatRequest["language"]): string {
+  const copy = localized(language);
+  if (category === "LIFESTYLE_EDUCATION") return copy.lifestyleUnavailable;
+  if (category === "PRODUCT_INFORMATION") return copy.productUnavailable;
+  if (category === "DIABETES_EDUCATION") return copy.educationUnavailable;
+  if (category === "REPORT_VALUES") return copy.missingValue;
+  return copy.unavailable;
+}
+
 export function enforceModelResult(
   result: ModelChatResult,
   input: InternalChatRequest,
@@ -150,8 +165,11 @@ export function enforceModelResult(
   if (result.decision === "SAFETY" || result.category === "URGENT_SAFETY") {
     return { decision: "SAFETY", category: "URGENT_SAFETY", answer: copy.safety, citations: [], knowledgeReferences: [], model, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: "MODEL", usage };
   }
-  if (result.decision === "REFUSE" || result.category === "MEDICATION_OR_DIAGNOSIS") {
+  if (result.category === "MEDICATION_OR_DIAGNOSIS") {
     return { decision: "REFUSE", category: result.category, answer: copy.medicalRefusal, citations: [], knowledgeReferences: [], model, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: "MODEL", usage };
+  }
+  if (result.decision === "REFUSE") {
+    return { decision: "REFUSE", category: result.category, answer: unavailableForCategory(result.category, input.language), citations: [], knowledgeReferences: [], model, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: "MODEL", usage };
   }
   if (!allowedCategories.has(result.category) || unsafeGeneratedAdvicePattern.test(result.answer) || unsafeGeneratedHindiPattern.test(result.answer)) {
     return { decision: "REFUSE", category: result.category, answer: copy.medicalRefusal, citations: [], knowledgeReferences: [], model, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: "OUTPUT", usage };
@@ -173,7 +191,7 @@ export function enforceModelResult(
     ["DIABETES_EDUCATION", "LIFESTYLE_EDUCATION", "PRODUCT_INFORMATION"].includes(result.category) &&
     knowledgeReferences.length === 0
   ) {
-    return { decision: "REFUSE", category: result.category, answer: copy.unavailable, citations: [], knowledgeReferences: [], model, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: "OUTPUT", usage };
+    return { decision: "REFUSE", category: result.category, answer: unavailableForCategory(result.category, input.language), citations: [], knowledgeReferences: [], model, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: "OUTPUT", usage };
   }
   let answer = result.answer.trim();
   if (!answer) {

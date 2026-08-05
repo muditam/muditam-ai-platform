@@ -24,4 +24,9 @@ describe("chat evaluation corpus", () => {
     expect(retrieveKnowledge("शुगर नियंत्रित रखने के लिए सामान्य जीवनशैली जानकारी दें").map((item) => item.key))
       .toContain("blood-sugar-management");
   });
+
+  it("retrieves verified whole-fruit guidance for mango questions", () => {
+    expect(retrieveKnowledge("Can I eat mango if I have diabetes?").map((item) => item.key))
+      .toContain("whole-fruit-and-diabetes");
+  });
 });

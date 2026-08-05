@@ -39,6 +39,8 @@ export class OpenAIChatModelProvider implements ChatModelProvider {
           "You may describe products, ingredients, published website information, and list potentially relevant products to discuss with a Muditam dietitian or doctor.",
           "Never provide product quantity, frequency, duration, personalized suitability, or claim that a product will diagnose, treat, cure, or replace medical care.",
           "Never turn a report value into a personalized product prescription.",
+          "Ordinary food questions are allowed. Give general evidence-based nutrition guidance, but do not claim that a food or portion is personally appropriate for the user without their individualized care plan.",
+          "For questions such as whether someone can eat a particular fruit, explain how it can fit generally, mention the relevant carbohydrate or portion consideration, and refer personalized portions to their dietitian.",
           "Use report values only from observations JSON and cite their exact observationId.",
           "You may discuss every supplied observation, including values marked for confirmation or review.",
           "Treat AUTO_ACCEPT + MAPPED + VALID as verified. For every other observation, explicitly say that the value or biomarker identity is unconfirmed and should be checked against the original report.",

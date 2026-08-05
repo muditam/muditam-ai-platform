@@ -82,6 +82,24 @@ describe("AI chat guardrails", () => {
     expect(response.answer).toContain("डाइटिशियन");
   });
 
+  it("uses a nutrition-specific fallback instead of the generic safety message", async () => {
+    const response = await answerChat({ ...baseRequest, message: "Can I eat mango?" }, {
+      answer: async () => ({
+        model: "test-model",
+        result: {
+          decision: "REFUSE",
+          category: "LIFESTYLE_EDUCATION",
+          answer: "",
+          citedObservationIds: [],
+          citedKnowledgeKeys: [],
+        },
+      }),
+    });
+    expect(response.answer).toContain("general nutrition information");
+    expect(response.answer).toContain("dietitian or doctor");
+    expect(response.answer).not.toContain("safely right now");
+  });
+
   it("returns a deterministic emergency response before calling the model", async () => {
     const response = await answerChat({ ...baseRequest, message: "He is unconscious and cannot breathe" }, {
       answer: async () => { throw new Error("should not run"); },
