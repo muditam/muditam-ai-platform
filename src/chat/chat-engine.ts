@@ -1,9 +1,9 @@
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { internalChatRequestSchema, modelChatResultSchema, type InternalChatRequest, type InternalChatResponse, type ModelChatResult } from "./contracts.js";
-import { CHAT_PROMPT_VERSION, deterministicGuardrail, enforceModelResult, extractedValuesResponse } from "./guardrails.js";
+import { CHAT_PROMPT_VERSION, deterministicGuardrail, enforceModelResult, extractedValuesResponse, inactiveProductResponse } from "./guardrails.js";
 import { retrieveKnowledge } from "./knowledge.js";
-import { retrieveRagKnowledge } from "./rag.js";
+import { explicitlyReferencedProduct, retrieveRagKnowledge } from "./rag.js";
 
 export interface ChatModelProvider {
   answer(input: InternalChatRequest, knowledge: Awaited<ReturnType<typeof retrieveRagKnowledge>>): Promise<{ result: ModelChatResult; model: string; usage?: InternalChatResponse["usage"] }>;
@@ -83,6 +83,8 @@ export async function answerChat(value: unknown, provider?: ChatModelProvider): 
   if (deterministic) return deterministic;
   const extractedValues = extractedValuesResponse(input);
   if (extractedValues) return extractedValues;
+  const explicitProduct = await explicitlyReferencedProduct(input.message);
+  if (explicitProduct && !explicitProduct.eligible) return inactiveProductResponse(input.language);
   const knowledge = await retrieveRagKnowledge(input.message, retrieveKnowledge(input.message));
   const activeProvider = provider ?? new OpenAIChatModelProvider(process.env.MUDITAM_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY ?? "");
   const generated = await activeProvider.answer(input, knowledge);

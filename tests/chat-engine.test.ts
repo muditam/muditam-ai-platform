@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { answerChat, type ChatModelProvider } from "../src/chat/chat-engine.js";
+import { inactiveProductResponse } from "../src/chat/guardrails.js";
 
 const baseRequest = {
   conversationId: "conversation-1",
@@ -20,6 +21,14 @@ const baseRequest = {
 };
 
 describe("AI chat guardrails", () => {
+  it("returns a deterministic response for an explicitly named inactive product", () => {
+    const response = inactiveProductResponse("en");
+    expect(response.decision).toBe("REFUSE");
+    expect(response.category).toBe("PRODUCT_INFORMATION");
+    expect(response.answer).toContain("does not currently have an active page");
+    expect(response.model).toBeNull();
+  });
+
   it("blocks medication changes before calling the model", async () => {
     let called = false;
     const provider: ChatModelProvider = { answer: async () => {

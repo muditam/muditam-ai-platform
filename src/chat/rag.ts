@@ -99,7 +99,8 @@ function normalizedProductName(value: string): string {
     .trim();
 }
 
-async function explicitlyReferencedProduct(question: string): Promise<{ slug: string; eligible: boolean } | null> {
+export async function explicitlyReferencedProduct(question: string): Promise<{ slug: string; eligible: boolean } | null> {
+  if (!enabled() || !mongoUri() || !PRODUCT_INTENT.test(question)) return null;
   const db = await database();
   if (!db) return null;
   const normalizedQuestion = ` ${normalizedProductName(question)} `;

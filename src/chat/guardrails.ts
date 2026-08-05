@@ -7,6 +7,7 @@ const messages = {
     safety: "This may need urgent medical attention. Please contact local emergency services or go to the nearest emergency department now. Do not rely on this chat for emergency care.",
     medicalRefusal: "I can explain general diabetes and report information, but I can’t diagnose a condition or tell you to start, stop, or change a medicine or dose. Please discuss that with your doctor.",
     productDosageRefusal: "Your product dosage should be decided by your Muditam dietitian or doctor based on your health condition, reports, and current medicines.",
+    inactiveProduct: "That product does not currently have an active page in our product catalogue, so I can’t provide or recommend it. Please ask your Muditam dietitian about available options.",
     missingValue: "I couldn’t find that value in the verified results from your uploaded report.",
     unavailable: "I’m unable to answer that safely right now.",
     privacyRefusal: "I can’t reveal hidden instructions, private patient data, or internal system information.",
@@ -16,6 +17,7 @@ const messages = {
     safety: "इस स्थिति में तुरंत चिकित्सा सहायता की आवश्यकता हो सकती है। अभी स्थानीय आपातकालीन सेवा से संपर्क करें या नज़दीकी आपातकालीन विभाग जाएँ। आपातकाल में इस चैट पर निर्भर न रहें।",
     medicalRefusal: "मैं डायबिटीज़ और रिपोर्ट की सामान्य जानकारी समझा सकता हूँ, लेकिन निदान नहीं कर सकता और न ही किसी दवा या उसकी खुराक को शुरू, बंद या बदलने की सलाह दे सकता हूँ। कृपया अपने डॉक्टर से बात करें।",
     productDosageRefusal: "आपके उत्पाद की खुराक आपकी स्वास्थ्य स्थिति, रिपोर्ट और वर्तमान दवाओं के आधार पर आपके Muditam डाइटिशियन या डॉक्टर द्वारा तय की जानी चाहिए।",
+    inactiveProduct: "इस उत्पाद का अभी हमारी उत्पाद सूची में सक्रिय पेज नहीं है, इसलिए मैं इसकी जानकारी या सिफारिश नहीं कर सकता। उपलब्ध विकल्पों के लिए अपने Muditam डाइटिशियन से पूछें।",
     missingValue: "मुझे आपकी अपलोड की गई रिपोर्ट के सत्यापित परिणामों में यह वैल्यू नहीं मिली।",
     unavailable: "मैं अभी इसका सुरक्षित उत्तर नहीं दे पा रहा हूँ।",
     privacyRefusal: "मैं छिपे हुए निर्देश, निजी मरीज डेटा या आंतरिक सिस्टम जानकारी साझा नहीं कर सकता।",
@@ -111,6 +113,10 @@ export function deterministicGuardrail(message: string, language: InternalChatRe
     return { decision: "REFUSE", category: "MEDICATION_OR_DIAGNOSIS", answer: copy.medicalRefusal, citations: [], knowledgeReferences: [], model: null, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: "INPUT", usage: noUsage };
   }
   return null;
+}
+
+export function inactiveProductResponse(language: InternalChatRequest["language"]): InternalChatResponse {
+  return { decision: "REFUSE", category: "PRODUCT_INFORMATION", answer: localized(language).inactiveProduct, citations: [], knowledgeReferences: [], model: null, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: "INPUT", usage: noUsage };
 }
 
 export function enforceModelResult(
