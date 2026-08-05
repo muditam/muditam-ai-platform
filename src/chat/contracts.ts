@@ -5,8 +5,9 @@ export const chatRoleSchema = z.enum(["user", "assistant"]);
 export const chatObservationSchema = z.object({
   observationId: z.string().min(1).max(200),
   reportId: z.string().min(1).max(200),
-  canonicalCode: z.string().min(1).max(120),
+  canonicalCode: z.string().min(1).max(120).nullable(),
   displayName: z.string().min(1).max(160),
+  rawName: z.string().min(1).max(300).nullable().optional(),
   value: z.union([z.number(), z.string(), z.object({
     type: z.string(),
     numeric: z.number().optional(),
@@ -17,6 +18,11 @@ export const chatObservationSchema = z.object({
   })]),
   unit: z.string().max(80).nullable().optional(),
   referenceRange: z.unknown().nullable().optional(),
+  mappingStatus: z.enum(["MAPPED", "POSSIBLE_MATCH", "AMBIGUOUS", "UNMAPPED"]),
+  suggestedCanonicalCode: z.string().min(1).max(120).nullable().optional(),
+  validationStatus: z.enum(["VALID", "REVIEW_REQUIRED"]),
+  decision: z.enum(["AUTO_ACCEPT", "USER_CONFIRMATION", "REVIEW_REQUIRED"]),
+  confidence: z.number().min(0).max(1),
   collectedAt: z.string().datetime().optional(),
 });
 
@@ -24,7 +30,7 @@ export const internalChatRequestSchema = z.object({
   conversationId: z.string().min(1).max(200),
   message: z.string().trim().min(1).max(2000),
   language: z.enum(["en", "hi"]).default("en"),
-  observations: z.array(chatObservationSchema).max(150).default([]),
+  observations: z.array(chatObservationSchema).max(300).default([]),
   recentMessages: z.array(z.object({
     role: chatRoleSchema,
     content: z.string().min(1).max(4000),
@@ -62,6 +68,10 @@ export interface InternalChatResponse {
     displayName: string;
     value: InternalChatRequest["observations"][number]["value"];
     unit?: string | null;
+    mappingStatus: InternalChatRequest["observations"][number]["mappingStatus"];
+    validationStatus: InternalChatRequest["observations"][number]["validationStatus"];
+    decision: InternalChatRequest["observations"][number]["decision"];
+    confidence: number;
   }>;
   knowledgeReferences: Array<{
     key: string;

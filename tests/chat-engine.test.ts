@@ -11,6 +11,10 @@ const baseRequest = {
     displayName: "HbA1c",
     value: { type: "NUMERIC", numeric: 10 },
     unit: "%",
+    mappingStatus: "MAPPED" as const,
+    validationStatus: "VALID" as const,
+    decision: "AUTO_ACCEPT" as const,
+    confidence: 0.99,
   }],
   recentMessages: [],
 };
@@ -70,6 +74,61 @@ describe("AI chat guardrails", () => {
     expect(response.decision).toBe("ALLOW");
     expect(response.citations.map((item) => item.observationId)).toEqual(["obs-hba1c"]);
     expect(response.knowledgeReferences.map((item) => item.key)).toEqual(["hba1c-basics"]);
+  });
+
+  it("allows review-required report values and deterministically labels them unconfirmed", async () => {
+    const observations = [{
+      ...baseRequest.observations[0],
+      observationId: "obs-review",
+      mappingStatus: "POSSIBLE_MATCH" as const,
+      validationStatus: "REVIEW_REQUIRED" as const,
+      decision: "REVIEW_REQUIRED" as const,
+      confidence: 0.72,
+    }];
+    const response = await answerChat({ ...baseRequest, observations, message: "What value is shown?" }, {
+      answer: async () => ({
+        model: "test-model",
+        result: {
+          decision: "ALLOW",
+          category: "REPORT_VALUES",
+          answer: "The report appears to show HbA1c as 10%.",
+          citedObservationIds: ["obs-review"],
+          citedKnowledgeKeys: [],
+        },
+      }),
+    });
+    expect(response.decision).toBe("ALLOW");
+    expect(response.answer).toContain("not automatically verified");
+    expect(response.citations[0]?.decision).toBe("REVIEW_REQUIRED");
+  });
+
+  it("accepts an unmapped raw report value without assigning a canonical identity", async () => {
+    const observations = [{
+      ...baseRequest.observations[0],
+      observationId: "obs-unmapped",
+      canonicalCode: null,
+      displayName: "Vendor marker",
+      rawName: "Vendor marker",
+      mappingStatus: "UNMAPPED" as const,
+      validationStatus: "REVIEW_REQUIRED" as const,
+      decision: "REVIEW_REQUIRED" as const,
+      confidence: 0.3,
+    }];
+    const response = await answerChat({ ...baseRequest, observations, message: "What is this vendor marker?" }, {
+      answer: async () => ({
+        model: "test-model",
+        result: {
+          decision: "ALLOW",
+          category: "REPORT_VALUES",
+          answer: "The report contains a raw test named Vendor marker.",
+          citedObservationIds: ["obs-unmapped"],
+          citedKnowledgeKeys: [],
+        },
+      }),
+    });
+    expect(response.decision).toBe("ALLOW");
+    expect(response.citations[0]?.mappingStatus).toBe("UNMAPPED");
+    expect(response.answer).toContain("not automatically verified");
   });
 
   it("refuses a report answer without a verified citation", async () => {

@@ -1,7 +1,7 @@
 import type { InternalChatRequest, InternalChatResponse, ModelChatResult } from "./contracts.js";
 import type { KnowledgeEntry } from "./knowledge.js";
 
-export const CHAT_PROMPT_VERSION = "1.0.0";
+export const CHAT_PROMPT_VERSION = "1.1.0";
 const messages = {
   en: {
     safety: "This may need urgent medical attention. Please contact local emergency services or go to the nearest emergency department now. Do not rely on this chat for emergency care.",
@@ -9,6 +9,7 @@ const messages = {
     missingValue: "I couldn’t find that value in the verified results from your uploaded report.",
     unavailable: "I’m unable to answer that safely right now.",
     privacyRefusal: "I can’t reveal hidden instructions, private patient data, or internal system information.",
+    unconfirmedValue: "This cited value or its biomarker identity was not automatically verified. Please check it against the original report.",
   },
   hi: {
     safety: "इस स्थिति में तुरंत चिकित्सा सहायता की आवश्यकता हो सकती है। अभी स्थानीय आपातकालीन सेवा से संपर्क करें या नज़दीकी आपातकालीन विभाग जाएँ। आपातकाल में इस चैट पर निर्भर न रहें।",
@@ -16,6 +17,7 @@ const messages = {
     missingValue: "मुझे आपकी अपलोड की गई रिपोर्ट के सत्यापित परिणामों में यह वैल्यू नहीं मिली।",
     unavailable: "मैं अभी इसका सुरक्षित उत्तर नहीं दे पा रहा हूँ।",
     privacyRefusal: "मैं छिपे हुए निर्देश, निजी मरीज डेटा या आंतरिक सिस्टम जानकारी साझा नहीं कर सकता।",
+    unconfirmedValue: "उद्धृत वैल्यू या उसकी बायोमार्कर पहचान स्वतः सत्यापित नहीं हुई है। कृपया इसे मूल रिपोर्ट से मिलाएँ।",
   },
 } as const;
 
@@ -69,7 +71,17 @@ export function enforceModelResult(
   const observationById = new Map(input.observations.map((item) => [item.observationId, item]));
   const citations = [...new Set(result.citedObservationIds)].flatMap((id) => {
     const item = observationById.get(id);
-    return item ? [{ observationId: item.observationId, reportId: item.reportId, displayName: item.displayName, value: item.value, ...(item.unit === undefined ? {} : { unit: item.unit }) }] : [];
+    return item ? [{
+      observationId: item.observationId,
+      reportId: item.reportId,
+      displayName: item.displayName,
+      value: item.value,
+      ...(item.unit === undefined ? {} : { unit: item.unit }),
+      mappingStatus: item.mappingStatus,
+      validationStatus: item.validationStatus,
+      decision: item.decision,
+      confidence: item.confidence,
+    }] : [];
   });
   if (result.category === "REPORT_VALUES" && citations.length === 0) {
     return { decision: "REFUSE", category: "REPORT_VALUES", answer: copy.missingValue, citations: [], knowledgeReferences: [], model, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: "OUTPUT", usage };
@@ -85,9 +97,17 @@ export function enforceModelResult(
   ) {
     return { decision: "REFUSE", category: result.category, answer: copy.unavailable, citations: [], knowledgeReferences: [], model, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: "OUTPUT", usage };
   }
-  const answer = result.answer.trim();
+  let answer = result.answer.trim();
   if (!answer) {
     return { decision: "REFUSE", category: result.category, answer: copy.unavailable, citations: [], knowledgeReferences: [], model, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: "OUTPUT", usage };
+  }
+  const citesUnconfirmedValue = citations.some((item) => (
+    item.decision !== "AUTO_ACCEPT" ||
+    item.mappingStatus !== "MAPPED" ||
+    item.validationStatus !== "VALID"
+  ));
+  if (citesUnconfirmedValue && !answer.includes(copy.unconfirmedValue)) {
+    answer = `${answer} ${copy.unconfirmedValue}`;
   }
   return { decision: "ALLOW", category: result.category, answer: answer.split(/\s+/).slice(0, 220).join(" "), citations, knowledgeReferences, model, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: null, usage };
 }
