@@ -1,5 +1,6 @@
 import { MongoClient, type Document } from "mongodb";
 import OpenAI from "openai";
+import { fuzzyIntent } from "../internal/fuzzy-match.js";
 import type { KnowledgeEntry } from "./knowledge.js";
 
 const PRODUCT_INTENT = /\b(product|products|supplement|supplements|ingredient|ingredients|price|buy|purchase|fizz|defend|fix|fuel|essentials|dense|snooze|shilajit|berberine|karela|jamun|ras|vati|gut|liver|heart|thyroid|nerve|bone|sleep)\b|(प्रोडक्ट|उत्पाद|सप्लीमेंट|सामग्री|कीमत|खरीद|शिलाजीत|करेला|जामुन|लिवर|हार्ट|थायराइड|नींद)/iu;
@@ -90,6 +91,37 @@ function searchTerms(question: string): string[] {
   return [...new Set(question.toLowerCase().match(/[\p{L}\p{N}]+/gu) || [])]
     .filter((term) => term.length >= 3)
     .slice(0, 12);
+}
+
+function expandCommerceProductQuery(question: string): string {
+  const expansions: string[] = [];
+  if (/\b(?:diabetes|diabetic|blood sugar|glucose|sugar patient)\b|(?:डायबिटीज|मधुमेह|ब्लड शुगर)/iu.test(question)) {
+    expansions.push("blood sugar glucose metabolic support karela jamun sugar defend berberine");
+  }
+  if (/\b(?:fatty liver|liver)\b|(?:लिवर|जिगर)/iu.test(question)) {
+    expansions.push("liver wellness support liver defend");
+  }
+  if (/\b(?:heart|cardiac)\b|(?:हार्ट|दिल)/iu.test(question)) {
+    expansions.push("heart cardiac cardiovascular wellness support heart defend");
+  }
+  return [question, ...expansions].join("\n");
+}
+
+function latestCustomerMessage(question: string): string {
+  return question.match(/(?:^|\n)user:\s*([^\n]+)\s*$/iu)?.[1] ?? question;
+}
+
+function discoveryProductSlugs(question: string): string[] {
+  const latest = latestCustomerMessage(question);
+  const asksForProduct = fuzzyIntent(latest, ["product", "products", "supplement", "something", "anything", "recommend"])
+    || /\b(?:kuch|chahiye)\b|(?:प्रोडक्ट|उत्पाद|सप्लीमेंट|कुछ)/iu.test(latest);
+  if (!asksForProduct) return [];
+  if (/\b(?:diabetes|diabetic|blood sugar|glucose|sugar patient)\b|(?:डायबिटीज|मधुमेह|ब्लड शुगर)/iu.test(latest)) {
+    return ["sugar-defend-pro", "karela-jamun-fizz"];
+  }
+  if (/\b(?:heart|cardiac)\b|(?:हार्ट|दिल)/iu.test(latest)) return ["heart-defend-pro"];
+  if (/\b(?:fatty liver|liver|lever)\b|(?:लिवर|जिगर)/iu.test(latest)) return ["liver-defend-pro"];
+  return [];
 }
 
 function normalizedProductName(value: string): string {
@@ -199,6 +231,39 @@ export async function retrieveRagKnowledge(
   }
   const unique = new Map([...curated, ...retrieved].map((item) => [item.key, item]));
   return [...unique.values()].slice(0, 8);
+}
+
+export async function retrieveCommerceRagKnowledge(question: string): Promise<KnowledgeEntry[]> {
+  if (!enabled() || !mongoUri()) return [];
+  let retrieved: KnowledgeEntry[] = [];
+  const productQuery = expandCommerceProductQuery(question);
+  try {
+    const discoverySlugs = discoveryProductSlugs(question);
+    for (const slug of discoverySlugs) retrieved.push(...await exactProductResults(slug, question));
+    const explicitlyNamed = await explicitlyReferencedProduct(question);
+    if (explicitlyNamed && !explicitlyNamed.eligible) return [];
+    retrieved.push(...(explicitlyNamed
+      ? await exactProductResults(explicitlyNamed.slug, question)
+      : await vectorResults(productQuery, "product")));
+    if (PLATFORM_INTENT.test(question)) retrieved.push(...await vectorResults(question, "platform"));
+  } catch (error) {
+    console.warn(JSON.stringify({
+      service: "muditam-ai-platform",
+      event: "commerce_rag.vector_search_fallback",
+      error: error instanceof Error ? error.message : String(error),
+    }));
+    try {
+      retrieved.push(...await lexicalResults(productQuery, "product"));
+      if (PLATFORM_INTENT.test(question)) retrieved.push(...await lexicalResults(question, "platform"));
+    } catch (fallbackError) {
+      console.error(JSON.stringify({
+        service: "muditam-ai-platform",
+        event: "commerce_rag.retrieval_failed",
+        error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+      }));
+    }
+  }
+  return [...new Map(retrieved.map((entry) => [entry.key, entry])).values()].slice(0, 10);
 }
 
 export const ragConfig = { embeddingDimensions, embeddingModel };

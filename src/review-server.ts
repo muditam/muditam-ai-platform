@@ -6,6 +6,17 @@ import process from "node:process";
 import Busboy from "busboy";
 import { ZodError } from "zod";
 import { answerChat } from "./chat/chat-engine.js";
+import { answerCommerceChat } from "./commerce/commerce-engine.js";
+import {
+  bearerToken,
+  createStorefrontSession,
+  verifyStorefrontSession,
+} from "./commerce/storefront-session.js";
+import {
+  allowedStorefrontOrigin,
+  StorefrontRateLimiter,
+  storefrontClientKey,
+} from "./commerce/storefront-policy.js";
 import {
   directProcessingAllowed,
   isProduction,
@@ -45,6 +56,8 @@ const VISION_CONCURRENCY = 2;
 const MAX_INTERNAL_JSON_BYTES = 64 * 1024;
 const MAX_CHAT_JSON_BYTES = 256 * 1024;
 const htmlPath = resolve("local-test-ui/index.html");
+const storefrontSessionLimiter = new StorefrontRateLimiter(10, 60_000);
+const storefrontMessageLimiter = new StorefrontRateLimiter(20, 60_000);
 
 function logEvent(
   event: string,
@@ -103,6 +116,29 @@ function json(
     headers["Access-Control-Allow-Origin"] = "*";
     headers["Access-Control-Allow-Headers"] = "Content-Type, X-File-Name";
     headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS";
+  }
+  response.writeHead(status, headers);
+  response.end(JSON.stringify(body));
+}
+
+function storefrontJson(
+  request: IncomingMessage,
+  response: ServerResponse,
+  status: number,
+  body: unknown,
+  extraHeaders: Record<string, string> = {},
+): void {
+  const origin = allowedStorefrontOrigin(typeof request.headers.origin === "string" ? request.headers.origin : undefined);
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+    Vary: "Origin",
+    ...extraHeaders,
+  };
+  if (origin) {
+    headers["Access-Control-Allow-Origin"] = origin;
+    headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type";
+    headers["Access-Control-Allow-Methods"] = "POST, OPTIONS";
   }
   response.writeHead(status, headers);
   response.end(JSON.stringify(body));
@@ -376,6 +412,16 @@ async function handle(
   requestId: string,
 ): Promise<void> {
   const url = new URL(request.url ?? "/", `http://${HOST}:${PORT}`);
+  const isStorefrontCommerceRoute = url.pathname.startsWith("/api/v1/commerce/");
+  if (request.method === "OPTIONS" && isStorefrontCommerceRoute) {
+    const origin = allowedStorefrontOrigin(typeof request.headers.origin === "string" ? request.headers.origin : undefined);
+    if (!origin) {
+      json(response, 403, { error: "Storefront origin is not allowed.", code: "ORIGIN_NOT_ALLOWED" });
+      return;
+    }
+    storefrontJson(request, response, 204, null);
+    return;
+  }
   if (request.method === "OPTIONS" && !isProduction()) {
     response.writeHead(204, {
       "Access-Control-Allow-Origin": "*",
@@ -401,6 +447,95 @@ async function handle(
 
   if (request.method === "GET" && url.pathname === "/api/health") {
     json(response, 200, { status: "ok" });
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/v1/commerce/sessions") {
+    const origin = allowedStorefrontOrigin(typeof request.headers.origin === "string" ? request.headers.origin : undefined);
+    if (!origin) {
+      json(response, 403, { error: "Storefront origin is not allowed.", code: "ORIGIN_NOT_ALLOWED" });
+      return;
+    }
+    if (String(process.env.MUDITAM_COMMERCE_CHAT_ENABLED ?? "false").toLowerCase() !== "true") {
+      storefrontJson(request, response, 503, { error: "Commerce chat is temporarily disabled.", code: "COMMERCE_CHAT_DISABLED" });
+      return;
+    }
+    const rate = storefrontSessionLimiter.allow(storefrontClientKey(request, "new-session"));
+    if (!rate.allowed) {
+      storefrontJson(request, response, 429, { error: "Too many session requests.", code: "RATE_LIMITED" }, {
+        "Retry-After": String(rate.retryAfterSeconds),
+      });
+      return;
+    }
+    try {
+      const session = createStorefrontSession();
+      storefrontJson(request, response, 201, session);
+    } catch (error) {
+      logEvent("storefront_commerce_session.failed", { requestId });
+      console.error(error);
+      storefrontJson(request, response, 503, { error: "Commerce chat is not configured.", code: "COMMERCE_CHAT_CONFIGURATION_ERROR" });
+    }
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/v1/commerce/messages") {
+    const origin = allowedStorefrontOrigin(typeof request.headers.origin === "string" ? request.headers.origin : undefined);
+    if (!origin) {
+      json(response, 403, { error: "Storefront origin is not allowed.", code: "ORIGIN_NOT_ALLOWED" });
+      return;
+    }
+    if (String(process.env.MUDITAM_COMMERCE_CHAT_ENABLED ?? "false").toLowerCase() !== "true") {
+      storefrontJson(request, response, 503, { error: "Commerce chat is temporarily disabled.", code: "COMMERCE_CHAT_DISABLED" });
+      return;
+    }
+    let session;
+    try {
+      const token = bearerToken(request.headers.authorization);
+      session = token ? verifyStorefrontSession(token) : null;
+    } catch {
+      storefrontJson(request, response, 503, { error: "Commerce chat is not configured.", code: "COMMERCE_CHAT_CONFIGURATION_ERROR" });
+      return;
+    }
+    if (!session) {
+      storefrontJson(request, response, 401, { error: "Invalid or expired storefront session.", code: "INVALID_STOREFRONT_SESSION" });
+      return;
+    }
+    const rate = storefrontMessageLimiter.allow(storefrontClientKey(request, session.visitorId));
+    if (!rate.allowed) {
+      storefrontJson(request, response, 429, { error: "Please wait before sending another message.", code: "RATE_LIMITED" }, {
+        "Retry-After": String(rate.retryAfterSeconds),
+      });
+      return;
+    }
+    const startedAt = Date.now();
+    try {
+      const payload = await readJson(request, MAX_CHAT_JSON_BYTES);
+      const scopedPayload = typeof payload === "object" && payload !== null
+        ? { ...payload, conversationId: session.conversationId, visitorId: session.visitorId, channel: "shopify_web" }
+        : payload;
+      const result = await answerCommerceChat(scopedPayload);
+      logEvent("storefront_commerce_chat.completed", {
+        requestId,
+        visitorId: session.visitorId,
+        conversationId: session.conversationId,
+        durationMs: Date.now() - startedAt,
+        decision: result.decision,
+        category: result.category,
+        recommendationCount: result.recommendedProducts.length,
+        handoffQueue: result.handoff?.queue ?? null,
+        model: result.model,
+        totalTokens: result.usage.totalTokens,
+      });
+      storefrontJson(request, response, 200, result);
+    } catch (error) {
+      if (error instanceof ZodError || error instanceof SyntaxError || (error instanceof Error && error.message === "REQUEST_TOO_LARGE")) {
+        storefrontJson(request, response, 400, { error: "Invalid commerce chat request.", code: "INVALID_COMMERCE_CHAT_REQUEST" });
+        return;
+      }
+      logEvent("storefront_commerce_chat.failed", { requestId, durationMs: Date.now() - startedAt });
+      console.error(error);
+      storefrontJson(request, response, 502, { error: "The commerce assistant is temporarily unavailable.", code: "COMMERCE_CHAT_PROVIDER_ERROR" });
+    }
     return;
   }
 
@@ -464,6 +599,46 @@ async function handle(
       logEvent("internal_chat.failed", { requestId, durationMs: Date.now() - startedAt });
       console.error(error);
       json(response, 502, { error: "The AI assistant is temporarily unavailable.", code: "CHAT_PROVIDER_ERROR" });
+    }
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/internal/commerce-chat/messages") {
+    if (!validServiceSecret(request.headers["x-muditam-service-secret"] as string | undefined)) {
+      json(response, 401, { error: "Unauthorized service request." });
+      return;
+    }
+    if (String(process.env.MUDITAM_COMMERCE_CHAT_ENABLED ?? "false").toLowerCase() !== "true") {
+      json(response, 503, { error: "Commerce chat is temporarily disabled.", code: "COMMERCE_CHAT_DISABLED" });
+      return;
+    }
+    const startedAt = Date.now();
+    try {
+      const payload = await readJson(request, MAX_CHAT_JSON_BYTES);
+      const result = await answerCommerceChat(payload);
+      logEvent("internal_commerce_chat.completed", {
+        requestId,
+        durationMs: Date.now() - startedAt,
+        decision: result.decision,
+        category: result.category,
+        recommendationCount: result.recommendedProducts.length,
+        knowledgeReferenceCount: result.knowledgeReferences.length,
+        handoffQueue: result.handoff?.queue ?? null,
+        guardrailStage: result.guardrailStage,
+        model: result.model,
+        inputTokens: result.usage.inputTokens,
+        outputTokens: result.usage.outputTokens,
+        totalTokens: result.usage.totalTokens,
+      });
+      json(response, 200, result);
+    } catch (error) {
+      if (error instanceof ZodError || error instanceof SyntaxError || (error instanceof Error && error.message === "REQUEST_TOO_LARGE")) {
+        json(response, 400, { error: "Invalid commerce chat request.", code: "INVALID_COMMERCE_CHAT_REQUEST" });
+        return;
+      }
+      logEvent("internal_commerce_chat.failed", { requestId, durationMs: Date.now() - startedAt });
+      console.error(error);
+      json(response, 502, { error: "The commerce assistant is temporarily unavailable.", code: "COMMERCE_CHAT_PROVIDER_ERROR" });
     }
     return;
   }

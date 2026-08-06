@@ -8,8 +8,10 @@ PNG images, and JPEG images. It extracts printed laboratory observations and
 maps them to a versioned biomarker catalogue. It does not diagnose a patient,
 invent missing results, or generate estimated dashboard values.
 
-DOCX extraction, clinical interpretation, AI chat, and voice are not included
-in this milestone.
+DOCX extraction, clinical interpretation, and voice are not included in this
+milestone. The service also contains two isolated AI chat paths: the existing
+authenticated health/report assistant and an authenticated commerce-chat
+foundation for product discovery, product cards, support, and expert handoff.
 
 In production, only `GET /api/health` and the service-authenticated
 `POST /internal/report-extractions` integration are externally available. The
@@ -163,6 +165,79 @@ or estimated values after a report has been uploaded.
 ```http
 GET /api/health
 ```
+
+### Commerce chat (internal foundation)
+
+```http
+POST /internal/commerce-chat/messages
+Content-Type: application/json
+X-Muditam-Service-Secret: <service secret>
+```
+
+Commerce chat is deliberately separate from the report/health chat prompt and
+guardrails. It returns conversational text messages and verified product-card
+references as separate fields. A model-suggested product is returned only when
+its slug exists in retrieved active, recommendation-eligible product knowledge.
+This endpoint remains service-authenticated and is disabled unless
+`MUDITAM_COMMERCE_CHAT_ENABLED=true`.
+
+Example request:
+
+```json
+{
+  "conversationId": "conversation-123",
+  "visitorId": "visitor-123",
+  "channel": "shopify_web",
+  "language": "en",
+  "message": "Suggest something for blood-sugar support",
+  "recentMessages": []
+}
+```
+
+The browser widget must not call this internal endpoint directly or contain the
+service secret. It uses the public storefront session gateway below, which
+applies origin checks, signed anonymous sessions, and visitor-level rate limits.
+
+### Storefront commerce gateway
+
+The initial browser gateway is available through:
+
+```http
+POST /api/v1/commerce/sessions
+Origin: https://muditam.com
+
+POST /api/v1/commerce/messages
+Origin: https://muditam.com
+Authorization: Bearer <signed storefront session token>
+Content-Type: application/json
+```
+
+Session tokens are anonymous, signed, expire after 24 hours, and contain only a
+random visitor ID and conversation ID. Configure a secret of at least 32
+characters in `MUDITAM_COMMERCE_SESSION_SECRET`. Production origins default to
+`https://muditam.com` and `https://www.muditam.com`; override them with a
+comma-separated `MUDITAM_COMMERCE_ALLOWED_ORIGINS` value.
+
+The gateway applies an in-process first layer of visitor/IP rate limiting. A
+shared edge or Redis-backed limiter should be added before horizontally scaling
+the service.
+
+### Storefront widget
+
+The isolated Shadow DOM widget lives in `apps/storefront-widget`. It can be
+previewed and built with:
+
+```bash
+npm run widget:dev
+npm run widget:typecheck
+npm run widget:build
+```
+
+The production build emits `apps/storefront-widget/dist/muditam-chat.js`. The
+current product card deliberately uses the verified product name, reason, and
+URL only. Shopify-synchronized image, price, variant, availability, add-to-cart,
+and attribution fields will be added to the backend contract rather than being
+hardcoded in the widget.
 
 ### Process a report
 
