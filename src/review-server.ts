@@ -7,6 +7,12 @@ import Busboy from "busboy";
 import { ZodError } from "zod";
 import { answerChat } from "./chat/chat-engine.js";
 import { answerCommerceChat } from "./commerce/commerce-engine.js";
+import { commerceChatRequestSchema } from "./commerce/contracts.js";
+import {
+  recordFeedback,
+  recordMessageTurn,
+  recordWidgetEvent,
+} from "./commerce/analytics-store.js";
 import {
   bearerToken,
   createStorefrontSession,
@@ -513,7 +519,9 @@ async function handle(
       const scopedPayload = typeof payload === "object" && payload !== null
         ? { ...payload, conversationId: session.conversationId, visitorId: session.visitorId, channel: "shopify_web" }
         : payload;
-      const result = await answerCommerceChat(scopedPayload);
+      const parsedInput = commerceChatRequestSchema.parse(scopedPayload);
+      const result = await answerCommerceChat(parsedInput);
+      void recordMessageTurn(parsedInput, result);
       logEvent("storefront_commerce_chat.completed", {
         requestId,
         visitorId: session.visitorId,
@@ -535,6 +543,90 @@ async function handle(
       logEvent("storefront_commerce_chat.failed", { requestId, durationMs: Date.now() - startedAt });
       console.error(error);
       storefrontJson(request, response, 502, { error: "The commerce assistant is temporarily unavailable.", code: "COMMERCE_CHAT_PROVIDER_ERROR" });
+    }
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/v1/commerce/events") {
+    const origin = allowedStorefrontOrigin(typeof request.headers.origin === "string" ? request.headers.origin : undefined);
+    if (!origin) {
+      json(response, 403, { error: "Storefront origin is not allowed.", code: "ORIGIN_NOT_ALLOWED" });
+      return;
+    }
+    let session;
+    try {
+      const token = bearerToken(request.headers.authorization);
+      session = token ? verifyStorefrontSession(token) : null;
+    } catch {
+      storefrontJson(request, response, 503, { error: "Commerce chat is not configured.", code: "COMMERCE_CHAT_CONFIGURATION_ERROR" });
+      return;
+    }
+    if (!session) {
+      storefrontJson(request, response, 401, { error: "Invalid or expired storefront session.", code: "INVALID_STOREFRONT_SESSION" });
+      return;
+    }
+    try {
+      const payload = await readJson(request, MAX_CHAT_JSON_BYTES) as Record<string, unknown>;
+      const type = typeof payload?.type === "string" ? payload.type : null;
+      if (!type || type.length > 60) {
+        storefrontJson(request, response, 400, { error: "Invalid event payload.", code: "INVALID_COMMERCE_EVENT" });
+        return;
+      }
+      const productSlug = typeof payload.productSlug === "string" ? payload.productSlug : undefined;
+      const eventUrl = typeof payload.url === "string" ? payload.url.slice(0, 2000) : undefined;
+      void recordWidgetEvent({
+        conversationId: session.conversationId,
+        visitorId: session.visitorId,
+        type,
+        ...(productSlug !== undefined ? { productSlug } : {}),
+        ...(eventUrl !== undefined ? { url: eventUrl } : {}),
+      });
+      storefrontJson(request, response, 202, { accepted: true });
+    } catch (error) {
+      if (error instanceof SyntaxError || (error instanceof Error && error.message === "REQUEST_TOO_LARGE")) {
+        storefrontJson(request, response, 400, { error: "Invalid event payload.", code: "INVALID_COMMERCE_EVENT" });
+        return;
+      }
+      console.error(error);
+      storefrontJson(request, response, 202, { accepted: false });
+    }
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/v1/commerce/feedback") {
+    const origin = allowedStorefrontOrigin(typeof request.headers.origin === "string" ? request.headers.origin : undefined);
+    if (!origin) {
+      json(response, 403, { error: "Storefront origin is not allowed.", code: "ORIGIN_NOT_ALLOWED" });
+      return;
+    }
+    let session;
+    try {
+      const token = bearerToken(request.headers.authorization);
+      session = token ? verifyStorefrontSession(token) : null;
+    } catch {
+      storefrontJson(request, response, 503, { error: "Commerce chat is not configured.", code: "COMMERCE_CHAT_CONFIGURATION_ERROR" });
+      return;
+    }
+    if (!session) {
+      storefrontJson(request, response, 401, { error: "Invalid or expired storefront session.", code: "INVALID_STOREFRONT_SESSION" });
+      return;
+    }
+    try {
+      const payload = await readJson(request, MAX_CHAT_JSON_BYTES) as Record<string, unknown>;
+      const rating = payload?.rating;
+      if (rating !== "up" && rating !== "down") {
+        storefrontJson(request, response, 400, { error: "Invalid feedback payload.", code: "INVALID_COMMERCE_FEEDBACK" });
+        return;
+      }
+      void recordFeedback(session.conversationId, rating);
+      storefrontJson(request, response, 202, { accepted: true });
+    } catch (error) {
+      if (error instanceof SyntaxError || (error instanceof Error && error.message === "REQUEST_TOO_LARGE")) {
+        storefrontJson(request, response, 400, { error: "Invalid feedback payload.", code: "INVALID_COMMERCE_FEEDBACK" });
+        return;
+      }
+      console.error(error);
+      storefrontJson(request, response, 202, { accepted: false });
     }
     return;
   }

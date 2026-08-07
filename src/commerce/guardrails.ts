@@ -43,7 +43,7 @@ function asksWhetherDoctorIsNeeded(message: string): boolean {
   return mentionsDoctor && (asksConsultation || asksNecessity);
 }
 
-function disclosedCondition(message: string): "heart" | "diabetes" | "kidney" | "liver" | null {
+export function disclosedCondition(message: string): "heart" | "diabetes" | "kidney" | "liver" | null {
   if (/\b(?:heart|cardiac)\s+(?:patient|condition|disease)|\b(?:heart patient|दिल का मरीज|दिल की बीमारी)\b/iu.test(message)) return "heart";
   if (/\b(?:i have diabetes|i am diabetic|i'm diabetic|diabetes patient|diabetic patient|sugar patient|mujhe diabetes (?:hai|hain)|mai(?:n)? diabetic (?:hu|hoon)|mai(?:n)? diabetes patient (?:hu|hoon))\b|(मुझे डायबिटीज़ है|मुझे डायबिटीज है|मैं डायबिटिक हूँ|मैं मधुमेह का मरीज हूँ)/iu.test(message)) return "diabetes";
   if (/\bkidney\s+(?:patient|condition|disease|problem)|\b(?:किडनी की बीमारी|गुर्दे की बीमारी)\b/iu.test(message)) return "kidney";
