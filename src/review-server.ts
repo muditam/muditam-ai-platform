@@ -9,9 +9,13 @@ import { answerChat } from "./chat/chat-engine.js";
 import { answerCommerceChat } from "./commerce/commerce-engine.js";
 import { commerceChatRequestSchema } from "./commerce/contracts.js";
 import {
+  getConversationDetail,
+  getOverview,
+  listConversations,
   recordFeedback,
   recordMessageTurn,
   recordWidgetEvent,
+  type DateRange,
 } from "./commerce/analytics-store.js";
 import {
   bearerToken,
@@ -20,6 +24,7 @@ import {
 } from "./commerce/storefront-session.js";
 import {
   allowedStorefrontOrigin,
+  requestClientIp,
   StorefrontRateLimiter,
   storefrontClientKey,
 } from "./commerce/storefront-policy.js";
@@ -412,6 +417,17 @@ async function readImageBatch(
   });
 }
 
+function parseDateRangeQuery(url: URL): DateRange {
+  const fromParam = url.searchParams.get("from");
+  const toParam = url.searchParams.get("to");
+  const from = fromParam ? new Date(fromParam) : undefined;
+  const to = toParam ? new Date(toParam) : undefined;
+  return {
+    ...(from && !Number.isNaN(from.getTime()) ? { from } : {}),
+    ...(to && !Number.isNaN(to.getTime()) ? { to } : {}),
+  };
+}
+
 async function handle(
   request: IncomingMessage,
   response: ServerResponse,
@@ -521,7 +537,8 @@ async function handle(
         : payload;
       const parsedInput = commerceChatRequestSchema.parse(scopedPayload);
       const result = await answerCommerceChat(parsedInput);
-      void recordMessageTurn(parsedInput, result);
+      const clientIp = requestClientIp(request);
+      void recordMessageTurn(parsedInput, result, clientIp !== undefined ? { ip: clientIp } : {});
       logEvent("storefront_commerce_chat.completed", {
         requestId,
         visitorId: session.visitorId,
@@ -732,6 +749,51 @@ async function handle(
       console.error(error);
       json(response, 502, { error: "The commerce assistant is temporarily unavailable.", code: "COMMERCE_CHAT_PROVIDER_ERROR" });
     }
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/internal/commerce-analytics/overview") {
+    if (!validServiceSecret(request.headers["x-muditam-service-secret"] as string | undefined)) {
+      json(response, 401, { error: "Unauthorized service request." });
+      return;
+    }
+    const range = parseDateRangeQuery(url);
+    const overview = await getOverview(range);
+    json(response, 200, overview);
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/internal/commerce-analytics/conversations") {
+    if (!validServiceSecret(request.headers["x-muditam-service-secret"] as string | undefined)) {
+      json(response, 401, { error: "Unauthorized service request." });
+      return;
+    }
+    const range = parseDateRangeQuery(url);
+    const limitParam = Number.parseInt(url.searchParams.get("limit") ?? "", 10);
+    const conversations = await listConversations({
+      ...range,
+      ...(Number.isFinite(limitParam) ? { limit: limitParam } : {}),
+    });
+    json(response, 200, { conversations });
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname.startsWith("/internal/commerce-analytics/conversations/")) {
+    if (!validServiceSecret(request.headers["x-muditam-service-secret"] as string | undefined)) {
+      json(response, 401, { error: "Unauthorized service request." });
+      return;
+    }
+    const conversationId = url.pathname.slice("/internal/commerce-analytics/conversations/".length);
+    if (!conversationId) {
+      json(response, 400, { error: "Missing conversation id." });
+      return;
+    }
+    const detail = await getConversationDetail(conversationId);
+    if (!detail) {
+      json(response, 404, { error: "Conversation not found.", code: "CONVERSATION_NOT_FOUND" });
+      return;
+    }
+    json(response, 200, detail);
     return;
   }
 

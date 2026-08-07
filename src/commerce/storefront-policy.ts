@@ -17,12 +17,16 @@ export function allowedStorefrontOrigin(origin: string | undefined, nodeEnv = pr
   return allowedStorefrontOrigins(nodeEnv).has(origin) ? origin : null;
 }
 
-export function storefrontClientKey(request: IncomingMessage, sessionId: string): string {
+export function requestClientIp(request: IncomingMessage): string | undefined {
   const forwarded = request.headers["x-forwarded-for"];
   const address = typeof forwarded === "string"
     ? forwarded.split(",")[0]?.trim()
     : request.socket.remoteAddress;
-  return `${address ?? "unknown"}:${sessionId}`;
+  return address || undefined;
+}
+
+export function storefrontClientKey(request: IncomingMessage, sessionId: string): string {
+  return `${requestClientIp(request) ?? "unknown"}:${sessionId}`;
 }
 
 interface RateBucket {
