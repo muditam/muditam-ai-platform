@@ -285,6 +285,40 @@ export interface CommerceOverview {
   thumbsUp: number;
   thumbsDown: number;
   topIntents: Array<{ intent: string; count: number }>;
+  topPages: Array<{ page: string; count: number }>;
+  topTrafficSources: Array<{ source: string; count: number }>;
+  topHealthConcerns: Array<{ concern: string; count: number }>;
+  handoffReasons: Array<{ reason: string; count: number }>;
+  productRecommendations: Array<{ productSlug: string; recommended: number; clicked: number; clickThroughRate: number }>;
+}
+
+function pathFromUrl(rawUrl: string): string {
+  try {
+    const url = new URL(rawUrl);
+    return url.pathname === "/" ? "homepage" : url.pathname;
+  } catch {
+    return rawUrl;
+  }
+}
+
+function utmSourceFromUrl(rawUrl: string): string | null {
+  try {
+    return new URL(rawUrl).searchParams.get("utm_source");
+  } catch {
+    return null;
+  }
+}
+
+function topCounts(values: Array<string | null | undefined>, limit = 5): Array<{ key: string; count: number }> {
+  const counts = new Map<string, number>();
+  for (const value of values) {
+    if (!value) continue;
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([key, count]) => ({ key, count }));
 }
 
 export async function getOverview(range: DateRange = {}): Promise<CommerceOverview> {
@@ -297,37 +331,106 @@ export async function getOverview(range: DateRange = {}): Promise<CommerceOvervi
     thumbsUp: 0,
     thumbsDown: 0,
     topIntents: [],
+    topPages: [],
+    topTrafficSources: [],
+    topHealthConcerns: [],
+    handoffReasons: [],
+    productRecommendations: [],
   };
   const db = await database();
   if (!db) return empty;
-  const [result] = await db.collection("commerce_conversations").aggregate([
-    { $match: dateRangeFilter(range) },
-    {
-      $facet: {
-        totals: [
-          {
-            $group: {
-              _id: null,
-              totalConversations: { $sum: 1 },
-              resolvedCount: { $sum: { $cond: [{ $eq: ["$resolutionStatus", "resolved"] }, 1, 0] } },
-              escalatedCount: { $sum: { $cond: [{ $eq: ["$resolutionStatus", "escalated"] }, 1, 0] } },
-              leadCaptures: { $sum: { $cond: ["$leadCaptured", 1, 0] } },
-              thumbsUp: { $sum: { $cond: [{ $eq: ["$feedback", "up"] }, 1, 0] } },
-              thumbsDown: { $sum: { $cond: [{ $eq: ["$feedback", "down"] }, 1, 0] } },
+  const messageDateFilter = range.from || range.to
+    ? { createdAt: { ...(range.from ? { $gte: range.from } : {}), ...(range.to ? { $lte: range.to } : {}) } }
+    : {};
+
+  const [
+    [conversationResult],
+    conversationPages,
+    handoffMessages,
+    recommendationCounts,
+    clickCounts,
+    healthConcernResult,
+  ] = await Promise.all([
+    db.collection("commerce_conversations").aggregate([
+      { $match: dateRangeFilter(range) },
+      {
+        $facet: {
+          totals: [
+            {
+              $group: {
+                _id: null,
+                totalConversations: { $sum: 1 },
+                resolvedCount: { $sum: { $cond: [{ $eq: ["$resolutionStatus", "resolved"] }, 1, 0] } },
+                escalatedCount: { $sum: { $cond: [{ $eq: ["$resolutionStatus", "escalated"] }, 1, 0] } },
+                leadCaptures: { $sum: { $cond: ["$leadCaptured", 1, 0] } },
+                thumbsUp: { $sum: { $cond: [{ $eq: ["$feedback", "up"] }, 1, 0] } },
+                thumbsDown: { $sum: { $cond: [{ $eq: ["$feedback", "down"] }, 1, 0] } },
+              },
             },
-          },
-        ],
-        topIntents: [
-          { $unwind: "$intents" },
-          { $group: { _id: "$intents", count: { $sum: 1 } } },
-          { $sort: { count: -1 } },
-          { $limit: 5 },
-        ],
+          ],
+          topIntents: [
+            { $unwind: "$intents" },
+            { $group: { _id: "$intents", count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 5 },
+          ],
+        },
       },
-    },
-  ]).toArray();
-  const totals = result?.totals?.[0];
+    ]).toArray(),
+    db.collection("commerce_conversations")
+      .find({ ...dateRangeFilter(range), "pageContext.url": { $exists: true, $ne: null } }, { projection: { "pageContext.url": 1 } })
+      .toArray(),
+    db.collection("commerce_messages")
+      .find({ ...messageDateFilter, handoff: { $ne: null } }, { projection: { handoff: 1 } })
+      .toArray(),
+    db.collection("commerce_messages").aggregate([
+      { $match: { ...messageDateFilter, recommendedProducts: { $exists: true, $ne: [] } } },
+      { $unwind: "$recommendedProducts" },
+      // Older conversations (before recommendedProducts stored full objects instead of
+      // plain slug strings) unwind into bare strings here, which have no .productSlug —
+      // excluding null keeps that legacy data from polluting the current breakdown.
+      { $match: { "recommendedProducts.productSlug": { $ne: null } } },
+      { $group: { _id: "$recommendedProducts.productSlug", count: { $sum: 1 } } },
+    ]).toArray(),
+    db.collection("commerce_events").aggregate([
+      { $match: { ...messageDateFilter, type: "product_clicked", productSlug: { $ne: null } } },
+      { $group: { _id: "$productSlug", count: { $sum: 1 } } },
+    ]).toArray(),
+    db.collection("commerce_visitors").aggregate([
+      { $unwind: "$healthConcerns" },
+      ...(range.from || range.to ? [{ $match: {
+        "healthConcerns.detectedAt": { ...(range.from ? { $gte: range.from } : {}), ...(range.to ? { $lte: range.to } : {}) },
+      } }] : []),
+      { $group: { _id: "$healthConcerns.concern", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 5 },
+    ]).toArray(),
+  ]);
+
+  const totals = conversationResult?.totals?.[0];
   if (!totals) return empty;
+
+  const pages = topCounts(conversationPages.map((doc) => pathFromUrl(doc.pageContext?.url ?? "")));
+  const sources = topCounts(conversationPages.map((doc) => utmSourceFromUrl(doc.pageContext?.url ?? "")));
+  const handoffReasonCounts = topCounts(handoffMessages.map((doc) => doc.handoff?.reason ?? null));
+
+  const clickCountDocs = clickCounts as unknown as Array<{ _id: string; count: number }>;
+  const recommendationCountDocs = recommendationCounts as unknown as Array<{ _id: string; count: number }>;
+  const healthConcernDocs = healthConcernResult as unknown as Array<{ _id: string; count: number }>;
+  const clicksBySlug = new Map<string, number>(clickCountDocs.map((item) => [item._id, item.count]));
+  const productRecommendations = recommendationCountDocs
+    .map((item) => {
+      const clicked = clicksBySlug.get(item._id) ?? 0;
+      return {
+        productSlug: item._id,
+        recommended: item.count,
+        clicked,
+        clickThroughRate: item.count ? Math.round((clicked / item.count) * 1000) / 10 : 0,
+      };
+    })
+    .sort((a, b) => b.recommended - a.recommended)
+    .slice(0, 10);
+
   return {
     totalConversations: totals.totalConversations ?? 0,
     resolvedCount: totals.resolvedCount ?? 0,
@@ -338,9 +441,17 @@ export async function getOverview(range: DateRange = {}): Promise<CommerceOvervi
     leadCaptures: totals.leadCaptures ?? 0,
     thumbsUp: totals.thumbsUp ?? 0,
     thumbsDown: totals.thumbsDown ?? 0,
-    topIntents: (result?.topIntents ?? []).map((item: { _id: string; count: number }) => ({
+    topIntents: (conversationResult?.topIntents ?? []).map((item: { _id: string; count: number }) => ({
       intent: item._id,
       count: item.count,
     })),
+    topPages: pages.map(({ key, count }) => ({ page: key, count })),
+    topTrafficSources: sources.map(({ key, count }) => ({ source: key, count })),
+    topHealthConcerns: healthConcernDocs.map((item) => ({
+      concern: item._id,
+      count: item.count,
+    })),
+    handoffReasons: handoffReasonCounts.map(({ key, count }) => ({ reason: key, count })),
+    productRecommendations,
   };
 }

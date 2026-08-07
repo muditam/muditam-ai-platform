@@ -286,6 +286,17 @@ class MuditamChat extends HTMLElement {
       composed: true,
       detail: { event, productSlug, conversationId: this.#session?.conversationId ?? null },
     }));
+    const token = this.#session?.token;
+    if (!token) return;
+    fetch(`${this.#apiUrl}/api/v1/commerce/events`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: event,
+        ...(productSlug ? { productSlug } : {}),
+        url: window.location.href,
+      }),
+    }).catch(() => {});
   }
 
   #storedSession(): Session | null {
