@@ -146,6 +146,52 @@ export function deterministicProductDiscovery(
   };
 }
 
+const bestSellerPattern = /\b(?:best[- ]?sell(?:er|ing)?|top[- ]?sell(?:er|ing)?|most (?:popular|sold|selling))\b|(?:सबसे ज़्यादा बिकने वाला|बेस्ट सेलर)/iu;
+
+// The overall flagship best seller and the diabetes-category best seller are the
+// same product (business-confirmed, not inferred) — this is deliberately a fixed
+// fact rather than left to the model, since it has no real sales data to reason
+// from and would otherwise guess by topical similarity (e.g. picking Berberine Pro
+// just because it's also blood-sugar related).
+const BEST_SELLER_SLUG = "karela-jamun-fizz";
+
+export function deterministicBestSeller(
+  input: CommerceChatRequest,
+  knowledge: readonly KnowledgeEntry[],
+): CommerceChatResponse | null {
+  if (!bestSellerPattern.test(input.message)) return null;
+  const entry = knowledge.find((item) => item.sourceType === "product"
+    && item.recommendationEligible === true
+    && item.productSlug === BEST_SELLER_SLUG);
+  if (!entry) return null;
+  const name = productName(entry);
+  const text = input.language === "hinglish"
+    ? `Hamara sabse best-selling product ${name} hai — blood sugar aur metabolic wellness ke liye ek convenient daily drink.`
+    : `Our best-selling product overall is ${name}, a convenient daily drink for blood-sugar and metabolic wellness support.`;
+  return {
+    decision: "ALLOW",
+    category: "PRODUCT_DISCOVERY",
+    messages: [{ type: "text", text }],
+    recommendedProducts: [{
+      productSlug: BEST_SELLER_SLUG,
+      name,
+      productUrl: entry.sourceUrl,
+      reason: "Muditam's best-selling product",
+    }],
+    knowledgeReferences: [{
+      key: entry.key,
+      title: entry.title,
+      sourceName: entry.sourceName,
+      sourceUrl: entry.sourceUrl,
+    }],
+    handoff: null,
+    model: null,
+    promptVersion: COMMERCE_PROMPT_VERSION,
+    guardrailStage: "INPUT",
+    usage: noUsage,
+  };
+}
+
 export function deterministicCommerceGuardrail(input: CommerceChatRequest): CommerceChatResponse | null {
   if (urgentPattern.test(input.message)) {
     return response(input, {

@@ -111,8 +111,14 @@ function latestCustomerMessage(question: string): string {
   return question.match(/(?:^|\n)user:\s*([^\n]+)\s*$/iu)?.[1] ?? question;
 }
 
+const bestSellerPattern = /\b(?:best[- ]?sell(?:er|ing)?|top[- ]?sell(?:er|ing)?|most (?:popular|sold|selling))\b|(?:सबसे ज़्यादा बिकने वाला|बेस्ट सेलर)/iu;
+
 function discoveryProductSlugs(question: string): string[] {
   const latest = latestCustomerMessage(question);
+  // Checked before the general product-intent gate below since "what's your best
+  // seller" doesn't contain any of those words, but still needs to force-fetch the
+  // bestseller product's knowledge so the deterministic bestseller guardrail has it.
+  if (bestSellerPattern.test(latest)) return ["karela-jamun-fizz"];
   const asksForProduct = fuzzyIntent(latest, ["product", "products", "supplement", "something", "anything", "recommend"])
     || /\b(?:kuch|chahiye)\b|(?:प्रोडक्ट|उत्पाद|सप्लीमेंट|कुछ)/iu.test(latest);
   if (!asksForProduct) return [];

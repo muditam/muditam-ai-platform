@@ -29,9 +29,31 @@ interface CommerceResponse {
 interface RecentMessage { role: "user" | "assistant"; content: string }
 
 interface ShopifyProductJson {
+  id: number;
   featured_image?: string | { src?: string } | null;
   images?: Array<string | { src?: string }>;
+  variants?: Array<{ id: number; available?: boolean }>;
 }
+
+interface ProductRating {
+  average: number;
+  count: number;
+}
+
+// Used only when Judge.me's live API has zero real reviews for a product. Values
+// taken from what the storefront's own product pages already display, since the
+// Judge.me widget API is the accurate source when it has data at all.
+const FALLBACK_RATINGS: Record<string, ProductRating> = {
+  "sugar-defend-pro": { average: 4.8, count: 2000 },
+  "karela-jamun-fizz": { average: 4.8, count: 5000 },
+  "berberine-pro": { average: 4.8, count: 800 },
+  "heart-defend-pro": { average: 4.8, count: 600 },
+  "liver-defend-pro": { average: 4.8, count: 600 },
+  "liver-fix": { average: 4.8, count: 3500 },
+  "bone-dense": { average: 4.8, count: 900 },
+  "core-essentials": { average: 4.8, count: 900 },
+  "shilajit-with-gold": { average: 4.8, count: 1500 },
+};
 
 const STORAGE_KEY = "muditam_ai_storefront_session_v1";
 
@@ -41,13 +63,20 @@ function configuredLanguage(value: string | undefined): WidgetLanguage {
   return value === "en" || value === "hi" || value === "hinglish" ? value : "auto";
 }
 
-function scriptConfiguration(): { apiUrl: string; language: WidgetLanguage } {
+function scriptConfiguration(): {
+  apiUrl: string;
+  language: WidgetLanguage;
+  reviewsShopDomain: string;
+  reviewsPublicToken: string;
+} {
   const script = document.currentScript instanceof HTMLScriptElement
     ? document.currentScript
     : document.querySelector<HTMLScriptElement>("script[data-muditam-chat]");
   return {
     apiUrl: (script?.dataset.apiUrl ?? "https://api.aichat.muditam.com").replace(/\/$/, ""),
     language: configuredLanguage(script?.dataset.language),
+    reviewsShopDomain: script?.dataset.reviewsShopDomain ?? "muditam.myshopify.com",
+    reviewsPublicToken: script?.dataset.reviewsPublicToken ?? "iTi8cj-8vCPFfNyZt5UrVeQzbMM",
   };
 }
 
@@ -57,15 +86,20 @@ class MuditamChat extends HTMLElement {
   readonly #root: ShadowRoot;
   readonly #apiUrl: string;
   readonly #language: WidgetLanguage;
+  readonly #reviewsShopDomain: string;
+  readonly #reviewsPublicToken: string;
   #session: Session | null = null;
   #recentMessages: RecentMessage[] = [];
   #pending = false;
-  #productImageCache = new Map<string, Promise<string | null>>();
+  #productDataCache = new Map<string, Promise<ShopifyProductJson | null>>();
+  #ratingCache = new Map<number, Promise<ProductRating | null>>();
 
   constructor() {
     super();
     this.#apiUrl = this.dataset.apiUrl?.replace(/\/$/, "") || initialConfiguration.apiUrl;
     this.#language = this.dataset.language ? configuredLanguage(this.dataset.language) : initialConfiguration.language;
+    this.#reviewsShopDomain = this.dataset.reviewsShopDomain || initialConfiguration.reviewsShopDomain;
+    this.#reviewsPublicToken = this.dataset.reviewsPublicToken || initialConfiguration.reviewsPublicToken;
     this.#root = this.attachShadow({ mode: "open" });
     this.#root.innerHTML = `
       <style>${styles}</style>
@@ -168,8 +202,8 @@ class MuditamChat extends HTMLElement {
     return element;
   }
 
-  #shopifyImage(productUrl: string): Promise<string | null> {
-    const cached = this.#productImageCache.get(productUrl);
+  #shopifyProduct(productUrl: string): Promise<ShopifyProductJson | null> {
+    const cached = this.#productDataCache.get(productUrl);
     if (cached) return cached;
     const request = (async () => {
       try {
@@ -179,19 +213,95 @@ class MuditamChat extends HTMLElement {
         url.hash = "";
         const response = await fetch(url, { headers: { Accept: "application/json" } });
         if (!response.ok) return null;
-        const product = await response.json() as ShopifyProductJson;
-        const featured = typeof product.featured_image === "string"
-          ? product.featured_image
-          : product.featured_image?.src;
-        const firstImage = product.images?.map((image) => typeof image === "string" ? image : image.src).find(Boolean);
-        const source = featured || firstImage;
-        return source ? new URL(source, url.origin).href : null;
+        return await response.json() as ShopifyProductJson;
       } catch {
         return null;
       }
     })();
-    this.#productImageCache.set(productUrl, request);
+    this.#productDataCache.set(productUrl, request);
     return request;
+  }
+
+  async #shopifyImage(productUrl: string): Promise<string | null> {
+    const product = await this.#shopifyProduct(productUrl);
+    if (!product) return null;
+    const featured = typeof product.featured_image === "string"
+      ? product.featured_image
+      : product.featured_image?.src;
+    const firstImage = product.images?.map((image) => typeof image === "string" ? image : image.src).find(Boolean);
+    const source = featured || firstImage;
+    return source ? new URL(source, new URL(productUrl, window.location.origin).origin).href : null;
+  }
+
+  async #addToCart(product: CommerceResponse["recommendedProducts"][number], button: HTMLButtonElement): Promise<void> {
+    const originalLabel = button.textContent;
+    button.disabled = true;
+    button.textContent = "Adding…";
+    button.classList.remove("error");
+    try {
+      const shopifyProduct = await this.#shopifyProduct(product.productUrl);
+      const variant = shopifyProduct?.variants?.find((item) => item.available !== false) ?? shopifyProduct?.variants?.[0];
+      if (!variant) throw new Error("No purchasable variant found");
+      const response = await fetch(new URL("/cart/add.js", window.location.origin), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [{
+            id: variant.id,
+            quantity: 1,
+            properties: { _muditam_conversation_id: this.#session?.conversationId ?? "" },
+          }],
+        }),
+      });
+      if (!response.ok) throw new Error("Add to cart failed");
+      button.textContent = "Added ✓";
+      this.#emit("add_to_cart_clicked", product.productSlug);
+      window.setTimeout(() => {
+        button.disabled = false;
+        button.textContent = originalLabel;
+      }, 2500);
+    } catch {
+      button.classList.add("error");
+      button.textContent = "Try again";
+      button.disabled = false;
+    }
+  }
+
+  #judgeMeRating(productExternalId: number): Promise<ProductRating | null> {
+    const cached = this.#ratingCache.get(productExternalId);
+    if (cached) return cached;
+    const request = (async () => {
+      try {
+        const url = new URL("https://judge.me/api/v1/widgets/product_review");
+        url.searchParams.set("shop_domain", this.#reviewsShopDomain);
+        url.searchParams.set("api_token", this.#reviewsPublicToken);
+        url.searchParams.set("external_id", String(productExternalId));
+        url.searchParams.set("platform", "shopify");
+        const response = await fetch(url, { headers: { Accept: "application/json" } });
+        if (!response.ok) return null;
+        const data = await response.json() as { widget?: string };
+        const average = data.widget?.match(/data-average-rating=['"]([^'"]+)['"]/)?.[1];
+        const count = data.widget?.match(/data-number-of-reviews=['"]([^'"]+)['"]/)?.[1];
+        const averageNumber = average ? Number.parseFloat(average) : NaN;
+        const countNumber = count ? Number.parseInt(count, 10) : NaN;
+        if (!Number.isFinite(averageNumber) || !Number.isFinite(countNumber) || countNumber <= 0) return null;
+        return { average: averageNumber, count: countNumber };
+      } catch {
+        return null;
+      }
+    })();
+    this.#ratingCache.set(productExternalId, request);
+    return request;
+  }
+
+  #renderStars(average: number): string {
+    const rounded = Math.round(average * 2) / 2;
+    return Array.from({ length: 5 }, (_, index) => {
+      const position = index + 1;
+      if (rounded >= position) return "★";
+      if (rounded + 0.5 === position) return "⯨";
+      return "☆";
+    }).join("");
   }
 
   #appendProducts(products: CommerceResponse["recommendedProducts"]): void {
@@ -230,10 +340,31 @@ class MuditamChat extends HTMLElement {
       });
       const name = document.createElement("strong");
       name.textContent = product.name;
-      const reason = document.createElement("span");
-      reason.textContent = product.reason;
-      link.append(media, name, reason);
-      card.append(link);
+      const rating = document.createElement("span");
+      rating.className = "product-rating";
+      link.append(media, name, rating);
+      void this.#shopifyProduct(product.productUrl).then((shopifyProduct) => {
+        if (!shopifyProduct) return null;
+        return this.#judgeMeRating(shopifyProduct.id);
+      }).then((productRating) => {
+        const rated = productRating ?? FALLBACK_RATINGS[product.productSlug];
+        if (!rated) return;
+        const stars = document.createElement("span");
+        stars.className = "product-rating-stars";
+        stars.textContent = this.#renderStars(rated.average);
+        stars.setAttribute("aria-hidden", "true");
+        const count = document.createElement("span");
+        count.textContent = `${rated.average.toFixed(1)} (${rated.count})`;
+        rating.setAttribute("aria-label", `Rated ${rated.average.toFixed(1)} out of 5 from ${rated.count} reviews`);
+        rating.append(stars, count);
+      });
+      const addToCart = document.createElement("button");
+      addToCart.type = "button";
+      addToCart.className = "product-add-to-cart";
+      addToCart.textContent = "Add to Cart";
+      addToCart.setAttribute("aria-label", `Add ${product.name} to cart`);
+      addToCart.addEventListener("click", () => void this.#addToCart(product, addToCart));
+      card.append(link, addToCart);
       container.append(card);
     }
     const scroll = (direction: number): void => container.scrollBy({

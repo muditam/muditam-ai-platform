@@ -11,6 +11,7 @@ import {
 } from "./contracts.js";
 import {
   COMMERCE_PROMPT_VERSION,
+  deterministicBestSeller,
   deterministicCommerceGuardrail,
   deterministicProductDiscovery,
   enforceCommerceResult,
@@ -142,6 +143,8 @@ export async function answerCommerceChat(
   const deterministic = deterministicCommerceGuardrail(input);
   if (deterministic) return deterministic;
   const knowledge = await retrieve(commerceRetrievalQuery(input));
+  const bestSeller = deterministicBestSeller(input, knowledge);
+  if (bestSeller) return bestSeller;
   const productDiscovery = deterministicProductDiscovery(input, knowledge);
   if (productDiscovery) return productDiscovery;
   const activeProvider = provider ?? new OpenAICommerceModelProvider(
