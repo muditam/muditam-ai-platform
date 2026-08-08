@@ -282,6 +282,7 @@ export interface CommerceOverview {
   escalatedCount: number;
   resolutionRate: number;
   leadCaptures: number;
+  addToCartAssisted: number;
   thumbsUp: number;
   thumbsDown: number;
   topIntents: Array<{ intent: string; count: number }>;
@@ -328,6 +329,7 @@ export async function getOverview(range: DateRange = {}): Promise<CommerceOvervi
     escalatedCount: 0,
     resolutionRate: 0,
     leadCaptures: 0,
+    addToCartAssisted: 0,
     thumbsUp: 0,
     thumbsDown: 0,
     topIntents: [],
@@ -349,6 +351,7 @@ export async function getOverview(range: DateRange = {}): Promise<CommerceOvervi
     handoffMessages,
     recommendationCounts,
     clickCounts,
+    addToCartCount,
     healthConcernResult,
   ] = await Promise.all([
     db.collection("commerce_conversations").aggregate([
@@ -396,6 +399,7 @@ export async function getOverview(range: DateRange = {}): Promise<CommerceOvervi
       { $match: { ...messageDateFilter, type: "product_clicked", productSlug: { $ne: null } } },
       { $group: { _id: "$productSlug", count: { $sum: 1 } } },
     ]).toArray(),
+    db.collection("commerce_events").countDocuments({ ...messageDateFilter, type: "add_to_cart_clicked" }),
     db.collection("commerce_visitors").aggregate([
       { $unwind: "$healthConcerns" },
       ...(range.from || range.to ? [{ $match: {
@@ -439,6 +443,7 @@ export async function getOverview(range: DateRange = {}): Promise<CommerceOvervi
       ? Math.round((totals.resolvedCount / totals.totalConversations) * 1000) / 10
       : 0,
     leadCaptures: totals.leadCaptures ?? 0,
+    addToCartAssisted: addToCartCount,
     thumbsUp: totals.thumbsUp ?? 0,
     thumbsDown: totals.thumbsDown ?? 0,
     topIntents: (conversationResult?.topIntents ?? []).map((item: { _id: string; count: number }) => ({
