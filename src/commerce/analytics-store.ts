@@ -283,6 +283,7 @@ export interface CommerceOverview {
   resolutionRate: number;
   leadCaptures: number;
   addToCartAssisted: number;
+  interactionRate: number;
   thumbsUp: number;
   thumbsDown: number;
   topIntents: Array<{ intent: string; count: number }>;
@@ -330,6 +331,7 @@ export async function getOverview(range: DateRange = {}): Promise<CommerceOvervi
     resolutionRate: 0,
     leadCaptures: 0,
     addToCartAssisted: 0,
+    interactionRate: 0,
     thumbsUp: 0,
     thumbsDown: 0,
     topIntents: [],
@@ -353,6 +355,8 @@ export async function getOverview(range: DateRange = {}): Promise<CommerceOvervi
     clickCounts,
     addToCartCount,
     healthConcernResult,
+    pageviewVisitorCount,
+    conversationVisitorCount,
   ] = await Promise.all([
     db.collection("commerce_conversations").aggregate([
       { $match: dateRangeFilter(range) },
@@ -409,6 +413,19 @@ export async function getOverview(range: DateRange = {}): Promise<CommerceOvervi
       { $sort: { count: -1 } },
       { $limit: 5 },
     ]).toArray(),
+    // Interaction % denominator: distinct visitors who merely loaded a page with
+    // the widget installed (pageview beacon), regardless of whether they chatted.
+    db.collection("commerce_events").aggregate([
+      { $match: { ...messageDateFilter, type: "pageview" } },
+      { $group: { _id: "$visitorId" } },
+      { $count: "count" },
+    ]).toArray(),
+    // Interaction % numerator: distinct visitors who actually had a conversation.
+    db.collection("commerce_conversations").aggregate([
+      { $match: dateRangeFilter(range) },
+      { $group: { _id: "$visitorId" } },
+      { $count: "count" },
+    ]).toArray(),
   ]);
 
   const totals = conversationResult?.totals?.[0];
@@ -435,6 +452,9 @@ export async function getOverview(range: DateRange = {}): Promise<CommerceOvervi
     .sort((a, b) => b.recommended - a.recommended)
     .slice(0, 10);
 
+  const pageviewVisitors = (pageviewVisitorCount as unknown as Array<{ count: number }>)[0]?.count ?? 0;
+  const conversationVisitors = (conversationVisitorCount as unknown as Array<{ count: number }>)[0]?.count ?? 0;
+
   return {
     totalConversations: totals.totalConversations ?? 0,
     resolvedCount: totals.resolvedCount ?? 0,
@@ -444,6 +464,9 @@ export async function getOverview(range: DateRange = {}): Promise<CommerceOvervi
       : 0,
     leadCaptures: totals.leadCaptures ?? 0,
     addToCartAssisted: addToCartCount,
+    // Guards against a near-empty pageview sample (e.g. right after this beacon
+    // ships) making the rate look artificially high or low from a handful of visits.
+    interactionRate: pageviewVisitors ? Math.round((conversationVisitors / pageviewVisitors) * 1000) / 10 : 0,
     thumbsUp: totals.thumbsUp ?? 0,
     thumbsDown: totals.thumbsDown ?? 0,
     topIntents: (conversationResult?.topIntents ?? []).map((item: { _id: string; count: number }) => ({

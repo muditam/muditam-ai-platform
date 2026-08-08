@@ -144,6 +144,9 @@ class MuditamChat extends HTMLElement {
       void this.#submit();
     });
     this.#appendMessage("assistant", "Hey 👋 I’m your personal Muditam AI Expert. What can I help you with today?");
+    // Fire-and-forget: lets the dashboard compute "Interaction %" (chat visitors
+    // vs. all site visitors) without waiting on this or blocking widget render.
+    void this.#ensureSession(true).then(() => this.#emit("pageview")).catch(() => {});
   }
 
   #required<T extends Element>(selector: string): T {
@@ -439,7 +442,11 @@ class MuditamChat extends HTMLElement {
     }
   }
 
-  async #ensureSession(): Promise<Session> {
+  // `silent` is used by the background pageview beacon: it still needs a session
+  // (visitorId) to attribute the pageview to, but merely loading a page with the
+  // widget installed isn't a real "conversation started" — only an actual chat
+  // submission should count as one.
+  async #ensureSession(silent = false): Promise<Session> {
     if (this.#session?.expiresAt && this.#session.expiresAt > Math.floor(Date.now() / 1000) + 30) return this.#session;
     this.#session = this.#storedSession();
     if (this.#session) return this.#session;
@@ -447,7 +454,7 @@ class MuditamChat extends HTMLElement {
     if (!response.ok) throw new Error("Could not start chat");
     this.#session = await response.json() as Session;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(this.#session));
-    this.#emit("conversation_started");
+    if (!silent) this.#emit("conversation_started");
     return this.#session;
   }
 
