@@ -464,7 +464,9 @@ class MuditamChat extends HTMLElement {
     if (!message || this.#pending) return;
     this.#pending = true;
     input.value = "";
-    input.disabled = true;
+    // Only the send button is blocked while a reply is in flight — `#pending`
+    // already stops a duplicate submit, so there's no need to freeze the input
+    // itself and make the chat feel locked up while the user waits.
     this.#required<HTMLButtonElement>(".send").disabled = true;
     this.#appendMessage("user", message);
     const status = this.#appendStatus();
@@ -506,7 +508,6 @@ class MuditamChat extends HTMLElement {
       this.#emit("message_failed");
     } finally {
       this.#pending = false;
-      input.disabled = false;
       this.#required<HTMLButtonElement>(".send").disabled = false;
       input.focus();
     }
