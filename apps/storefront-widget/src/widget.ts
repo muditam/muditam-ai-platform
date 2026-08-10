@@ -55,6 +55,75 @@ const FALLBACK_RATINGS: Record<string, ProductRating> = {
   "shilajit-with-gold": { average: 4.8, count: 1500 },
 };
 
+interface WidgetConfig {
+  themeColor: string;
+  botTitle: string;
+  openingMessage: string;
+  widgetSize: "small" | "medium" | "large";
+  widgetPosition: "left" | "right";
+  gapFromSide: number;
+  gapFromBottom: number;
+  pulseEffect: boolean;
+  pulseColor: string;
+  launcherImage: string | null;
+  launcherRingColor: string | null;
+  nudgeText: string;
+  nudgeBackgroundColor: string;
+}
+
+// Mirrors DEFAULT_WIDGET_CONFIG in src/commerce/widget-config-store.ts — used
+// whenever the config endpoint hasn't loaded yet or is unreachable, so the
+// widget still renders with the same look it always has.
+const DEFAULT_WIDGET_CONFIG: WidgetConfig = {
+  themeColor: "#70408f",
+  botTitle: "Muditam Expert",
+  openingMessage: "Hey 👋 I’m your personal Muditam AI Expert. What can I help you with today?",
+  widgetSize: "medium",
+  widgetPosition: "right",
+  gapFromSide: 22,
+  gapFromBottom: 22,
+  pulseEffect: false,
+  pulseColor: "#22c55e",
+  launcherImage: null,
+  launcherRingColor: "#70408f",
+  nudgeText: "Chat with live agent",
+  nudgeBackgroundColor: "#70408f",
+};
+
+const WIDGET_SIZE_PRESETS: Record<WidgetConfig["widgetSize"], { launcher: number; panelWidth: number; panelHeight: number }> = {
+  small: { launcher: 48, panelWidth: 360, panelHeight: 560 },
+  medium: { launcher: 56, panelWidth: 400, panelHeight: 660 },
+  large: { launcher: 64, panelWidth: 440, panelHeight: 720 },
+};
+
+function hexToRgb(hex: string): [number, number, number] {
+  const normalized = hex.replace("#", "");
+  const value = normalized.length === 3 ? normalized.split("").map((char) => char + char).join("") : normalized;
+  const num = Number.parseInt(value, 16);
+  return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  const clamp = (value: number) => Math.min(255, Math.max(0, Math.round(value)));
+  return `#${[r, g, b].map((channel) => clamp(channel).toString(16).padStart(2, "0")).join("")}`;
+}
+
+function darkenHex(hex: string, amount: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  return rgbToHex(r * (1 - amount), g * (1 - amount), b * (1 - amount));
+}
+
+function tintHex(hex: string, amount: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  return rgbToHex(r + (255 - r) * amount, g + (255 - g) * amount, b + (255 - b) * amount);
+}
+
+function contrastSafeAccent(hex: string): string {
+  const [r, g, b] = hexToRgb(hex);
+  const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  return luminance > 0.78 ? DEFAULT_WIDGET_CONFIG.themeColor : hex;
+}
+
 const STORAGE_KEY = "muditam_ai_storefront_session_v1";
 
 type WidgetLanguage = "auto" | "en" | "hi" | "hinglish";
@@ -93,6 +162,11 @@ class MuditamChat extends HTMLElement {
   #pending = false;
   #productDataCache = new Map<string, Promise<ShopifyProductJson | null>>();
   #ratingCache = new Map<number, Promise<ProductRating | null>>();
+  #nudgeShowTimer: number | null = null;
+  #nudgeHideTimer: number | null = null;
+  #nudgeTypingTimer: number | null = null;
+  #nudgeText = DEFAULT_WIDGET_CONFIG.nudgeText;
+  #hasTypedNudge = false;
 
   constructor() {
     super();
@@ -104,11 +178,18 @@ class MuditamChat extends HTMLElement {
     this.#root.innerHTML = `
       <style>${styles}</style>
       <button class="launcher" type="button" aria-label="Chat with Muditam" aria-expanded="false">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-8 7.48 8.8 8.8 0 0 1-3.35-.88L4 19.5l1.42-4.04A7.5 7.5 0 1 1 20 11.5Z"/></svg>
+        <span class="pulse-ring" aria-hidden="true"></span>
+        <img class="launcher-image" alt="" hidden />
+        <svg class="launcher-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-8 7.48 8.8 8.8 0 0 1-3.35-.88L4 19.5l1.42-4.04A7.5 7.5 0 1 1 20 11.5Z"/></svg>
+        <span class="online-dot" aria-hidden="true"></span>
       </button>
+      <div class="launcher-nudge" role="status" aria-hidden="true">
+        <button class="nudge-copy" type="button">Chat with live agent</button>
+        <button class="nudge-close" type="button" aria-label="Dismiss chat invitation">×</button>
+      </div>
       <section class="panel" role="dialog" aria-label="Muditam AI Expert" hidden>
         <header class="header">
-          <div class="brand-mark" aria-hidden="true">m</div>
+          <div class="brand-mark" aria-hidden="true"><img class="brand-image" alt="" hidden /><span>m</span></div>
           <div class="brand"><strong>Muditam Expert</strong><span><i></i> Online · Typically replies instantly</span></div>
           <button class="close" type="button" aria-label="Close chat">×</button>
         </header>
@@ -129,11 +210,20 @@ class MuditamChat extends HTMLElement {
     const launcher = this.#required<HTMLButtonElement>(".launcher");
     const panel = this.#required<HTMLElement>(".panel");
     const close = this.#required<HTMLButtonElement>(".close");
-    launcher.addEventListener("click", () => {
+    const openChat = (): void => {
+      this.#hideNudge();
       panel.hidden = false;
       launcher.setAttribute("aria-expanded", "true");
       this.#required<HTMLInputElement>("input").focus();
-    });
+    };
+    launcher.addEventListener("click", openChat);
+    launcher.addEventListener("mouseenter", () => { if (panel.hidden) this.#showNudge(false); });
+    launcher.addEventListener("focus", () => { if (panel.hidden) this.#showNudge(false); });
+    launcher.addEventListener("mouseleave", () => this.#scheduleNudgeHide(500));
+    this.#required<HTMLButtonElement>(".nudge-copy").addEventListener("click", openChat);
+    this.#required<HTMLButtonElement>(".nudge-close").addEventListener("click", () => this.#hideNudge());
+    this.#required<HTMLElement>(".launcher-nudge").addEventListener("mouseenter", () => this.#clearNudgeHideTimer());
+    this.#required<HTMLElement>(".launcher-nudge").addEventListener("mouseleave", () => this.#scheduleNudgeHide(300));
     close.addEventListener("click", () => {
       panel.hidden = true;
       launcher.setAttribute("aria-expanded", "false");
@@ -143,10 +233,135 @@ class MuditamChat extends HTMLElement {
       event.preventDefault();
       void this.#submit();
     });
-    this.#appendMessage("assistant", "Hey 👋 I’m your personal Muditam AI Expert. What can I help you with today?");
+    void this.#initializeConfig();
+    this.#nudgeShowTimer = window.setTimeout(() => { if (panel.hidden) this.#showNudge(true); }, 3_000);
     // Fire-and-forget: lets the dashboard compute "Interaction %" (chat visitors
     // vs. all site visitors) without waiting on this or blocking widget render.
     void this.#ensureSession(true).then(() => this.#emit("pageview")).catch(() => {});
+  }
+
+  disconnectedCallback(): void {
+    if (this.#nudgeShowTimer !== null) window.clearTimeout(this.#nudgeShowTimer);
+    if (this.#nudgeTypingTimer !== null) window.clearInterval(this.#nudgeTypingTimer);
+    this.#clearNudgeHideTimer();
+  }
+
+  #clearNudgeHideTimer(): void {
+    if (this.#nudgeHideTimer !== null) window.clearTimeout(this.#nudgeHideTimer);
+    this.#nudgeHideTimer = null;
+  }
+
+  #scheduleNudgeHide(delay: number): void {
+    this.#clearNudgeHideTimer();
+    this.#nudgeHideTimer = window.setTimeout(() => this.#hideNudge(), delay);
+  }
+
+  #showNudge(autoHide: boolean): void {
+    const nudge = this.#required<HTMLElement>(".launcher-nudge");
+    this.#clearNudgeHideTimer();
+    nudge.classList.add("visible");
+    nudge.setAttribute("aria-hidden", "false");
+    const copy = this.#required<HTMLButtonElement>(".nudge-copy");
+    copy.setAttribute("aria-label", this.#nudgeText);
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+    if (autoHide && !this.#hasTypedNudge && !reduceMotion) {
+      this.#hasTypedNudge = true;
+      copy.textContent = "";
+      let index = 0;
+      this.#nudgeTypingTimer = window.setInterval(() => {
+        index += 1;
+        copy.textContent = this.#nudgeText.slice(0, index);
+        if (index >= this.#nudgeText.length) {
+          if (this.#nudgeTypingTimer !== null) window.clearInterval(this.#nudgeTypingTimer);
+          this.#nudgeTypingTimer = null;
+          this.#scheduleNudgeHide(5_000);
+        }
+      }, 45);
+      return;
+    }
+    copy.textContent = this.#nudgeText;
+    if (autoHide) this.#scheduleNudgeHide(5_000);
+  }
+
+  #hideNudge(): void {
+    const nudge = this.#required<HTMLElement>(".launcher-nudge");
+    this.#clearNudgeHideTimer();
+    nudge.classList.remove("visible");
+    nudge.setAttribute("aria-hidden", "true");
+    if (this.#nudgeTypingTimer !== null) window.clearInterval(this.#nudgeTypingTimer);
+    this.#nudgeTypingTimer = null;
+  }
+
+  async #initializeConfig(): Promise<void> {
+    const config = await this.#fetchWidgetConfig();
+    this.#applyWidgetConfig(config);
+    this.#appendMessage("assistant", config.openingMessage);
+  }
+
+  async #fetchWidgetConfig(): Promise<WidgetConfig> {
+    try {
+      const response = await fetch(`${this.#apiUrl}/api/v1/commerce/widget-config`, { cache: "no-store" });
+      if (!response.ok) return DEFAULT_WIDGET_CONFIG;
+      return { ...DEFAULT_WIDGET_CONFIG, ...(await response.json() as Partial<WidgetConfig>) };
+    } catch {
+      return DEFAULT_WIDGET_CONFIG;
+    }
+  }
+
+  #applyWidgetConfig(config: WidgetConfig): void {
+    const accent = contrastSafeAccent(config.themeColor);
+    this.style.setProperty("--muditam-purple", accent);
+    this.style.setProperty("--muditam-purple-dark", darkenHex(accent, 0.18));
+    this.style.setProperty("--muditam-purple-soft", tintHex(accent, 0.92));
+    this.style.setProperty("--muditam-gap-side", `${config.gapFromSide}px`);
+    this.style.setProperty("--muditam-gap-bottom", `${config.gapFromBottom}px`);
+    const size = WIDGET_SIZE_PRESETS[config.widgetSize];
+    this.style.setProperty("--muditam-launcher-size", `${size.launcher}px`);
+    this.style.setProperty("--muditam-panel-width", `${size.panelWidth}px`);
+    this.style.setProperty("--muditam-panel-height", `${size.panelHeight}px`);
+    this.style.setProperty("--muditam-pulse-color", config.pulseColor);
+    const whiteNudge = config.nudgeBackgroundColor.toLowerCase() === "#ffffff";
+    this.style.setProperty("--muditam-nudge-background", config.nudgeBackgroundColor);
+    this.style.setProperty("--muditam-nudge-text", "#ffffff");
+    this.style.setProperty("--muditam-nudge-border", whiteNudge ? "#17131a" : "transparent");
+    const nudge = this.#required<HTMLElement>(".launcher-nudge");
+    nudge.style.backgroundColor = config.nudgeBackgroundColor;
+    nudge.style.borderColor = whiteNudge ? "#17131a" : "transparent";
+    this.setAttribute("data-position", config.widgetPosition);
+    if (config.pulseEffect) this.setAttribute("data-pulse", "true");
+    else this.removeAttribute("data-pulse");
+    const brandName = this.#root.querySelector(".brand strong");
+    if (brandName) brandName.textContent = config.botTitle;
+    const image = this.#required<HTMLImageElement>(".launcher-image");
+    const brandImage = this.#required<HTMLImageElement>(".brand-image");
+    const brandFallback = this.#required<HTMLElement>(".brand-mark span");
+    const icon = this.#required<SVGElement>(".launcher-icon");
+    if (config.launcherImage) {
+      image.src = config.launcherImage;
+      image.hidden = false;
+      brandImage.src = config.launcherImage;
+      brandImage.hidden = false;
+      brandFallback.hidden = true;
+      icon.setAttribute("hidden", "");
+      this.setAttribute("data-launcher-image", "true");
+      if (config.launcherRingColor) {
+        this.style.setProperty("--muditam-launcher-ring", config.launcherRingColor);
+        this.setAttribute("data-launcher-ring", "true");
+      } else {
+        this.removeAttribute("data-launcher-ring");
+      }
+    } else {
+      image.removeAttribute("src");
+      image.hidden = true;
+      brandImage.removeAttribute("src");
+      brandImage.hidden = true;
+      brandFallback.hidden = false;
+      icon.removeAttribute("hidden");
+      this.removeAttribute("data-launcher-image");
+      this.removeAttribute("data-launcher-ring");
+    }
+    this.#nudgeText = config.nudgeText?.trim() || DEFAULT_WIDGET_CONFIG.nudgeText;
+    this.#required<HTMLButtonElement>(".nudge-copy").textContent = this.#nudgeText;
   }
 
   #required<T extends Element>(selector: string): T {

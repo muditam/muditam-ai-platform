@@ -7,7 +7,7 @@ import Busboy from "busboy";
 import { ZodError } from "zod";
 import { answerChat } from "./chat/chat-engine.js";
 import { answerCommerceChat } from "./commerce/commerce-engine.js";
-import { commerceChatRequestSchema } from "./commerce/contracts.js";
+import { botFlowTextDataSchema, commerceChatRequestSchema, discountConfigSchema, widgetConfigSchema } from "./commerce/contracts.js";
 import {
   getConversationDetail,
   getOverview,
@@ -17,6 +17,15 @@ import {
   recordWidgetEvent,
   type DateRange,
 } from "./commerce/analytics-store.js";
+import { getWidgetConfig, saveWidgetConfig } from "./commerce/widget-config-store.js";
+import {
+  addBotFlowTextData,
+  getDiscountConfig,
+  listBotFlowKnowledge,
+  listBotFlowProducts,
+  listMissingInformation,
+  saveDiscountConfig,
+} from "./commerce/bot-flow-store.js";
 import {
   bearerToken,
   createStorefrontSession,
@@ -610,6 +619,17 @@ async function handle(
     return;
   }
 
+  if (request.method === "GET" && url.pathname === "/api/v1/commerce/widget-config") {
+    const origin = allowedStorefrontOrigin(typeof request.headers.origin === "string" ? request.headers.origin : undefined);
+    if (!origin) {
+      json(response, 403, { error: "Storefront origin is not allowed.", code: "ORIGIN_NOT_ALLOWED" });
+      return;
+    }
+    const config = await getWidgetConfig();
+    storefrontJson(request, response, 200, config);
+    return;
+  }
+
   if (request.method === "POST" && url.pathname === "/api/v1/commerce/feedback") {
     const origin = allowedStorefrontOrigin(typeof request.headers.origin === "string" ? request.headers.origin : undefined);
     if (!origin) {
@@ -773,6 +793,14 @@ async function handle(
     const conversations = await listConversations({
       ...range,
       ...(Number.isFinite(limitParam) ? { limit: limitParam } : {}),
+      ...(url.searchParams.get("intent") ? { intent: url.searchParams.get("intent") as string } : {}),
+      ...(url.searchParams.get("feedback") ? { feedback: url.searchParams.get("feedback") as string } : {}),
+      ...(url.searchParams.get("addedToCart") === "true" ? { addedToCart: true } : {}),
+      ...(url.searchParams.get("healthConcern") ? { healthConcern: url.searchParams.get("healthConcern") as string } : {}),
+      ...(url.searchParams.get("productSlug") ? { productSlug: url.searchParams.get("productSlug") as string } : {}),
+      ...(url.searchParams.get("longChat") === "true" ? { longChat: true } : {}),
+      ...(url.searchParams.get("repeatCustomer") === "true" ? { repeatCustomer: true } : {}),
+      ...(url.searchParams.get("testSession") === "true" ? { testSession: true } : {}),
     });
     json(response, 200, { conversations });
     return;
@@ -794,6 +822,91 @@ async function handle(
       return;
     }
     json(response, 200, detail);
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/internal/commerce-widget-config") {
+    if (!validServiceSecret(request.headers["x-muditam-service-secret"] as string | undefined)) {
+      json(response, 401, { error: "Unauthorized service request." });
+      return;
+    }
+    const config = await getWidgetConfig();
+    json(response, 200, config);
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/internal/commerce-widget-config") {
+    if (!validServiceSecret(request.headers["x-muditam-service-secret"] as string | undefined)) {
+      json(response, 401, { error: "Unauthorized service request." });
+      return;
+    }
+    try {
+      const payload = await readJson(request, MAX_CHAT_JSON_BYTES);
+      const patch = widgetConfigSchema.parse(payload);
+      const config = await saveWidgetConfig(patch);
+      json(response, 200, config);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        json(response, 400, { error: "Invalid widget config.", details: error.issues });
+        return;
+      }
+      console.error(error);
+      json(response, 500, { error: "Could not save widget config." });
+    }
+    return;
+  }
+
+  if (url.pathname.startsWith("/internal/commerce-bot-flow/") && !validServiceSecret(request.headers["x-muditam-service-secret"] as string | undefined)) {
+    json(response, 401, { error: "Unauthorized service request." });
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/internal/commerce-bot-flow/products") {
+    json(response, 200, { products: await listBotFlowProducts() });
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/internal/commerce-bot-flow/knowledge") {
+    json(response, 200, { sources: await listBotFlowKnowledge() });
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/internal/commerce-bot-flow/knowledge") {
+    try {
+      const payload = botFlowTextDataSchema.parse(await readJson(request, MAX_CHAT_JSON_BYTES));
+      json(response, 201, { source: await addBotFlowTextData(payload.title, payload.content) });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        json(response, 400, { error: "Invalid knowledge content.", details: error.issues });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/internal/commerce-bot-flow/missing-info") {
+    const limit = Number.parseInt(url.searchParams.get("limit") ?? "100", 10);
+    json(response, 200, { questions: await listMissingInformation(limit) });
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/internal/commerce-bot-flow/discounts") {
+    json(response, 200, await getDiscountConfig());
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/internal/commerce-bot-flow/discounts") {
+    try {
+      const payload = discountConfigSchema.parse(await readJson(request, MAX_CHAT_JSON_BYTES));
+      json(response, 200, await saveDiscountConfig(payload));
+    } catch (error) {
+      if (error instanceof ZodError) {
+        json(response, 400, { error: "Invalid discount configuration.", details: error.issues });
+        return;
+      }
+      throw error;
+    }
     return;
   }
 

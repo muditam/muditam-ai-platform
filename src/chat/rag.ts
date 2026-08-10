@@ -251,7 +251,10 @@ export async function retrieveCommerceRagKnowledge(question: string): Promise<Kn
     retrieved.push(...(explicitlyNamed
       ? await exactProductResults(explicitlyNamed.slug, question)
       : await vectorResults(productQuery, "product")));
-    if (PLATFORM_INTENT.test(question)) retrieved.push(...await vectorResults(question, "platform"));
+    // Bot Flow text additions are stored as verified platform knowledge. Search
+    // that collection on every commerce turn so custom FAQs can answer arbitrary
+    // customer wording, not only questions that explicitly mention Muditam.
+    retrieved.push(...await vectorResults(question, "platform"));
   } catch (error) {
     console.warn(JSON.stringify({
       service: "muditam-ai-platform",
@@ -260,7 +263,7 @@ export async function retrieveCommerceRagKnowledge(question: string): Promise<Kn
     }));
     try {
       retrieved.push(...await lexicalResults(productQuery, "product"));
-      if (PLATFORM_INTENT.test(question)) retrieved.push(...await lexicalResults(question, "platform"));
+      retrieved.push(...await lexicalResults(question, "platform"));
     } catch (fallbackError) {
       console.error(JSON.stringify({
         service: "muditam-ai-platform",

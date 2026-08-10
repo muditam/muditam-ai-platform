@@ -92,6 +92,9 @@ export async function recordMessageTurn(
     const conversationId = input.conversationId;
 
     const isEscalating = ESCALATING_DECISIONS.has(result.decision);
+    const healthConcernThisTurn = disclosedCondition(input.message);
+    const productSlugsThisTurn = result.recommendedProducts.map((product) => product.productSlug);
+    const messagesInsertedThisTurn = result.messages.length + 1; // assistant bubbles + the user's own message
     // An aggregation-pipeline update (not a plain update document) so a brand-new
     // conversation whose very first turn already escalates doesn't try to set
     // resolutionStatus via both $setOnInsert and $set at once — Mongo rejects that
@@ -108,11 +111,17 @@ export async function recordMessageTurn(
             startedAt: { $ifNull: ["$startedAt", now] },
             feedback: { $ifNull: ["$feedback", null] },
             leadCaptured: { $ifNull: ["$leadCaptured", false] },
+            addedToCart: { $ifNull: ["$addedToCart", false] },
             language: input.language,
             pageContext: input.pageContext ?? null,
             lastMessageAt: now,
             resolutionStatus: isEscalating ? "escalated" : { $ifNull: ["$resolutionStatus", "resolved"] },
             intents: { $setUnion: [{ $ifNull: ["$intents", []] }, [result.category]] },
+            healthConcerns: healthConcernThisTurn
+              ? { $setUnion: [{ $ifNull: ["$healthConcerns", []] }, [healthConcernThisTurn]] }
+              : { $ifNull: ["$healthConcerns", []] },
+            recommendedProductSlugs: { $setUnion: [{ $ifNull: ["$recommendedProductSlugs", []] }, productSlugsThisTurn] },
+            messageCount: { $add: [{ $ifNull: ["$messageCount", 0] }, messagesInsertedThisTurn] },
           },
         },
       ],
@@ -144,13 +153,12 @@ export async function recordMessageTurn(
       ...assistantDocs,
     ]);
 
-    const healthConcern = disclosedCondition(input.message);
     await touchVisitor(
       input.visitorId,
       input.language,
       {
         ...(options.ip !== undefined ? { ip: options.ip } : {}),
-        ...(healthConcern ? { healthConcern } : {}),
+        ...(healthConcernThisTurn ? { healthConcern: healthConcernThisTurn } : {}),
       },
     );
   } catch (error) {
@@ -206,6 +214,13 @@ export async function recordWidgetEvent(input: CommerceWidgetEvent): Promise<voi
         { $set: { leadCaptured: true } },
       );
     }
+
+    if (input.type === "add_to_cart_clicked" && input.conversationId) {
+      await db.collection("commerce_conversations").updateOne(
+        { conversationId: input.conversationId },
+        { $set: { addedToCart: true } },
+      );
+    }
   } catch (error) {
     console.warn(JSON.stringify({
       service: "muditam-ai-platform",
@@ -245,11 +260,56 @@ function dateRangeFilter(range: DateRange): Record<string, unknown> {
   return { startedAt };
 }
 
-export async function listConversations(range: DateRange & { limit?: number } = {}): Promise<Document[]> {
+// Below this many total messages (user + assistant), a conversation isn't
+// considered a "long chat" for the Customer Journey filter.
+const LONG_CHAT_MESSAGE_THRESHOLD = 10;
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export interface ConversationFilters {
+  // Comma-separated for multi-select (OR within the group), e.g. "PRODUCT_DISCOVERY,GREETING".
+  intent?: string;
+  feedback?: string;
+  addedToCart?: boolean;
+  healthConcern?: string;
+  productSlug?: string;
+  longChat?: boolean;
+  repeatCustomer?: boolean;
+  testSession?: boolean;
+}
+
+export async function listConversations(
+  range: DateRange & { limit?: number } & ConversationFilters = {},
+): Promise<Document[]> {
   const db = await database();
   if (!db) return [];
+
+  const query: Record<string, unknown> = { ...dateRangeFilter(range) };
+  if (range.intent) query.intents = { $in: range.intent.split(",").map((value) => value.trim()).filter(Boolean) };
+  if (range.feedback) {
+    const values = range.feedback.split(",").map((value) => value.trim()).filter(Boolean);
+    if (values.length) query.feedback = { $in: values };
+  }
+  if (range.addedToCart) query.addedToCart = true;
+  if (range.healthConcern) query.healthConcerns = { $regex: escapeRegex(range.healthConcern), $options: "i" };
+  if (range.productSlug) query.recommendedProductSlugs = { $regex: escapeRegex(range.productSlug), $options: "i" };
+  if (range.testSession) query.channel = "internal_preview";
+  if (range.longChat) query.messageCount = { $gte: LONG_CHAT_MESSAGE_THRESHOLD };
+
+  if (range.repeatCustomer) {
+    const repeatVisitors = await db.collection("commerce_conversations").aggregate([
+      { $group: { _id: "$visitorId", conversationCount: { $sum: 1 } } },
+      { $match: { conversationCount: { $gt: 1 } } },
+    ]).toArray();
+    const repeatVisitorIds = repeatVisitors.map((doc) => doc._id as string);
+    if (repeatVisitorIds.length === 0) return [];
+    query.visitorId = { $in: repeatVisitorIds };
+  }
+
   return db.collection("commerce_conversations")
-    .find(dateRangeFilter(range))
+    .find(query)
     .sort({ lastMessageAt: -1 })
     .limit(Math.min(Math.max(range.limit ?? 50, 1), 200))
     .toArray();
