@@ -48,6 +48,7 @@ export const widgetConfigSchema = z.object({
   botTitle: z.string().trim().min(1).max(60).optional(),
   openingMessage: z.string().trim().min(1).max(500).optional(),
   widgetSize: z.enum(["small", "medium", "large"]).optional(),
+  launcherSize: z.enum(["small", "medium", "large"]).optional(),
   widgetPosition: z.enum(["left", "right"]).optional(),
   gapFromSide: z.number().min(0).max(200).optional(),
   gapFromBottom: z.number().min(0).max(400).optional(),

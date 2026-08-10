@@ -23,6 +23,7 @@ export interface WidgetConfig {
   botTitle: string;
   openingMessage: string;
   widgetSize: "small" | "medium" | "large";
+  launcherSize: "small" | "medium" | "large";
   widgetPosition: "left" | "right";
   gapFromSide: number;
   gapFromBottom: number;
@@ -39,6 +40,7 @@ export const DEFAULT_WIDGET_CONFIG: WidgetConfig = {
   botTitle: "Muditam Expert",
   openingMessage: "Hey 👋 I’m your personal Muditam AI Expert. What can I help you with today?",
   widgetSize: "medium",
+  launcherSize: "medium",
   widgetPosition: "right",
   gapFromSide: 22,
   gapFromBottom: 22,

@@ -60,6 +60,7 @@ interface WidgetConfig {
   botTitle: string;
   openingMessage: string;
   widgetSize: "small" | "medium" | "large";
+  launcherSize: "small" | "medium" | "large";
   widgetPosition: "left" | "right";
   gapFromSide: number;
   gapFromBottom: number;
@@ -79,6 +80,7 @@ const DEFAULT_WIDGET_CONFIG: WidgetConfig = {
   botTitle: "Muditam Expert",
   openingMessage: "Hey 👋 I’m your personal Muditam AI Expert. What can I help you with today?",
   widgetSize: "medium",
+  launcherSize: "medium",
   widgetPosition: "right",
   gapFromSide: 22,
   gapFromBottom: 22,
@@ -90,10 +92,16 @@ const DEFAULT_WIDGET_CONFIG: WidgetConfig = {
   nudgeBackgroundColor: "#70408f",
 };
 
-const WIDGET_SIZE_PRESETS: Record<WidgetConfig["widgetSize"], { launcher: number; panelWidth: number; panelHeight: number }> = {
-  small: { launcher: 48, panelWidth: 360, panelHeight: 560 },
-  medium: { launcher: 56, panelWidth: 400, panelHeight: 660 },
-  large: { launcher: 64, panelWidth: 440, panelHeight: 720 },
+const WIDGET_SIZE_PRESETS: Record<WidgetConfig["widgetSize"], { panelWidth: number; panelHeight: number }> = {
+  small: { panelWidth: 360, panelHeight: 560 },
+  medium: { panelWidth: 400, panelHeight: 660 },
+  large: { panelWidth: 440, panelHeight: 720 },
+};
+
+const LAUNCHER_SIZE_PRESETS: Record<WidgetConfig["launcherSize"], number> = {
+  small: 48,
+  medium: 56,
+  large: 76,
 };
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -316,7 +324,8 @@ class MuditamChat extends HTMLElement {
     this.style.setProperty("--muditam-gap-side", `${config.gapFromSide}px`);
     this.style.setProperty("--muditam-gap-bottom", `${config.gapFromBottom}px`);
     const size = WIDGET_SIZE_PRESETS[config.widgetSize];
-    this.style.setProperty("--muditam-launcher-size", `${size.launcher}px`);
+    const launcherSize = LAUNCHER_SIZE_PRESETS[config.launcherSize];
+    this.style.setProperty("--muditam-launcher-size", `${launcherSize}px`);
     this.style.setProperty("--muditam-panel-width", `${size.panelWidth}px`);
     this.style.setProperty("--muditam-panel-height", `${size.panelHeight}px`);
     this.style.setProperty("--muditam-pulse-color", config.pulseColor);
