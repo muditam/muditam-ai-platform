@@ -76,6 +76,7 @@ const VISION_CONCURRENCY = 2;
 const MAX_INTERNAL_JSON_BYTES = 64 * 1024;
 const MAX_CHAT_JSON_BYTES = 256 * 1024;
 const htmlPath = resolve("local-test-ui/index.html");
+const storefrontWidgetPath = resolve("apps/storefront-widget/dist/muditam-chat.js");
 const storefrontSessionLimiter = new StorefrontRateLimiter(10, 60_000);
 const storefrontMessageLimiter = new StorefrontRateLimiter(20, 60_000);
 
@@ -460,6 +461,21 @@ async function handle(
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     });
     response.end();
+    return;
+  }
+  if (
+    (request.method === "GET" || request.method === "HEAD") &&
+    url.pathname === "/muditam-chat.js"
+  ) {
+    const javascript = await readFile(storefrontWidgetPath);
+    response.writeHead(200, {
+      "Content-Type": "application/javascript; charset=utf-8",
+      "Content-Length": String(javascript.byteLength),
+      "Cache-Control": "public, max-age=300, must-revalidate",
+      "Access-Control-Allow-Origin": "*",
+      "X-Content-Type-Options": "nosniff",
+    });
+    response.end(request.method === "HEAD" ? undefined : javascript);
     return;
   }
   if (
