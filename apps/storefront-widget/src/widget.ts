@@ -242,7 +242,6 @@ class MuditamChat extends HTMLElement {
       void this.#submit();
     });
     void this.#initializeConfig();
-    this.#nudgeShowTimer = window.setTimeout(() => { if (panel.hidden) this.#showNudge(true); }, 3_000);
     // Fire-and-forget: lets the dashboard compute "Interaction %" (chat visitors
     // vs. all site visitors) without waiting on this or blocking widget render.
     void this.#ensureSession(true).then(() => this.#emit("pageview")).catch(() => {});
@@ -304,6 +303,18 @@ class MuditamChat extends HTMLElement {
     const config = await this.#fetchWidgetConfig();
     this.#applyWidgetConfig(config);
     this.#appendMessage("assistant", config.openingMessage);
+    const launcherImage = this.#required<HTMLImageElement>(".launcher-image");
+    if (config.launcherImage && !launcherImage.complete) {
+      await new Promise<void>((resolve) => {
+        const finish = (): void => resolve();
+        launcherImage.addEventListener("load", finish, { once: true });
+        launcherImage.addEventListener("error", finish, { once: true });
+        window.setTimeout(finish, 1_500);
+      });
+    }
+    this.setAttribute("data-ready", "true");
+    const panel = this.#required<HTMLElement>(".panel");
+    this.#nudgeShowTimer = window.setTimeout(() => { if (panel.hidden) this.#showNudge(true); }, 3_000);
   }
 
   async #fetchWidgetConfig(): Promise<WidgetConfig> {

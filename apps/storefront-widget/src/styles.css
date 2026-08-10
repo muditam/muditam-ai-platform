@@ -25,6 +25,16 @@
 button, input { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 
+/* Avoid flashing the built-in fallback icon while the saved storefront config
+   and uploaded portrait are still loading. The widget marks itself ready only
+   after both are available. */
+:host(:not([data-ready="true"])) .launcher,
+:host(:not([data-ready="true"])) .launcher-nudge {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .launcher {
   position: fixed;
   bottom: var(--muditam-gap-bottom);
@@ -41,7 +51,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   box-shadow: 0 12px 30px rgb(87 49 111 / 28%), inset 0 1px rgb(255 255 255 / 18%);
   cursor: pointer;
   z-index: 2147483000;
-  transition: transform 160ms ease, box-shadow 160ms ease;
+  transition: opacity 160ms ease, transform 160ms ease, box-shadow 160ms ease;
 }
 .launcher:hover { transform: translateY(-2px); box-shadow: 0 16px 34px rgb(87 49 111 / 34%); }
 .launcher-icon { width: 45%; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
