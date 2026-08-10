@@ -304,13 +304,15 @@ class MuditamChat extends HTMLElement {
     this.#applyWidgetConfig(config);
     this.#appendMessage("assistant", config.openingMessage);
     const launcherImage = this.#required<HTMLImageElement>(".launcher-image");
-    if (config.launcherImage && !launcherImage.complete) {
-      await new Promise<void>((resolve) => {
-        const finish = (): void => resolve();
-        launcherImage.addEventListener("load", finish, { once: true });
-        launcherImage.addEventListener("error", finish, { once: true });
-        window.setTimeout(finish, 1_500);
-      });
+    if (config.launcherImage) {
+      // `complete` can become true for a data URL before the browser has decoded
+      // and painted it. Revealing at that point causes a one-frame flash of the
+      // colored fallback launcher. `decode()` resolves only when the portrait is
+      // ready to render; the timeout prevents a corrupt image blocking the widget.
+      await Promise.race([
+        launcherImage.decode().catch(() => undefined),
+        new Promise<void>((resolve) => window.setTimeout(resolve, 1_500)),
+      ]);
     }
     this.setAttribute("data-ready", "true");
     const panel = this.#required<HTMLElement>(".panel");
