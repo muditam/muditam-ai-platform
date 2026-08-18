@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { answerChat, type ChatModelProvider } from "../src/chat/chat-engine.js";
-import { enforceModelResult, formatChatAnswer, inactiveProductResponse } from "../src/chat/guardrails.js";
+import { answerChat, reportAwareKnowledgeQuery, type ChatModelProvider } from "../src/chat/chat-engine.js";
+import { internalChatRequestSchema } from "../src/chat/contracts.js";
+import { deterministicProductDiscoveryResponse, enforceModelResult, extractedValuesResponse, formatChatAnswer, inactiveProductResponse, isReportAwareProductDiscovery } from "../src/chat/guardrails.js";
+import { knowledgeAllowedForContext } from "../src/chat/rag.js";
 
 const baseRequest = {
   conversationId: "conversation-1",
   language: "en" as const,
+  channel: "mobile_app" as const,
+  audience: "verified_customer" as const,
   observations: [{
     observationId: "obs-hba1c",
     reportId: "report-1",
@@ -21,6 +25,42 @@ const baseRequest = {
 };
 
 describe("AI chat guardrails", () => {
+  it("rejects report observations outside a verified mobile customer context", () => {
+    expect(() => internalChatRequestSchema.parse({
+      ...baseRequest,
+      message: "What does my report say?",
+      channel: "shopify_web",
+      audience: "anonymous_visitor",
+    })).toThrow(/authenticated mobile customer context/);
+  });
+
+  it("accepts report observations for a verified mobile customer", () => {
+    const parsed = internalChatRequestSchema.parse({
+      ...baseRequest,
+      message: "What does my report say?",
+      channel: "mobile_app",
+      audience: "verified_customer",
+    });
+    expect(parsed.observations).toHaveLength(1);
+  });
+
+  it("filters shared knowledge by channel and audience", () => {
+    const mobileOnly = {
+      key: "platform:private-mobile-help",
+      title: "Private mobile help",
+      content: "Private help",
+      contentHi: "Private help",
+      keywords: [],
+      sourceName: "Muditam",
+      sourceUrl: "https://www.muditam.com/",
+      version: "test",
+      channels: ["mobile_app"] as Array<"mobile_app">,
+      audiences: ["verified_customer"] as Array<"verified_customer">,
+    };
+    expect(knowledgeAllowedForContext(mobileOnly, "mobile_app", "verified_customer")).toBe(true);
+    expect(knowledgeAllowedForContext(mobileOnly, "shopify_web", "anonymous_visitor")).toBe(false);
+  });
+
   it("preserves readable paragraphs and mobile list structure", () => {
     const answer = formatChatAnswer("**Products**\n\n- Liver Fix: daily support\n- Liver Defend Pro: advanced support\n\nPlease discuss with your dietitian.");
     expect(answer).toBe("Products\n\n• Liver Fix: daily support\n• Liver Defend Pro: advanced support\n\nPlease discuss with your dietitian.");
@@ -44,6 +84,36 @@ describe("AI chat guardrails", () => {
     expect(response.model).toBeNull();
   });
 
+  it("returns verified diabetes product cards without asking the medical model", () => {
+    const products = [
+      { slug: "sugar-defend-pro", name: "Sugar Defend Pro" },
+      { slug: "karela-jamun-fizz", name: "Karela Jamun Fizz" },
+    ].map(({ slug, name }) => ({
+      key: `product:${slug}:overview`,
+      title: `${name} — product information`,
+      content: "Published product information.",
+      contentHi: "Published product information.",
+      keywords: ["diabetes"],
+      sourceName: "Muditam Ayurveda",
+      sourceUrl: `https://www.muditam.com/products/${slug}`,
+      version: "test",
+      sourceType: "product" as const,
+      productSlug: slug,
+      recommendationEligible: true,
+    }));
+    const response = deterministicProductDiscoveryResponse({
+      ...baseRequest,
+      observations: [],
+      message: "which product do you recommend for diabetes?",
+    }, products);
+    expect(response?.decision).toBe("ALLOW");
+    expect(response?.model).toBeNull();
+    expect(response?.recommendedProducts?.map((item) => item.productSlug)).toEqual([
+      "sugar-defend-pro",
+      "karela-jamun-fizz",
+    ]);
+  });
+
   it("allows cited Muditam platform information without treating it as a product", () => {
     const knowledge = [{
       key: "platform:muditam-overview:overview",
@@ -63,6 +133,7 @@ describe("AI chat guardrails", () => {
       answer: "Muditam is a wellness company and mobile platform.",
       citedObservationIds: [],
       citedKnowledgeKeys: ["platform:muditam-overview:overview"],
+      recommendations: [],
     }, { ...baseRequest, message: "What do you know about Muditam?" }, knowledge, "test-model", {
       inputTokens: 10,
       outputTokens: 10,
@@ -80,6 +151,7 @@ describe("AI chat guardrails", () => {
       answer: "",
       citedObservationIds: [],
       citedKnowledgeKeys: [],
+      recommendations: [],
     }, { ...baseRequest, message: "How does report upload work?" }, [], "test-model", {
       inputTokens: 5,
       outputTokens: 2,
@@ -137,6 +209,7 @@ describe("AI chat guardrails", () => {
           answer: "",
           citedObservationIds: [],
           citedKnowledgeKeys: [],
+          recommendations: [],
         },
       }),
     });
@@ -179,6 +252,7 @@ describe("AI chat guardrails", () => {
           answer: "Your uploaded report contains an HbA1c result.",
           citedObservationIds: ["obs-hba1c", "invented"],
           citedKnowledgeKeys: ["hba1c-basics", "invented"],
+          recommendations: [],
         },
       }),
     });
@@ -205,6 +279,7 @@ describe("AI chat guardrails", () => {
           answer: "The report appears to show HbA1c as 10%.",
           citedObservationIds: ["obs-review"],
           citedKnowledgeKeys: [],
+          recommendations: [],
         },
       }),
     });
@@ -234,6 +309,7 @@ describe("AI chat guardrails", () => {
           answer: "The report contains a raw test named Vendor marker.",
           citedObservationIds: ["obs-unmapped"],
           citedKnowledgeKeys: [],
+          recommendations: [],
         },
       }),
     });
@@ -274,6 +350,103 @@ describe("AI chat guardrails", () => {
     expect(response.citations).toHaveLength(2);
   });
 
+  it("does not turn a report-aware product request into a full value dump", () => {
+    const message = "According to my report values is there any product you can recommend me?";
+    expect(isReportAwareProductDiscovery(message)).toBe(true);
+    expect(extractedValuesResponse({ ...baseRequest, message, channel: "mobile_app", audience: "verified_customer" })).toBeNull();
+  });
+
+  it("adds only verified biomarker context to report-aware product retrieval", () => {
+    const query = reportAwareKnowledgeQuery({
+      ...baseRequest,
+      message: "Can you recommend a product based on my report?",
+      observations: [
+        baseRequest.observations[0]!,
+        {
+          ...baseRequest.observations[0]!,
+          observationId: "obs-unconfirmed-liver",
+          canonicalCode: "ALT",
+          mappingStatus: "POSSIBLE_MATCH" as const,
+          validationStatus: "REVIEW_REQUIRED" as const,
+          decision: "REVIEW_REQUIRED" as const,
+        },
+      ],
+    });
+    expect(query).toContain("blood sugar glucose");
+    expect(query).not.toContain("liver health");
+  });
+
+  it("does not turn a Hindi report-aware product request into a full value dump", () => {
+    const message = "Meri report ke hisab se kaunsa product suggest karoge?";
+    expect(isReportAwareProductDiscovery(message)).toBe(true);
+    expect(extractedValuesResponse({ ...baseRequest, language: "hi", message, channel: "mobile_app", audience: "verified_customer" })).toBeNull();
+  });
+
+  it("limits report-aware product replies for a mobile conversation", () => {
+    const words = Array.from({ length: 100 }, (_, index) => `word${index + 1}`).join(" ");
+    const knowledge = [{
+      key: "product:sugar-defend-pro:overview",
+      title: "Sugar Defend Pro",
+      content: "Published product information.",
+      contentHi: "Published product information.",
+      keywords: ["sugar"],
+      sourceName: "Muditam Ayurveda",
+      sourceUrl: "https://www.muditam.com/",
+      version: "test",
+      sourceType: "product" as const,
+      productSlug: "sugar-defend-pro",
+      recommendationEligible: true,
+    }];
+    const response = enforceModelResult({
+      decision: "ALLOW",
+      category: "PRODUCT_INFORMATION",
+      answer: words,
+      citedObservationIds: ["obs-hba1c"],
+      citedKnowledgeKeys: ["product:sugar-defend-pro:overview"],
+      recommendations: [{ productSlug: "sugar-defend-pro", reason: "A relevant option to discuss for the verified HbA1c result" }],
+    }, {
+      ...baseRequest,
+      message: "Based on my report, which product would you recommend?",
+      channel: "mobile_app",
+      audience: "verified_customer",
+    }, knowledge, "test-model", { inputTokens: 10, outputTokens: 100, totalTokens: 110 });
+    expect(response.decision).toBe("ALLOW");
+    expect(response.answer).toContain("word80…");
+    expect(response.answer).not.toContain("word81");
+    expect(response.recommendedProducts).toEqual([expect.objectContaining({
+      productSlug: "sugar-defend-pro",
+      name: "Sugar Defend Pro",
+      productUrl: "https://www.muditam.com/",
+    })]);
+  });
+
+  it("does not expose an ineligible or unretrieved product card", () => {
+    const response = enforceModelResult({
+      decision: "ALLOW",
+      category: "PRODUCT_INFORMATION",
+      answer: "A product option is available.",
+      citedObservationIds: [],
+      citedKnowledgeKeys: ["product:sugar-defend-pro:overview"],
+      recommendations: [{ productSlug: "invented-product", reason: "Invented" }],
+    }, {
+      ...baseRequest,
+      message: "Tell me about Sugar Defend Pro",
+    }, [{
+      key: "product:sugar-defend-pro:overview",
+      title: "Sugar Defend Pro — product information",
+      content: "Published product information.",
+      contentHi: "Published product information.",
+      keywords: ["sugar"],
+      sourceName: "Muditam Ayurveda",
+      sourceUrl: "https://www.muditam.com/products/sugar-defend-pro",
+      version: "test",
+      sourceType: "product",
+      productSlug: "sugar-defend-pro",
+      recommendationEligible: true,
+    }], "test-model", { inputTokens: 10, outputTokens: 10, totalTokens: 20 });
+    expect(response.recommendedProducts).toEqual([]);
+  });
+
   it("lists extracted report values deterministically in Hindi", async () => {
     const response = await answerChat({ ...baseRequest, language: "hi", message: "मेरी रिपोर्ट की सभी वैल्यूज़ बताओ" }, {
       answer: async () => { throw new Error("should not run"); },
@@ -293,6 +466,7 @@ describe("AI chat guardrails", () => {
           answer: "Your glucose is 100.",
           citedObservationIds: ["invented"],
           citedKnowledgeKeys: [],
+          recommendations: [],
         },
       }),
     });
@@ -310,6 +484,7 @@ describe("AI chat guardrails", () => {
           answer: "Increase your insulin to 20 units tonight.",
           citedObservationIds: [],
           citedKnowledgeKeys: [],
+          recommendations: [],
         },
       }),
     });

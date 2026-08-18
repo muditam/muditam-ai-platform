@@ -99,6 +99,8 @@ export async function addBotFlowTextData(title: string, content: string) {
     keywords: [],
     active: true,
     recommendationEligible: false,
+    channels: ["mobile_app", "shopify_web"],
+    audiences: ["anonymous_visitor", "verified_customer"],
     version: now.toISOString(),
     contentHash: createHash("sha256").update(content).digest("hex"),
     embedding,

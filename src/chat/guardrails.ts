@@ -1,7 +1,7 @@
 import type { InternalChatRequest, InternalChatResponse, ModelChatResult } from "./contracts.js";
 import type { KnowledgeEntry } from "./knowledge.js";
 
-export const CHAT_PROMPT_VERSION = "1.4.0";
+export const CHAT_PROMPT_VERSION = "1.5.0";
 const messages = {
   en: {
     safety: "This may need urgent medical attention. Please contact local emergency services or go to the nearest emergency department now. Do not rely on this chat for emergency care.",
@@ -51,8 +51,14 @@ const unsafeGeneratedHindiPattern = /(इंसुलिन|मेटफॉर�
 const allowedCategories = new Set(["GREETING", "REPORT_VALUES", "DIABETES_EDUCATION", "LIFESTYLE_EDUCATION", "PRODUCT_INFORMATION", "PLATFORM_INFORMATION"]);
 const noUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
 
-const reportListPattern = /\b(?:what|which|show|tell|list|give)\b.{0,70}\b(?:all\s+)?(?:values|results|markers|biomarkers)\b.{0,70}\b(?:report|extracted)\b|\b(?:report|extracted)\b.{0,70}\b(?:values|results|markers|biomarkers)\b/i;
-const reportListHindiPattern = /(रिपोर्ट).{0,50}(वैल्यू|वैल्यूज़|मान|रिजल्ट|नतीजे)|(वैल्यू|वैल्यूज़|मान|रिजल्ट|नतीजे).{0,50}(रिपोर्ट)/u;
+const reportListPattern = /\b(?:show|list|give|tell(?:\s+me)?|what|which)\b.{0,55}\b(?:all\s+)?(?:values|results|markers|biomarkers)\b.{0,55}\b(?:report|extracted)\b|\b(?:show|list|give|tell(?:\s+me)?)\b.{0,55}\b(?:report|extracted)\b.{0,55}\b(?:all\s+)?(?:values|results|markers|biomarkers)\b/i;
+const reportListHindiPattern = /(दिखाओ|बताओ|लिस्ट|सभी|सारी).{0,55}(रिपोर्ट).{0,55}(वैल्यू|वैल्यूज़|मान|रिजल्ट|नतीजे)|(रिपोर्ट).{0,55}(सभी|सारी|दिखाओ|बताओ|लिस्ट).{0,55}(वैल्यू|वैल्यूज़|मान|रिजल्ट|नतीजे)|(रिपोर्ट).{0,55}(वैल्यू|वैल्यूज़|मान|रिजल्ट|नतीजे).{0,30}(दिखाओ|बताओ|लिस्ट)/u;
+const reportProductDiscoveryPattern = /\b(?:recommend|suggest|which|what)\b.{0,100}\b(?:product|products|supplement|supplements)\b|\b(?:product|products|supplement|supplements)\b.{0,100}\b(?:recommend|suggest|right for|relevant|based on)\b|(?:रिपोर्ट).{0,80}(?:प्रोडक्ट|उत्पाद|सप्लीमेंट).{0,50}(?:बताओ|सुझाओ|सही|लें)|(?:प्रोडक्ट|उत्पाद|सप्लीमेंट).{0,80}(?:रिपोर्ट).{0,50}(?:बताओ|सुझाओ|सही|लें)/iu;
+
+export function isReportAwareProductDiscovery(message: string): boolean {
+  return /\b(?:report|results?|values?|hba1c|glucose|cholesterol|liver|heart)\b|(?:रिपोर्ट|रिजल्ट|वैल्यू|शुगर)/iu.test(message)
+    && reportProductDiscoveryPattern.test(message);
+}
 
 function observationValueText(value: InternalChatRequest["observations"][number]["value"]): string {
   if (typeof value === "number" || typeof value === "string") return String(value);
@@ -77,6 +83,7 @@ function observationCitation(item: InternalChatRequest["observations"][number]) 
 }
 
 export function extractedValuesResponse(input: InternalChatRequest): InternalChatResponse | null {
+  if (isReportAwareProductDiscovery(input.message)) return null;
   if (!reportListPattern.test(input.message) && !reportListHindiPattern.test(input.message)) return null;
   const copy = localized(input.language);
   if (!input.observations.length) {
@@ -125,6 +132,68 @@ export function deterministicGuardrail(message: string, language: InternalChatRe
 
 export function inactiveProductResponse(language: InternalChatRequest["language"]): InternalChatResponse {
   return { decision: "REFUSE", category: "PRODUCT_INFORMATION", answer: localized(language).inactiveProduct, citations: [], knowledgeReferences: [], model: null, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: "INPUT", usage: noUsage };
+}
+
+const productDiscoveryConcerns = [
+  {
+    pattern: /\b(?:diabetes|diabetic|blood sugar|glucose|sugar patient)\b|(?:डायबिटीज|मधुमेह|ब्लड शुगर)/iu,
+    slugs: ["sugar-defend-pro", "karela-jamun-fizz"],
+    en: (names: string[]) => `For blood-sugar wellness support, you can consider ${names.join(" and ")}. They offer different formats for convenient daily support.`,
+    hi: (names: string[]) => `ब्लड शुगर वेलनेस सपोर्ट के लिए आप ${names.join(" और ")} के बारे में जान सकते हैं। ये रोज़मर्रा के सपोर्ट के लिए अलग-अलग विकल्प हैं।`,
+  },
+  {
+    pattern: /\b(?:heart|cardiac|cardiovascular)\b|(?:हार्ट|दिल)/iu,
+    slugs: ["heart-defend-pro"],
+    en: (names: string[]) => `For heart wellness support, you can consider ${names[0]}.`,
+    hi: (names: string[]) => `हार्ट वेलनेस सपोर्ट के लिए आप ${names[0]} के बारे में जान सकते हैं।`,
+  },
+  {
+    pattern: /\b(?:fatty liver|liver|lever)\b|(?:लिवर|जिगर)/iu,
+    slugs: ["liver-defend-pro"],
+    en: (names: string[]) => `For liver wellness support, you can consider ${names[0]}.`,
+    hi: (names: string[]) => `लिवर वेलनेस सपोर्ट के लिए आप ${names[0]} के बारे में जान सकते हैं।`,
+  },
+] as const;
+
+export function deterministicProductDiscoveryResponse(
+  input: InternalChatRequest,
+  knowledge: readonly KnowledgeEntry[],
+): InternalChatResponse | null {
+  if (isReportAwareProductDiscovery(input.message)) return null;
+  const asksForProduct = /\b(?:product|products|supplement|supplements|recommend|suggest|something|anything)\b|(?:प्रोडक्ट|उत्पाद|सप्लीमेंट|सुझाओ|बताओ|कुछ)/iu.test(input.message);
+  if (!asksForProduct) return null;
+  const concern = productDiscoveryConcerns.find((item) => item.pattern.test(input.message));
+  if (!concern) return null;
+  const entries = concern.slugs.flatMap((slug) => {
+    const entry = knowledge.find((item) => item.sourceType === "product"
+      && item.recommendationEligible === true
+      && item.productSlug === slug);
+    return entry ? [entry] : [];
+  });
+  if (!entries.length) return null;
+  const names = entries.map((entry) => entry.title.split(" — ")[0]?.trim() || entry.productSlug as string);
+  return {
+    decision: "ALLOW",
+    category: "PRODUCT_INFORMATION",
+    answer: input.language === "hi" ? concern.hi(names) : concern.en(names),
+    citations: [],
+    knowledgeReferences: entries.map((entry) => ({
+      key: entry.key,
+      title: entry.title,
+      sourceName: entry.sourceName,
+      sourceUrl: entry.sourceUrl,
+    })),
+    recommendedProducts: entries.map((entry, index) => ({
+      productSlug: entry.productSlug as string,
+      name: names[index] as string,
+      productUrl: entry.sourceUrl,
+      reason: input.language === "hi" ? "Muditam का सत्यापित वेलनेस उत्पाद" : "Verified Muditam wellness product",
+    })),
+    model: null,
+    promptVersion: CHAT_PROMPT_VERSION,
+    guardrailStage: "INPUT",
+    usage: noUsage,
+  };
 }
 
 export function formatChatAnswer(value: string, maxWords = 220): string {
@@ -185,11 +254,47 @@ export function enforceModelResult(
   if (result.category === "REPORT_VALUES" && citations.length === 0) {
     return { decision: "REFUSE", category: "REPORT_VALUES", answer: copy.missingValue, citations: [], knowledgeReferences: [], model, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: "OUTPUT", usage };
   }
+  if (result.category === "PRODUCT_INFORMATION" && isReportAwareProductDiscovery(input.message) && citations.length === 0) {
+    return { decision: "REFUSE", category: "PRODUCT_INFORMATION", answer: copy.productUnavailable, citations: [], knowledgeReferences: [], recommendedProducts: [], model, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: "OUTPUT", usage };
+  }
   const knowledgeByKey = new Map(knowledge.map((item) => [item.key, item]));
   const knowledgeReferences = [...new Set(result.citedKnowledgeKeys)].flatMap((key) => {
     const item = knowledgeByKey.get(key);
     return item ? [{ key: item.key, title: item.title, sourceName: item.sourceName, sourceUrl: item.sourceUrl }] : [];
   });
+  const eligibleProducts = new Map(knowledge
+    .filter((item) => item.sourceType === "product" && item.recommendationEligible === true && item.productSlug)
+    .map((item) => [item.productSlug as string, item]));
+  const requestedRecommendations = result.recommendations ?? [];
+  const explicitRecommendations = requestedRecommendations.flatMap((recommendation) => {
+    const item = eligibleProducts.get(recommendation.productSlug);
+    if (!item) return [];
+    const formattedReason = formatChatAnswer(recommendation.reason, 24);
+    const safeReason = unsafeGeneratedAdvicePattern.test(formattedReason) || unsafeGeneratedHindiPattern.test(formattedReason)
+      ? `Learn more about ${item.title.split(" — ")[0]?.trim() || recommendation.productSlug}`
+      : formattedReason;
+    return [{
+      productSlug: recommendation.productSlug,
+      name: item.title.split(" — ")[0]?.trim() || recommendation.productSlug,
+      productUrl: item.sourceUrl,
+      reason: safeReason,
+    }];
+  });
+  const citedRecommendations = result.citedKnowledgeKeys.flatMap((key) => {
+    const item = knowledgeByKey.get(key);
+    if (!item?.productSlug || !eligibleProducts.has(item.productSlug)) return [];
+    const name = item.title.split(" — ")[0]?.trim() || item.productSlug;
+    if (!result.answer.toLocaleLowerCase("en-IN").includes(name.toLocaleLowerCase("en-IN"))) return [];
+    return [{
+      productSlug: item.productSlug,
+      name,
+      productUrl: item.sourceUrl,
+      reason: `Learn more about ${name}`,
+    }];
+  });
+  const recommendedProducts = [...new Map(
+    [...explicitRecommendations, ...citedRecommendations].map((item) => [item.productSlug, item]),
+  ).values()].slice(0, 2);
   if (
     ["DIABETES_EDUCATION", "LIFESTYLE_EDUCATION", "PRODUCT_INFORMATION", "PLATFORM_INFORMATION"].includes(result.category) &&
     knowledgeReferences.length === 0
@@ -208,5 +313,6 @@ export function enforceModelResult(
   if (citesUnconfirmedValue && !answer.includes(copy.unconfirmedValue)) {
     answer = `${answer} ${copy.unconfirmedValue}`;
   }
-  return { decision: "ALLOW", category: result.category, answer: formatChatAnswer(answer), citations, knowledgeReferences, model, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: null, usage };
+  const maxWords = result.category === "PRODUCT_INFORMATION" && isReportAwareProductDiscovery(input.message) ? 80 : 220;
+  return { decision: "ALLOW", category: result.category, answer: formatChatAnswer(answer, maxWords), citations, knowledgeReferences, recommendedProducts, model, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: null, usage };
 }

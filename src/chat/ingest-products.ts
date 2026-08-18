@@ -23,6 +23,8 @@ interface ChunkInput {
   recommendationEligible: boolean;
   version: string;
   contentHash: string;
+  channels: Array<"mobile_app" | "shopify_web">;
+  audiences: Array<"anonymous_visitor" | "verified_customer">;
 }
 
 interface PlatformSourceInput {
@@ -106,6 +108,8 @@ function productChunks(product: Document): ChunkInput[] {
     active: product.active === true && product.websiteStatus === "active",
     recommendationEligible: product.recommendationEligible === true,
     version,
+    channels: ["mobile_app", "shopify_web"] as Array<"mobile_app" | "shopify_web">,
+    audiences: ["anonymous_visitor", "verified_customer"] as Array<"anonymous_visitor" | "verified_customer">,
   };
   const overview = [
     `Product: ${product.name}`,
@@ -162,6 +166,8 @@ export function platformChunks(): ChunkInput[] {
       recommendationEligible: false,
       version: source.version,
       contentHash,
+      channels: ["mobile_app", "shopify_web"],
+      audiences: ["anonymous_visitor", "verified_customer"],
     };
   }));
 }

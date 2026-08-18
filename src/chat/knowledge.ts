@@ -10,6 +10,8 @@ export interface KnowledgeEntry {
   sourceType?: "curated" | "product" | "platform";
   productSlug?: string;
   recommendationEligible?: boolean;
+  channels?: Array<"mobile_app" | "shopify_web">;
+  audiences?: Array<"anonymous_visitor" | "verified_customer">;
 }
 
 export const KNOWLEDGE_VERSION = "2026-08-04.1";
@@ -24,6 +26,8 @@ export const diabetesKnowledge: readonly KnowledgeEntry[] = [
     sourceName: "CDC Diabetes Basics",
     sourceUrl: "https://www.cdc.gov/diabetes/about/index.html",
     version: KNOWLEDGE_VERSION,
+    channels: ["mobile_app"],
+    audiences: ["verified_customer"],
   },
   {
     key: "hba1c-basics",
@@ -34,6 +38,8 @@ export const diabetesKnowledge: readonly KnowledgeEntry[] = [
     sourceName: "CDC A1C Test",
     sourceUrl: "https://www.cdc.gov/diabetes/diabetes-testing/prediabetes-a1c-test.html",
     version: KNOWLEDGE_VERSION,
+    channels: ["mobile_app"],
+    audiences: ["verified_customer"],
   },
   {
     key: "hypoglycemia-safety",
@@ -44,6 +50,8 @@ export const diabetesKnowledge: readonly KnowledgeEntry[] = [
     sourceName: "CDC Low Blood Sugar",
     sourceUrl: "https://www.cdc.gov/diabetes/about/low-blood-sugar-hypoglycemia.html",
     version: KNOWLEDGE_VERSION,
+    channels: ["mobile_app"],
+    audiences: ["verified_customer"],
   },
   {
     key: "diabetes-testing-ranges",
@@ -54,6 +62,8 @@ export const diabetesKnowledge: readonly KnowledgeEntry[] = [
     sourceName: "CDC Diabetes Testing",
     sourceUrl: "https://www.cdc.gov/diabetes/diabetes-testing/index.html",
     version: KNOWLEDGE_VERSION,
+    channels: ["mobile_app"],
+    audiences: ["verified_customer"],
   },
   {
     key: "healthy-eating",
@@ -64,6 +74,8 @@ export const diabetesKnowledge: readonly KnowledgeEntry[] = [
     sourceName: "American Diabetes Association — Eating Well",
     sourceUrl: "https://diabetes.org/food-nutrition/eating-healthy",
     version: KNOWLEDGE_VERSION,
+    channels: ["mobile_app"],
+    audiences: ["verified_customer"],
   },
   {
     key: "whole-fruit-and-diabetes",
@@ -74,6 +86,8 @@ export const diabetesKnowledge: readonly KnowledgeEntry[] = [
     sourceName: "American Diabetes Association — Fruit",
     sourceUrl: "https://diabetes.org/food-nutrition/reading-food-labels/fruit",
     version: KNOWLEDGE_VERSION,
+    channels: ["mobile_app"],
+    audiences: ["verified_customer"],
   },
   {
     key: "physical-activity",
@@ -84,6 +98,8 @@ export const diabetesKnowledge: readonly KnowledgeEntry[] = [
     sourceName: "CDC Get Active",
     sourceUrl: "https://www.cdc.gov/diabetes/living-with/physical-activity.html",
     version: KNOWLEDGE_VERSION,
+    channels: ["mobile_app"],
+    audiences: ["verified_customer"],
   },
   {
     key: "blood-sugar-management",
@@ -94,6 +110,8 @@ export const diabetesKnowledge: readonly KnowledgeEntry[] = [
     sourceName: "CDC Manage Blood Sugar",
     sourceUrl: "https://www.cdc.gov/diabetes/treatment/index.html",
     version: KNOWLEDGE_VERSION,
+    channels: ["mobile_app"],
+    audiences: ["verified_customer"],
   },
 ];
 
