@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 export const chatRoleSchema = z.enum(["user", "assistant"]);
+export const chatChannelSchema = z.enum(["mobile_app", "shopify_web"]);
+export const chatAudienceSchema = z.enum(["anonymous_visitor", "verified_customer"]);
 
 export const chatObservationSchema = z.object({
   observationId: z.string().min(1).max(200),
@@ -30,11 +32,21 @@ export const internalChatRequestSchema = z.object({
   conversationId: z.string().min(1).max(200),
   message: z.string().trim().min(1).max(2000),
   language: z.enum(["en", "hi"]).default("en"),
+  channel: chatChannelSchema.default("mobile_app"),
+  audience: chatAudienceSchema.default("verified_customer"),
   observations: z.array(chatObservationSchema).max(300).default([]),
   recentMessages: z.array(z.object({
     role: chatRoleSchema,
     content: z.string().min(1).max(4000),
   })).max(20).default([]),
+}).superRefine((request, context) => {
+  if (request.observations.length && (request.channel !== "mobile_app" || request.audience !== "verified_customer")) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["observations"],
+      message: "Report observations require an authenticated mobile customer context",
+    });
+  }
 });
 
 export const chatCategorySchema = z.enum([
@@ -55,6 +67,10 @@ export const modelChatResultSchema = z.object({
   answer: z.string().trim(),
   citedObservationIds: z.array(z.string()),
   citedKnowledgeKeys: z.array(z.string()),
+  recommendations: z.array(z.object({
+    productSlug: z.string().min(1).max(200),
+    reason: z.string().trim().min(1).max(240),
+  })).max(2),
 });
 
 export type InternalChatRequest = z.infer<typeof internalChatRequestSchema>;
@@ -80,6 +96,12 @@ export interface InternalChatResponse {
     title: string;
     sourceName: string;
     sourceUrl: string;
+  }>;
+  recommendedProducts?: Array<{
+    productSlug: string;
+    name: string;
+    productUrl: string;
+    reason: string;
   }>;
   model: string | null;
   promptVersion: string;

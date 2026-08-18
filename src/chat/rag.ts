@@ -49,6 +49,12 @@ async function queryEmbedding(question: string): Promise<number[]> {
 }
 
 function toKnowledgeEntry(item: Document): KnowledgeEntry {
+  const channels = Array.isArray(item.channels)
+    ? item.channels.filter((value): value is "mobile_app" | "shopify_web" => value === "mobile_app" || value === "shopify_web")
+    : [];
+  const audiences = Array.isArray(item.audiences)
+    ? item.audiences.filter((value): value is "anonymous_visitor" | "verified_customer" => value === "anonymous_visitor" || value === "verified_customer")
+    : [];
   return {
     key: String(item.key),
     title: String(item.title),
@@ -61,7 +67,19 @@ function toKnowledgeEntry(item: Document): KnowledgeEntry {
     sourceType: item.sourceType === "platform" ? "platform" : "product",
     ...(item.productSlug ? { productSlug: String(item.productSlug) } : {}),
     recommendationEligible: item.recommendationEligible === true,
+    ...(channels.length ? { channels } : {}),
+    ...(audiences.length ? { audiences } : {}),
   };
+}
+
+export function knowledgeAllowedForContext(
+  entry: KnowledgeEntry,
+  channel: "mobile_app" | "shopify_web",
+  audience: "anonymous_visitor" | "verified_customer",
+): boolean {
+  const channelAllowed = !entry.channels?.length || entry.channels.includes(channel);
+  const audienceAllowed = !entry.audiences?.length || entry.audiences.includes(audience);
+  return channelAllowed && audienceAllowed;
 }
 
 async function vectorResults(question: string, sourceType: "product" | "platform"): Promise<KnowledgeEntry[]> {
@@ -204,13 +222,21 @@ async function lexicalResults(question: string, sourceType: "product" | "platfor
 export async function retrieveRagKnowledge(
   question: string,
   curated: KnowledgeEntry[] = [],
+  context: { channel: "mobile_app" | "shopify_web"; audience: "anonymous_visitor" | "verified_customer" } = {
+    channel: "mobile_app",
+    audience: "verified_customer",
+  },
 ): Promise<KnowledgeEntry[]> {
   const wantsProducts = PRODUCT_INTENT.test(question);
   const wantsPlatform = PLATFORM_INTENT.test(question);
-  if (!enabled() || !mongoUri() || (!wantsProducts && !wantsPlatform)) return curated;
+  const allowedCurated = curated.filter((entry) => knowledgeAllowedForContext(entry, context.channel, context.audience));
+  if (!enabled() || !mongoUri() || (!wantsProducts && !wantsPlatform)) return allowedCurated;
   let retrieved: KnowledgeEntry[] = [];
   try {
     if (wantsProducts) {
+      for (const slug of discoveryProductSlugs(question)) {
+        retrieved.push(...await exactProductResults(slug, question));
+      }
       const explicitlyNamed = await explicitlyReferencedProduct(question);
       if (explicitlyNamed && !explicitlyNamed.eligible) return curated;
       retrieved.push(...(explicitlyNamed
@@ -235,7 +261,9 @@ export async function retrieveRagKnowledge(
       }));
     }
   }
-  const unique = new Map([...curated, ...retrieved].map((item) => [item.key, item]));
+  const unique = new Map([...allowedCurated, ...retrieved]
+    .filter((entry) => knowledgeAllowedForContext(entry, context.channel, context.audience))
+    .map((item) => [item.key, item]));
   return [...unique.values()].slice(0, 8);
 }
 
@@ -272,7 +300,9 @@ export async function retrieveCommerceRagKnowledge(question: string): Promise<Kn
       }));
     }
   }
-  return [...new Map(retrieved.map((entry) => [entry.key, entry])).values()].slice(0, 10);
+  return [...new Map(retrieved
+    .filter((entry) => knowledgeAllowedForContext(entry, "shopify_web", "anonymous_visitor"))
+    .map((entry) => [entry.key, entry])).values()].slice(0, 10);
 }
 
 export const ragConfig = { embeddingDimensions, embeddingModel };
