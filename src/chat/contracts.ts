@@ -70,7 +70,7 @@ export const modelChatResultSchema = z.object({
   recommendations: z.array(z.object({
     productSlug: z.string().min(1).max(200),
     reason: z.string().trim().min(1).max(240),
-  })).max(2),
+  })).max(8),
 });
 
 export type InternalChatRequest = z.infer<typeof internalChatRequestSchema>;

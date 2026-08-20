@@ -91,16 +91,16 @@ function response(
 
 const discoveryByConcern = [
   {
+    key: "blood_sugar",
     pattern: /\b(?:diabetes|diabetic|blood sugar|glucose|sugar patient)\b|(?:डायबिटीज|मधुमेह|ब्लड शुगर)/iu,
-    slugs: ["sugar-defend-pro", "karela-jamun-fizz", "berberine-pro"],
   },
   {
+    key: "heart",
     pattern: /\b(?:heart|cardiac)\b|(?:हार्ट|दिल)/iu,
-    slugs: ["heart-defend-pro"],
   },
   {
+    key: "liver",
     pattern: /\b(?:fatty liver|liver|lever)\b|(?:लिवर|जिगर)/iu,
-    slugs: ["liver-fix", "liver-defend-pro"],
   },
 ] as const;
 
@@ -113,12 +113,14 @@ export function deterministicProductDiscovery(
   if (!asksForProduct) return null;
   const match = discoveryByConcern.find((item) => item.pattern.test(input.message));
   if (!match) return null;
-  const entries = match.slugs.flatMap((slug) => {
-    const entry = knowledge.find((item) => item.sourceType === "product"
+  const entries = [...new Map(knowledge
+    .filter((item) => item.sourceType === "product"
       && item.recommendationEligible === true
-      && item.productSlug === slug);
-    return entry ? [entry] : [];
-  }).sort((left, right) => Number(right.recommendationPriority === "boosted") - Number(left.recommendationPriority === "boosted")).slice(0, 2);
+      && item.productSlug
+      && item.recommendationConcern === match.key)
+    .map((item) => [item.productSlug as string, item])).values()]
+    .sort((left, right) => Number(right.recommendationPriority === "boosted") - Number(left.recommendationPriority === "boosted"))
+    .slice(0, 8);
   if (!entries.length) {
     return response(input, {
       decision: "ALLOW",
@@ -132,11 +134,7 @@ export function deterministicProductDiscovery(
     });
   }
   const names = entries.map(productName);
-  const concern = match.slugs[0]?.startsWith("heart")
-    ? "heart"
-    : match.slugs.some((slug) => slug.startsWith("liver"))
-      ? "liver"
-      : "blood-sugar";
+  const concern = match.key === "blood_sugar" ? "blood-sugar" : match.key;
   const english = names.length > 1
     ? `For ${concern} wellness support, you can consider ${names.join(" and ")}. They offer different options for convenient daily support.`
     : `For ${concern} wellness support, you can consider ${names[0]}.`;

@@ -11,6 +11,7 @@ export interface KnowledgeEntry {
   productSlug?: string;
   recommendationEligible?: boolean;
   recommendationPriority?: "hidden" | "normal" | "boosted";
+  recommendationConcern?: "blood_sugar" | "liver" | "heart";
   channels?: Array<"mobile_app" | "shopify_web">;
   audiences?: Array<"anonymous_visitor" | "verified_customer">;
 }

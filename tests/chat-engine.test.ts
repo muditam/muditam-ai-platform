@@ -100,6 +100,7 @@ describe("AI chat guardrails", () => {
       sourceType: "product" as const,
       productSlug: slug,
       recommendationEligible: true,
+      recommendationConcern: "blood_sugar" as const,
     }));
     const response = deterministicProductDiscoveryResponse({
       ...baseRequest,

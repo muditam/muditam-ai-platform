@@ -95,6 +95,9 @@ function toKnowledgeEntry(item: Document): KnowledgeEntry {
     ...(item.recommendationPriority === "hidden" || item.recommendationPriority === "boosted" || item.recommendationPriority === "normal"
       ? { recommendationPriority: item.recommendationPriority }
       : {}),
+    ...(item.recommendationConcern === "blood_sugar" || item.recommendationConcern === "liver" || item.recommendationConcern === "heart"
+      ? { recommendationConcern: item.recommendationConcern }
+      : {}),
     ...(channels.length ? { channels } : {}),
     ...(audiences.length ? { audiences } : {}),
   };
@@ -159,21 +162,52 @@ function latestCustomerMessage(question: string): string {
 
 const bestSellerPattern = /\b(?:best[- ]?sell(?:er|ing)?|top[- ]?sell(?:er|ing)?|most (?:popular|sold|selling))\b|(?:सबसे ज़्यादा बिकने वाला|बेस्ट सेलर)/iu;
 
-function discoveryProductSlugs(question: string): string[] {
+function forcedProductSlugs(question: string): string[] {
   const latest = latestCustomerMessage(question);
   // Checked before the general product-intent gate below since "what's your best
   // seller" doesn't contain any of those words, but still needs to force-fetch the
   // bestseller product's knowledge so the deterministic bestseller guardrail has it.
   if (bestSellerPattern.test(latest)) return ["karela-jamun-fizz"];
+  return [];
+}
+
+const discoveryConcerns = [
+  { key: "blood_sugar" as const, pattern: /\b(?:diabetes|diabetic|blood sugar|glucose|sugar patient)\b|(?:डायबिटीज|मधुमेह|ब्लड शुगर)/iu, tags: ["diabetes", "blood-sugar", "blood sugar", "glucose", "metabolic"] },
+  { key: "liver" as const, pattern: /\b(?:fatty liver|liver|lever)\b|(?:लिवर|जिगर)/iu, tags: ["liver", "fatty-liver", "fatty liver"] },
+  { key: "heart" as const, pattern: /\b(?:heart|cardiac|cardiovascular)\b|(?:हार्ट|दिल)/iu, tags: ["heart", "cardiac", "cardiovascular"] },
+] as const;
+
+async function concernProductResults(question: string): Promise<KnowledgeEntry[]> {
+  const latest = latestCustomerMessage(question);
   const asksForProduct = fuzzyIntent(latest, ["product", "products", "supplement", "something", "anything", "recommend"])
     || /\b(?:kuch|chahiye)\b|(?:प्रोडक्ट|उत्पाद|सप्लीमेंट|कुछ)/iu.test(latest);
-  if (!asksForProduct) return [];
-  if (/\b(?:diabetes|diabetic|blood sugar|glucose|sugar patient)\b|(?:डायबिटीज|मधुमेह|ब्लड शुगर)/iu.test(latest)) {
-    return ["sugar-defend-pro", "karela-jamun-fizz", "berberine-pro"];
+  const concern = asksForProduct ? discoveryConcerns.find((item) => item.pattern.test(latest)) : undefined;
+  if (!concern) return [];
+  const db = await database();
+  if (!db) return [];
+  const products = await db.collection("metabolic_products").find({
+    active: true,
+    websiteStatus: "active",
+    recommendationEligible: true,
+    $or: [
+      { category: concern.key },
+      { chatbotTags: { $in: [...concern.tags] } },
+    ],
+  }, { projection: { slug: 1, name: 1, recommendationPriority: 1 } }).toArray();
+  products.sort((left, right) => {
+    const priority = Number(right.recommendationPriority === "boosted") - Number(left.recommendationPriority === "boosted");
+    return priority || String(left.name).localeCompare(String(right.name));
+  });
+  const entries: KnowledgeEntry[] = [];
+  for (const product of products.slice(0, 8)) {
+    const entry = (await exactProductResults(String(product.slug), question))[0];
+    if (entry) entries.push({
+      ...entry,
+      recommendationConcern: concern.key,
+      recommendationPriority: product.recommendationPriority === "boosted" ? "boosted" : "normal",
+    });
   }
-  if (/\b(?:heart|cardiac)\b|(?:हार्ट|दिल)/iu.test(latest)) return ["heart-defend-pro"];
-  if (/\b(?:fatty liver|liver|lever)\b|(?:लिवर|जिगर)/iu.test(latest)) return ["liver-fix", "liver-defend-pro"];
-  return [];
+  return entries;
 }
 
 function normalizedProductName(value: string): string {
@@ -373,7 +407,8 @@ export async function retrieveRagKnowledge(
   let retrieved: KnowledgeEntry[] = [];
   try {
     if (wantsProducts) {
-      for (const slug of discoveryProductSlugs(question)) {
+      retrieved.push(...await concernProductResults(question));
+      for (const slug of forcedProductSlugs(question)) {
         retrieved.push(...await exactProductResults(slug, question));
       }
       const explicitlyNamed = await explicitlyReferencedProduct(question);
@@ -430,9 +465,10 @@ export async function retrieveCommerceRagKnowledge(question: string): Promise<Kn
   }
   let retrieved: KnowledgeEntry[] = [];
   const productQuery = expandCommerceProductQuery(question);
-  const discoverySlugs = discoveryProductSlugs(question);
+  const forcedSlugs = forcedProductSlugs(question);
   try {
-    for (const slug of discoverySlugs) retrieved.push(...await exactProductResults(slug, question));
+    retrieved.push(...await concernProductResults(question));
+    for (const slug of forcedSlugs) retrieved.push(...await exactProductResults(slug, question));
     const explicitlyNamed = await explicitlyReferencedProduct(question);
     if (explicitlyNamed && !explicitlyNamed.eligible) return [];
     retrieved.push(...(explicitlyNamed
@@ -451,7 +487,8 @@ export async function retrieveCommerceRagKnowledge(question: string): Promise<Kn
     await resetMongoConnection();
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       try {
-        for (const slug of discoverySlugs) retrieved.push(...await exactProductResults(slug, question));
+        retrieved.push(...await concernProductResults(question));
+        for (const slug of forcedSlugs) retrieved.push(...await exactProductResults(slug, question));
         retrieved.push(...await lexicalResults(productQuery, "product"));
         retrieved.push(...await lexicalResults(question, "platform"));
         break;

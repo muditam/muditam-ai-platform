@@ -79,7 +79,7 @@ export class OpenAICommerceModelProvider implements CommerceModelProvider {
             "Never print a phone number or WhatsApp URL in answer or followUp. Choose HANDOFF and let the application render verified contact actions.",
             "Whenever your answer or followUp mentions, offers, or suggests a dietitian, doctor, or expert consultation in any wording, you must set decision to HANDOFF and category to EXPERT_HANDOFF in the same turn so the application can render the verified call and WhatsApp actions. Never reference a consultation without also choosing HANDOFF.",
             "Recommend only supplied product entries where recommendationEligible is true, using their exact productSlug.",
-            "Recommend no more than two products. Never invent a price, discount, stock status, product, ingredient, usage, or result timeline.",
+            "Recommend only relevant supplied products, ordered by their configured recommendation priority, with no more than eight products. Never invent a price, discount, stock status, product, ingredient, usage, or result timeline.",
             "The followUp must be one natural question of at most 14 words. Do not repeat information from the answer.",
             "Good style example: For blood-sugar support, I'd recommend Sugar Defend Pro and Karela Jamun Fizz. Sugar Defend Pro offers broader daily support, while Karela Jamun Fizz is a convenient drink format.",
             "Do not use Markdown, headings, tables, or bold markers.",

@@ -136,20 +136,20 @@ export function inactiveProductResponse(language: InternalChatRequest["language"
 
 const productDiscoveryConcerns = [
   {
+    key: "blood_sugar",
     pattern: /\b(?:diabetes|diabetic|blood sugar|glucose|sugar patient)\b|(?:डायबिटीज|मधुमेह|ब्लड शुगर)/iu,
-    slugs: ["sugar-defend-pro", "karela-jamun-fizz", "berberine-pro"],
     en: (names: string[]) => `For blood-sugar wellness support, you can consider ${names.join(" and ")}. They offer different formats for convenient daily support.`,
     hi: (names: string[]) => `ब्लड शुगर वेलनेस सपोर्ट के लिए आप ${names.join(" और ")} के बारे में जान सकते हैं। ये रोज़मर्रा के सपोर्ट के लिए अलग-अलग विकल्प हैं।`,
   },
   {
+    key: "heart",
     pattern: /\b(?:heart|cardiac|cardiovascular)\b|(?:हार्ट|दिल)/iu,
-    slugs: ["heart-defend-pro"],
     en: (names: string[]) => `For heart wellness support, you can consider ${names[0]}.`,
     hi: (names: string[]) => `हार्ट वेलनेस सपोर्ट के लिए आप ${names[0]} के बारे में जान सकते हैं।`,
   },
   {
+    key: "liver",
     pattern: /\b(?:fatty liver|liver|lever)\b|(?:लिवर|जिगर)/iu,
-    slugs: ["liver-fix", "liver-defend-pro"],
     en: (names: string[]) => `For liver wellness support, you can consider ${names.join(" and ")}. They offer different options for convenient daily support.`,
     hi: (names: string[]) => `लिवर वेलनेस सपोर्ट के लिए आप ${names.join(" और ")} के बारे में जान सकते हैं। ये रोज़मर्रा के सपोर्ट के लिए अलग-अलग विकल्प हैं।`,
   },
@@ -164,12 +164,14 @@ export function deterministicProductDiscoveryResponse(
   if (!asksForProduct) return null;
   const concern = productDiscoveryConcerns.find((item) => item.pattern.test(input.message));
   if (!concern) return null;
-  const entries = concern.slugs.flatMap((slug) => {
-    const entry = knowledge.find((item) => item.sourceType === "product"
+  const entries = [...new Map(knowledge
+    .filter((item) => item.sourceType === "product"
       && item.recommendationEligible === true
-      && item.productSlug === slug);
-    return entry ? [entry] : [];
-  }).sort((left, right) => Number(right.recommendationPriority === "boosted") - Number(left.recommendationPriority === "boosted")).slice(0, 2);
+      && item.productSlug
+      && item.recommendationConcern === concern.key)
+    .map((item) => [item.productSlug as string, item])).values()]
+    .sort((left, right) => Number(right.recommendationPriority === "boosted") - Number(left.recommendationPriority === "boosted"))
+    .slice(0, 8);
   if (!entries.length) return null;
   const names = entries.map((entry) => entry.title.split(" — ")[0]?.trim() || entry.productSlug as string);
   return {

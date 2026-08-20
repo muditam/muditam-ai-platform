@@ -28,6 +28,7 @@ const productKnowledge: KnowledgeEntry[] = [
     sourceType: "product",
     productSlug: "sugar-defend-pro",
     recommendationEligible: true,
+    recommendationConcern: "blood_sugar",
   },
   {
     key: "product:karela-jamun-fizz:overview",
@@ -41,6 +42,7 @@ const productKnowledge: KnowledgeEntry[] = [
     sourceType: "product",
     productSlug: "karela-jamun-fizz",
     recommendationEligible: true,
+    recommendationConcern: "blood_sugar",
   },
 ];
 
@@ -182,6 +184,7 @@ describe("commerce chat", () => {
       keywords: ["liver"], sourceName: "Muditam Ayurveda",
       sourceUrl: `https://www.muditam.com/products/${slug}`, version: "test",
       sourceType: "product" as const, productSlug: slug, recommendationEligible: true,
+      recommendationConcern: "liver" as const,
     }));
     const response = await answerCommerceChat(
       { ...baseRequest, message: "can you recommend products for liver?" },
@@ -439,6 +442,7 @@ describe("commerce chat", () => {
       productSlug: "berberine-pro",
       recommendationEligible: true,
       recommendationPriority: "boosted",
+      recommendationConcern: "blood_sugar",
     };
     const response = await answerCommerceChat(
       { ...baseRequest, message: "Can you recommend a product for diabetes?" },
@@ -449,6 +453,7 @@ describe("commerce chat", () => {
     expect(response.recommendedProducts.map((item) => item.productSlug)).toEqual([
       "berberine-pro",
       "sugar-defend-pro",
+      "karela-jamun-fizz",
     ]);
     expect(response.messages[0]?.text).toContain("Berberine Pro");
   });
