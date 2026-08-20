@@ -7,6 +7,15 @@ const PRODUCT_INTENT = /\b(product|products|supplement|supplements|ingredient|in
 const PLATFORM_INTENT = /\b(muditam|company|platform|app|service|services|dietitian|dietician|doctor support|expert|consultation|upload(?:ed|ing)? (?:a )?report|report upload|analy[sz](?:e|ed|ing|is) (?:my |a |the )?report|how (?:does|do) (?:the )?report|ocr|multiple (?:report )?photos)\b|(मुदितम|कंपनी|प्लेटफॉर्म|एप|सेवा|डाइटिशियन|डायटीशियन|डॉक्टर|विशेषज्ञ|परामर्श|रिपोर्ट अपलोड|रिपोर्ट एनालिसिस|रिपोर्ट कैसे)/iu;
 const DEFAULT_MODEL = "text-embedding-3-small";
 const DEFAULT_DIMENSIONS = 1024;
+const PRODUCT_CATALOGUE_PATTERN = /\b(?:what (?:are|products? (?:do|does)) muditam products?|what products? do (?:you|muditam) (?:have|offer|sell)|show (?:me )?(?:all |your )?products?|all (?:muditam )?products?|(?:your|muditam) product (?:catalogue|catalog))\b/iu;
+
+function productCatalogueIntent(message: string): boolean {
+  if (PRODUCT_CATALOGUE_PATTERN.test(message)) return true;
+  const hasProduct = fuzzyIntent(message, ["product", "products", "catalogue", "catalog"]);
+  const hasCatalogueRequest = fuzzyIntent(message, ["what", "show", "list", "all", "catalogue", "catalog"]);
+  const identifiesMuditamCatalogue = fuzzyIntent(message, ["muditam"]) || /\b(?:your|aapke|apke)\b/iu.test(message);
+  return hasProduct && hasCatalogueRequest && identifiesMuditamCatalogue;
+}
 
 let mongoClient: MongoClient | null = null;
 
@@ -30,9 +39,25 @@ function embeddingDimensions(): number {
 async function database() {
   const uri = mongoUri();
   if (!uri) return null;
-  mongoClient ??= new MongoClient(uri, { maxPoolSize: 5, minPoolSize: 0, serverSelectionTimeoutMS: 5_000 });
-  await mongoClient.connect();
-  return mongoClient.db(process.env.MUDITAM_KNOWLEDGE_DB || undefined);
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    mongoClient ??= new MongoClient(uri, { maxPoolSize: 5, minPoolSize: 0, serverSelectionTimeoutMS: 5_000 });
+    try {
+      await mongoClient.connect();
+      return mongoClient.db(process.env.MUDITAM_KNOWLEDGE_DB || undefined);
+    } catch (error) {
+      lastError = error;
+      await mongoClient.close().catch(() => {});
+      mongoClient = null;
+      if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, attempt * 150));
+    }
+  }
+  throw lastError;
+}
+
+async function resetMongoConnection(): Promise<void> {
+  await mongoClient?.close().catch(() => {});
+  mongoClient = null;
 }
 
 async function queryEmbedding(question: string): Promise<number[]> {
@@ -117,7 +142,7 @@ function expandCommerceProductQuery(question: string): string {
     expansions.push("blood sugar glucose metabolic support karela jamun sugar defend berberine");
   }
   if (/\b(?:fatty liver|liver)\b|(?:लिवर|जिगर)/iu.test(question)) {
-    expansions.push("liver wellness support liver defend");
+    expansions.push("liver wellness support liver fix liver defend");
   }
   if (/\b(?:heart|cardiac)\b|(?:हार्ट|दिल)/iu.test(question)) {
     expansions.push("heart cardiac cardiovascular wellness support heart defend");
@@ -144,7 +169,7 @@ function discoveryProductSlugs(question: string): string[] {
     return ["sugar-defend-pro", "karela-jamun-fizz"];
   }
   if (/\b(?:heart|cardiac)\b|(?:हार्ट|दिल)/iu.test(latest)) return ["heart-defend-pro"];
-  if (/\b(?:fatty liver|liver|lever)\b|(?:लिवर|जिगर)/iu.test(latest)) return ["liver-defend-pro"];
+  if (/\b(?:fatty liver|liver|lever)\b|(?:लिवर|जिगर)/iu.test(latest)) return ["liver-fix", "liver-defend-pro"];
   return [];
 }
 
@@ -158,6 +183,13 @@ function normalizedProductName(value: string): string {
     .trim();
 }
 
+function productReferenceNames(value: string): string[] {
+  const full = normalizedProductName(value);
+  const withoutMerchandisingSuffix = full.replace(/\b(?:pro|fizz)\b/gu, " ").replace(/\s+/gu, " ").trim();
+  const knownAliases = full === "karela jamun fizz" ? ["karela jamun", "karela fizz"] : [];
+  return [...new Set([full, withoutMerchandisingSuffix, ...knownAliases])].filter((name) => name.split(" ").length >= 2);
+}
+
 export async function explicitlyReferencedProduct(question: string): Promise<{ slug: string; eligible: boolean } | null> {
   if (!enabled() || !mongoUri() || !PRODUCT_INTENT.test(question)) return null;
   const db = await database();
@@ -167,7 +199,7 @@ export async function explicitlyReferencedProduct(question: string): Promise<{ s
     projection: { name: 1, slug: 1, active: 1, recommendationEligible: 1, websiteStatus: 1 },
   }).toArray();
   const candidates = products
-    .map((product) => ({ product, name: normalizedProductName(String(product.name)) }))
+    .flatMap((product) => productReferenceNames(String(product.name)).map((name) => ({ product, name })))
     .filter(({ name }) => name.length >= 5 && normalizedQuestion.includes(` ${name} `))
     .sort((left, right) => right.name.length - left.name.length);
   const match = candidates[0]?.product;
@@ -188,7 +220,7 @@ async function exactProductResults(productSlug: string, question: string): Promi
     active: true,
     recommendationEligible: true,
   }, { projection: { embedding: 0 } }).toArray();
-  return rows
+  const entries = rows
     .map((row) => ({
       row,
       score: terms.reduce((score, term) => score + (String(row.title).toLowerCase().includes(term) ? 3 : 0) + (String(row.content).toLowerCase().includes(term) ? 1 : 0), 0),
@@ -196,6 +228,78 @@ async function exactProductResults(productSlug: string, question: string): Promi
     .sort((left, right) => right.score - left.score)
     .slice(0, 6)
     .map(({ row }) => toKnowledgeEntry(row));
+  const product = await db.collection("metabolic_products").findOne({
+    slug: productSlug,
+    active: true,
+    recommendationEligible: true,
+    websiteStatus: "active",
+  }, { projection: {
+    name: 1,
+    slug: 1,
+    productUrl: 1,
+    "websiteCatalog.sourceUrl": 1,
+    "websiteCatalog.contentHash": 1,
+    "websiteCatalog.publishedDosage": 1,
+    "websiteCatalog.variants": 1,
+  } });
+  const publishedDosage = String(product?.websiteCatalog?.publishedDosage || "").trim();
+  if (product) {
+    const variants: Array<{ title: string; price: number; compareAtPrice: number | null; available: boolean }> = Array.isArray(product.websiteCatalog?.variants)
+      ? product.websiteCatalog.variants.map((variant: Document) => ({
+        title: String(variant.title || ""),
+        price: Number(variant.price),
+        compareAtPrice: variant.compareAtPrice == null ? null : Number(variant.compareAtPrice),
+        available: variant.available === true,
+      }))
+      : [];
+    entries.unshift(toKnowledgeEntry({
+      key: `product:${productSlug}:live-shopify-details`,
+      title: `${String(product.name)} — live Shopify details`,
+      content: [
+        `Product: ${String(product.name)}`,
+        publishedDosage && `Published dosage: ${publishedDosage}`,
+        variants.length && `Shopify variants: ${variants.map((variant) => JSON.stringify(variant)).join(" | ")}`,
+        "Shelf life: 18 months.",
+      ].filter(Boolean).join("\n"),
+      sourceName: "Muditam Ayurveda",
+      sourceUrl: String(product.productUrl || product.websiteCatalog?.sourceUrl || ""),
+      version: String(product.websiteCatalog?.contentHash || "live-catalogue"),
+      sourceType: "product",
+      productSlug,
+      recommendationEligible: true,
+      channels: ["mobile_app", "shopify_web"],
+      audiences: ["anonymous_visitor", "verified_customer"],
+    }));
+  }
+  return entries;
+}
+
+async function catalogueProductResults(): Promise<KnowledgeEntry[]> {
+  const db = await database();
+  if (!db) return [];
+  const products = await db.collection("metabolic_products").find({
+    active: true,
+    websiteStatus: "active",
+    recommendationEligible: true,
+  }, { projection: { slug: 1 } }).toArray();
+  const slugs = products.map((product) => String(product.slug)).filter(Boolean);
+  const rows = await db.collection("knowledge_chunks").find({
+    productSlug: { $in: slugs },
+    sourceType: "product",
+    active: true,
+    recommendationEligible: true,
+  }, { projection: { embedding: 0 } }).sort({ key: 1 }).toArray();
+  const bySlug = new Map<string, Document>();
+  for (const row of rows) {
+    const slug = String(row.productSlug);
+    const existing = bySlug.get(slug);
+    if (!existing || /:overview$/u.test(String(row.key))) bySlug.set(slug, row);
+  }
+  const orderedSlugs = ["karela-jamun-fizz", ...slugs.filter((slug) => slug !== "karela-jamun-fizz")];
+  return orderedSlugs.flatMap((slug) => {
+    const row = bySlug.get(slug);
+    return row ? [toKnowledgeEntry(row)] : [];
+  });
 }
 
 async function lexicalResults(question: string, sourceType: "product" | "platform"): Promise<KnowledgeEntry[]> {
@@ -269,10 +373,30 @@ export async function retrieveRagKnowledge(
 
 export async function retrieveCommerceRagKnowledge(question: string): Promise<KnowledgeEntry[]> {
   if (!enabled() || !mongoUri()) return [];
+  if (productCatalogueIntent(question)) {
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        return (await catalogueProductResults())
+          .filter((entry) => knowledgeAllowedForContext(entry, "shopify_web", "anonymous_visitor"));
+      } catch (error) {
+        await resetMongoConnection();
+        if (attempt === 3) {
+          console.error(JSON.stringify({
+            service: "muditam-ai-platform",
+            event: "commerce_catalogue.retrieval_failed",
+            error: error instanceof Error ? error.message : String(error),
+          }));
+        } else {
+          await new Promise((resolve) => setTimeout(resolve, 150 * attempt));
+        }
+      }
+    }
+    return [];
+  }
   let retrieved: KnowledgeEntry[] = [];
   const productQuery = expandCommerceProductQuery(question);
+  const discoverySlugs = discoveryProductSlugs(question);
   try {
-    const discoverySlugs = discoveryProductSlugs(question);
     for (const slug of discoverySlugs) retrieved.push(...await exactProductResults(slug, question));
     const explicitlyNamed = await explicitlyReferencedProduct(question);
     if (explicitlyNamed && !explicitlyNamed.eligible) return [];
@@ -289,15 +413,25 @@ export async function retrieveCommerceRagKnowledge(question: string): Promise<Kn
       event: "commerce_rag.vector_search_fallback",
       error: error instanceof Error ? error.message : String(error),
     }));
-    try {
-      retrieved.push(...await lexicalResults(productQuery, "product"));
-      retrieved.push(...await lexicalResults(question, "platform"));
-    } catch (fallbackError) {
-      console.error(JSON.stringify({
-        service: "muditam-ai-platform",
-        event: "commerce_rag.retrieval_failed",
-        error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
-      }));
+    await resetMongoConnection();
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        for (const slug of discoverySlugs) retrieved.push(...await exactProductResults(slug, question));
+        retrieved.push(...await lexicalResults(productQuery, "product"));
+        retrieved.push(...await lexicalResults(question, "platform"));
+        break;
+      } catch (fallbackError) {
+        await resetMongoConnection();
+        if (attempt === 3) {
+          console.error(JSON.stringify({
+            service: "muditam-ai-platform",
+            event: "commerce_rag.retrieval_failed",
+            error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+          }));
+        } else {
+          await new Promise((resolve) => setTimeout(resolve, 150 * attempt));
+        }
+      }
     }
   }
   return [...new Map(retrieved

@@ -94,6 +94,16 @@ function strings(value: unknown): string[] {
   return Array.isArray(value) ? value.map(String).filter(Boolean) : [];
 }
 
+function publishedVariants(product: Document): string {
+  const variants = Array.isArray(product.websiteCatalog?.variants) ? product.websiteCatalog.variants : [];
+  return variants.map((variant: Document) => JSON.stringify({
+    title: String(variant.title || ""),
+    price: Number(variant.price),
+    compareAtPrice: variant.compareAtPrice == null ? null : Number(variant.compareAtPrice),
+    available: variant.available === true,
+  })).join(" | ");
+}
+
 function productChunks(product: Document): ChunkInput[] {
   if (!product.websiteCatalog || product.websiteStatus !== "active") return [];
   const sourceUrl = String(product.productUrl || product.websiteCatalog.sourceUrl);
@@ -115,6 +125,9 @@ function productChunks(product: Document): ChunkInput[] {
     `Product: ${product.name}`,
     `Category: ${product.category}`,
     product.websiteCatalog.description && `Published description: ${product.websiteCatalog.description}`,
+    product.websiteCatalog.publishedDosage && `Published dosage: ${product.websiteCatalog.publishedDosage}`,
+    publishedVariants(product) && `Shopify variants: ${publishedVariants(product)}`,
+    "Shelf life: 18 months.",
     product.indication && `Indication: ${product.indication}`,
     product.composition && `Composition: ${product.composition}`,
     strings(product.keyIngredients).length && `Key ingredients: ${strings(product.keyIngredients).join(", ")}`,
@@ -124,7 +137,7 @@ function productChunks(product: Document): ChunkInput[] {
     `Product: ${product.name}`,
     strings(product.contraindications).length && `Contraindications: ${strings(product.contraindications).join(" ")}`,
     strings(product.safetyNotes).length && `Safety notes: ${strings(product.safetyNotes).join(" ")}`,
-    "Personalized dosage is not provided by the AI assistant and must be decided by a Muditam dietitian or doctor.",
+    "Personalized dosage changes are not provided by the AI assistant and must be decided by a Muditam dietitian or doctor.",
   ].filter(Boolean).join("\n");
   const make = (suffix: string, title: string, content: string, keywords: string[]): ChunkInput => ({
     ...base,

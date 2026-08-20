@@ -18,8 +18,14 @@ const expertHelpPattern = /\b(expert help|talk to (?:an? )?expert|speak to (?:an
 const affirmativePattern = /^(?:yes|yes please|please|sure|okay|ok|haan|हां|हाँ|जी)(?:[.! ]*)$/iu;
 const generalDoctorGuidancePattern = /\bdo\s+i?\s*need\b.{0,45}\b(?:doctor|physician|medical guidance)\b|\b(?:need|without|before|consult(?:ing|ation)?|guidance from)\b.{0,45}\b(?:doctor|physician|medical guidance)\b|\b(?:doctor|physician)\b.{0,45}\b(?:before taking|before using|guidance|consult(?:ing|ation)?)\b|\bdoctor\s+consult(?:ing|ation)?\b|\bcan i take (?:this|the) product (?:without|on my own)\b/iu;
 const individualizedRiskContextPattern = /\b(?:pregnan(?:t|cy)|breastfeed(?:ing)?|child|kidney|liver disease|allergy|allergic|adverse|side effect|symptom|medicine|medication|metformin|insulin|prescription)\b/iu;
-const dosageQuestionPattern = /\b(?:dose|dosage|how many|how much|how often|times? (?:a|per) day)\b|\b(?:tablet|tablets|capsule|capsules)\b.{0,24}\b(?:take|daily|day|time|times)\b|(खुराक|डोज|कितनी (?:गोली|टैबलेट)|कितना लेना)/iu;
+const dosageQuestionPattern = /\b(?:dose|dosage|how many|how much|how often|times? (?:a|per) day|kitni baar|kitna lena|kaise lena)\b|\b(?:tablet|tablets|capsule|capsules)\b.{0,24}\b(?:take|daily|day|time|times)\b|(खुराक|डोज|कितनी (?:गोली|टैबलेट)|कितना लेना)/iu;
+const priceQuestionPattern = /\b(?:price|cost|mrp|offer price|how much (?:is|does)|kitne ka|kitni price|daam)\b|(?:कीमत|दाम)/iu;
+const variantQuestionPattern = /\b(?:quantity|quantities|pack|packs|set|sets|variant|variants|option|options|size|sizes|bottles?|boxes?|sachets?)\b|(?:कितनी बोतल|पैक|सेट)/iu;
+const shelfLifeQuestionPattern = /\b(?:shelf[ -]?life|expiry|expires?|expiration|best before)\b|(?:शेल्फ लाइफ|एक्सपायरी)/iu;
+const completeProductDetailsPattern = /\b(?:all|complete|full|every(?:thing)?)\b.{0,25}\b(?:details?|information|info)\b|\b(?:details?|information|info)\b.{0,25}\b(?:all|complete|full|every(?:thing)?)\b/iu;
 const consultationPricePattern = /\b(?:is it|is this|consultation).{0,24}\b(?:free|paid|charge|cost|money)\b|\b(?:free|paid|charge|cost|money)\b.{0,24}\b(?:consultation|doctor|dietitian|dietician|expert)\b|\b(?:take|charge)\s+(?:any\s+)?money\b/iu;
+const vaguePersonalRecommendationPattern = /\b(?:which|what|konsa|kaunsa|konsi|kaunsi)\b.{0,35}\b(?:product|supplement)\b.{0,25}\b(?:for me|mere liye|mujhe|sahi|right|best|take)\b|\b(?:mere liye|mujhe)\b.{0,35}\b(?:which|what|konsa|kaunsa|konsi|kaunsi|product|supplement|sahi|best)\b|\bwhat should i take\b|(?:मेरे लिए कौनसा|मेरे लिए कौन सा|मुझे कौनसा)/iu;
+const explicitWellnessGoalPattern = /\b(?:diabetes|diabetic|blood sugar|glucose|liver|fatty liver|heart|cardiac|thyroid|gut|digestion|digestive|bloating|nerve|neuropathy|bone|calcium|sleep|insomnia|stress|energy|stamina|men'?s wellness|weight)\b|(?:डायबिटीज|शुगर|लिवर|हार्ट|थायराइड|पेट|नींद|हड्डी|नस)/iu;
 // Any mention of Muditam's dietitian is treated as a consult offer: in this commerce
 // scope the word only ever appears when pointing the customer at that human service,
 // so waiting for a specific offering verb (book/schedule/...) let real offers slip
@@ -96,8 +102,8 @@ const discoveryByConcern = [
   },
   {
     pattern: /\b(?:fatty liver|liver|lever)\b|(?:लिवर|जिगर)/iu,
-    slugs: ["liver-defend-pro"],
-    copy: "Liver wellness support ke liye Liver Defend Pro dekh sakte hain. Yeh daily liver wellness support ke liye formulated supplement hai.",
+    slugs: ["liver-fix", "liver-defend-pro"],
+    copy: "Liver wellness support ke liye Liver Fix aur Liver Defend Pro dekh sakte hain. Dono daily liver wellness support ke liye formulated options hain.",
   },
 ] as const;
 
@@ -116,11 +122,27 @@ export function deterministicProductDiscovery(
       && item.productSlug === slug);
     return entry ? [entry] : [];
   });
-  if (!entries.length) return null;
+  if (!entries.length) {
+    return response(input, {
+      decision: "ALLOW",
+      category: "PRODUCT_DISCOVERY",
+      messages: [{
+        type: "text",
+        text: "I can help with that, but I’m having trouble loading the current Muditam product catalogue. Please try again in a moment.",
+      }],
+      handoff: null,
+      guardrailStage: "INPUT",
+    });
+  }
   const names = entries.map(productName);
+  const concern = match.slugs[0]?.startsWith("heart")
+    ? "heart"
+    : match.slugs.some((slug) => slug.startsWith("liver"))
+      ? "liver"
+      : "blood-sugar";
   const english = names.length > 1
-    ? `For blood-sugar wellness support, you can consider ${names.join(" and ")}. They offer different formats for convenient daily support.`
-    : `For ${match.slugs[0]?.startsWith("heart") ? "heart" : "liver"} wellness support, you can consider ${names[0]}.`;
+    ? `For ${concern} wellness support, you can consider ${names.join(" and ")}. They offer different options for convenient daily support.`
+    : `For ${concern} wellness support, you can consider ${names[0]}.`;
   const text = input.language === "hinglish" ? match.copy : english;
   return {
     decision: "ALLOW",
@@ -154,6 +176,323 @@ const bestSellerPattern = /\b(?:best[- ]?sell(?:er|ing)?|top[- ]?sell(?:er|ing)?
 // from and would otherwise guess by topical similarity (e.g. picking Berberine Pro
 // just because it's also blood-sugar related).
 const BEST_SELLER_SLUG = "karela-jamun-fizz";
+const productCataloguePattern = /\b(?:what (?:are|products? (?:do|does)) muditam products?|what products? do (?:you|muditam) (?:have|offer|sell)|show (?:me )?(?:all |your )?products?|all (?:muditam )?products?|(?:your|muditam) product (?:catalogue|catalog))\b/iu;
+
+function productCatalogueIntent(message: string): boolean {
+  if (productCataloguePattern.test(message)) return true;
+  const hasProduct = fuzzyIntent(message, ["product", "products", "catalogue", "catalog"]);
+  const hasCatalogueRequest = fuzzyIntent(message, ["what", "show", "list", "all", "catalogue", "catalog"]);
+  const identifiesMuditamCatalogue = fuzzyIntent(message, ["muditam"]) || /\b(?:your|aapke|apke)\b/iu.test(message);
+  return hasProduct && hasCatalogueRequest && identifiesMuditamCatalogue;
+}
+
+export function deterministicProductCatalogue(
+  input: CommerceChatRequest,
+  knowledge: readonly KnowledgeEntry[],
+): CommerceChatResponse | null {
+  if (!productCatalogueIntent(input.message)) return null;
+  const entries = [...new Map(knowledge
+    .filter((entry) => entry.sourceType === "product" && entry.recommendationEligible === true && entry.productSlug)
+    .map((entry) => [entry.productSlug as string, entry])).values()];
+  entries.sort((left, right) => Number(right.productSlug === BEST_SELLER_SLUG) - Number(left.productSlug === BEST_SELLER_SLUG));
+  if (!entries.length) {
+    return response(input, {
+      decision: "ALLOW",
+      category: "PRODUCT_DISCOVERY",
+      messages: [{ type: "text", text: "I can show you our products, but I’m having trouble loading the current catalogue. Please try again in a moment." }],
+      handoff: null,
+      guardrailStage: "INPUT",
+    });
+  }
+  const bestSeller = entries.find((entry) => entry.productSlug === BEST_SELLER_SLUG);
+  const bestSellerName = bestSeller ? productName(bestSeller) : "Karela Jamun Fizz";
+  return {
+    decision: "ALLOW",
+    category: "PRODUCT_DISCOVERY",
+    messages: [{
+      type: "text",
+      text: `Muditam offers wellness products for blood sugar and diabetes support, liver, heart, thyroid, gut health, nerve health, bone health, sleep, daily wellness, and men’s wellness. ${bestSellerName} is our best-selling product. You can browse all Muditam products below. If you need information about a specific product, or want a recommendation for heart, diabetes, liver, or another wellness concern, just tell me.`,
+    }],
+    recommendedProducts: entries.map((entry) => ({
+      productSlug: entry.productSlug as string,
+      name: productName(entry),
+      productUrl: entry.sourceUrl,
+      reason: entry.productSlug === BEST_SELLER_SLUG ? "Muditam's best-selling product" : "Muditam wellness product",
+    })),
+    knowledgeReferences: entries.map((entry) => ({ key: entry.key, title: entry.title, sourceName: entry.sourceName, sourceUrl: entry.sourceUrl })),
+    handoff: null,
+    model: null,
+    promptVersion: COMMERCE_PROMPT_VERSION,
+    guardrailStage: "INPUT",
+    usage: noUsage,
+  };
+}
+
+const generalProductInfoPattern = /\b(?:what is|what does|what's|tell me about|benefits? of|used for|use of)\b|\b(?:kya (?:hai|karta hai|karti hai)|kis kaam|kaise kaam)\b|(?:क्या है|क्या करता|फायदे)/iu;
+
+function normalizedWords(value: string): string {
+  return value.toLocaleLowerCase("en-IN").replace(/[^\p{L}\p{N}]+/gu, " ").replace(/\s+/gu, " ").trim();
+}
+
+function productReferenceMatches(normalizedMessage: string, name: string): boolean {
+  const full = normalizedWords(name);
+  const withoutMerchandisingSuffix = full.replace(/\b(?:pro|fizz)\b/gu, " ").replace(/\s+/gu, " ").trim();
+  const knownAliases = full === "karela jamun fizz" ? ["karela jamun", "karela fizz"] : [];
+  return [full, withoutMerchandisingSuffix, ...knownAliases]
+    .filter((candidate) => candidate.split(" ").length >= 2)
+    .some((candidate) => normalizedMessage.includes(` ${candidate} `));
+}
+
+export function deterministicProductInformation(
+  input: CommerceChatRequest,
+  knowledge: readonly KnowledgeEntry[],
+): CommerceChatResponse | null {
+  if (!generalProductInfoPattern.test(input.message)) return null;
+  const normalizedMessage = ` ${normalizedWords(input.message)} `;
+  const productEntries = knowledge.filter((entry) => entry.sourceType === "product"
+    && entry.recommendationEligible === true
+    && entry.productSlug);
+  const matched = productEntries.find((entry) => {
+    const name = normalizedWords(productName(entry));
+    return name.length >= 4 && normalizedMessage.includes(` ${name} `);
+  });
+  if (!matched) return null;
+  const overview = productEntries.find((entry) => entry.productSlug === matched.productSlug && /:overview$/u.test(entry.key)) ?? matched;
+  const name = productName(overview);
+  const description = overview.content.match(/^Published description:\s*(.+)$/imu)?.[1]?.trim();
+  const ingredients = overview.content.match(/^Key ingredients:\s*(.+)$/imu)?.[1]?.trim();
+  const category = overview.content.match(/^Category:\s*(.+)$/imu)?.[1]?.trim().replace(/_/gu, " ") ?? "daily";
+  const hinglish = input.language === "hinglish" || /\b(?:kya|karta|karti|hai|kaise)\b/iu.test(input.message);
+  const text = hinglish
+    ? `${name} ${category} wellness ko support karne ke liye formulated hai.${ingredients ? ` Iske key ingredients ${ingredients} hain.` : ""}`
+    : `${name} ${description ?? `is formulated for ${category} wellness support.`}${ingredients ? ` Key ingredients include ${ingredients}.` : ""}`;
+  return {
+    decision: "ALLOW",
+    category: "PRODUCT_INFORMATION",
+    messages: [{ type: "text", text }],
+    recommendedProducts: [{
+      productSlug: overview.productSlug as string,
+      name,
+      productUrl: overview.sourceUrl,
+      reason: `Learn more about ${name}`,
+    }],
+    knowledgeReferences: [{ key: overview.key, title: overview.title, sourceName: overview.sourceName, sourceUrl: overview.sourceUrl }],
+    handoff: null,
+    model: null,
+    promptVersion: COMMERCE_PROMPT_VERSION,
+    guardrailStage: "INPUT",
+    usage: noUsage,
+  };
+}
+
+function publishedDosageFromEntry(entry: KnowledgeEntry): string | null {
+  const clean = (value: string) => value.replace(/\.\s*Take with With\b/iu, ". How to take: With").trim();
+  const explicit = entry.content.match(/^Published dosage:\s*(.+)$/imu)?.[1]?.trim();
+  if (explicit) return clean(explicit);
+
+  if (/\b(?:dose|dosage)\b/iu.test(entry.title)) {
+    const answer = entry.content.match(/^Published answer:\s*(.+)$/imu)?.[1]?.trim();
+    if (answer) {
+      return clean(answer
+        .replace(/\s*(?:For personalized advice|For additional guidance|If you need personalized advice)[\s\S]*$/iu, "")
+        .trim());
+    }
+  }
+
+  const recommended = entry.content.match(/Recommended Dose:\s*(.+?)(?=\s+Best Taken With:|\s+Course Duration:|\s+Cycle:|$)/iu)?.[1]?.trim();
+  const takenWith = entry.content.match(/Best Taken With:\s*(.+?)(?=\s+Course Duration:|\s+Cycle:|$)/iu)?.[1]?.trim();
+  if (recommended) return clean([recommended, takenWith && `Best taken with ${takenWith}`].filter(Boolean).join(". "));
+
+  const dosage = entry.content.match(/\bDosage:\s*(.+?)(?=\s+How to Take:|\s+Duration:|$)/iu)?.[1]?.trim();
+  const howToTake = entry.content.match(/How to Take:\s*(.+?)(?=\s+Duration:|$)/iu)?.[1]?.trim();
+  return dosage ? clean([dosage, howToTake && `How to take: ${howToTake}`].filter(Boolean).join(". ")) : null;
+}
+
+export function deterministicProductDosage(
+  input: CommerceChatRequest,
+  knowledge: readonly KnowledgeEntry[],
+): CommerceChatResponse | null {
+  if (!dosageQuestionPattern.test(input.message)) return null;
+  const productEntries = knowledge.filter((entry) => entry.sourceType === "product"
+    && entry.recommendationEligible === true
+    && entry.productSlug);
+  const normalizedMessage = ` ${normalizedWords(input.message)} `;
+  const explicitlyMatched = productEntries.find((entry) => {
+    const name = normalizedWords(productName(entry));
+    return name.length >= 4 && normalizedMessage.includes(` ${name} `);
+  });
+  const uniqueSlugs = [...new Set(productEntries.map((entry) => entry.productSlug as string))];
+  const productSlug = explicitlyMatched?.productSlug ?? (uniqueSlugs.length === 1 ? uniqueSlugs[0] : null);
+  const matchingEntries = productSlug ? productEntries.filter((entry) => entry.productSlug === productSlug) : [];
+  const dosageEntry = matchingEntries.find((entry) => publishedDosageFromEntry(entry));
+  const dosage = dosageEntry ? publishedDosageFromEntry(dosageEntry) : null;
+
+  if (dosageEntry && dosage && productSlug) {
+    const overview = matchingEntries.find((entry) => /:overview$/u.test(entry.key)) ?? dosageEntry;
+    const name = productName(overview);
+    const text = input.language === "hi"
+      ? `${name} के प्रकाशित उपयोग निर्देश: ${dosage}`
+      : input.language === "hinglish"
+        ? `${name} ka published dosage: ${dosage}`
+        : `The published dosage for ${name} is: ${dosage}`;
+    return {
+      decision: "ALLOW",
+      category: "PRODUCT_INFORMATION",
+      messages: [{ type: "text", text }],
+      recommendedProducts: [{ productSlug, name, productUrl: overview.sourceUrl, reason: `View ${name}` }],
+      knowledgeReferences: [{ key: dosageEntry.key, title: dosageEntry.title, sourceName: dosageEntry.sourceName, sourceUrl: dosageEntry.sourceUrl }],
+      handoff: null,
+      model: null,
+      promptVersion: COMMERCE_PROMPT_VERSION,
+      guardrailStage: "INPUT",
+      usage: noUsage,
+    };
+  }
+
+  return response(input, {
+    decision: "HANDOFF",
+    category: "EXPERT_HANDOFF",
+    messages: [{
+      type: "text",
+      text: input.language === "hi"
+        ? "इस प्रोडक्ट की सत्यापित खुराक अभी उपलब्ध नहीं है। हमारे डॉक्टर या डाइटिशियन मुफ़्त परामर्श में आपका मार्गदर्शन कर सकते हैं।"
+        : input.language === "hinglish"
+          ? "Is product ka verified dosage abhi available nahi hai. Hamare doctor ya dietitian FREE consultation mein aapko guide kar sakte hain."
+          : "I don’t have a verified published dosage for this product yet. Our doctor or dietitian can guide you through a FREE consultation.",
+    }],
+    handoff: expertHandoff("dietitian", "Published product dosage was unavailable"),
+    guardrailStage: "INPUT",
+  });
+}
+
+interface ShopifyVariant {
+  title: string;
+  price: number;
+  compareAtPrice: number | null;
+  available: boolean;
+}
+
+function shopifyVariants(entry: KnowledgeEntry): ShopifyVariant[] {
+  const line = entry.content.match(/^Shopify variants:\s*(.+)$/imu)?.[1];
+  if (!line) return [];
+  return line.split(/\s+\|\s+/u).flatMap((item) => {
+    try {
+      const parsed = JSON.parse(item) as Partial<ShopifyVariant>;
+      const price = Number(parsed.price);
+      if (!parsed.title || !Number.isFinite(price)) return [];
+      return [{
+        title: String(parsed.title),
+        price,
+        compareAtPrice: parsed.compareAtPrice == null || !Number.isFinite(Number(parsed.compareAtPrice)) ? null : Number(parsed.compareAtPrice),
+        available: parsed.available === true,
+      }];
+    } catch {
+      return [];
+    }
+  });
+}
+
+function formatRupees(value: number): string {
+  return `₹${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(value)}`;
+}
+
+export function deterministicProductCommercialDetails(
+  input: CommerceChatRequest,
+  knowledge: readonly KnowledgeEntry[],
+): CommerceChatResponse | null {
+  const asksPrice = priceQuestionPattern.test(input.message);
+  const asksVariants = variantQuestionPattern.test(input.message);
+  const asksShelfLife = shelfLifeQuestionPattern.test(input.message);
+  const asksEverything = completeProductDetailsPattern.test(input.message);
+  const repliesInHinglish = input.language === "hinglish"
+    || /\b(?:kya|ka|ki|ke|kitna|kitni|hai|hain|batao|chahiye)\b/iu.test(input.message);
+  if (!asksPrice && !asksVariants && !asksShelfLife && !asksEverything) return null;
+
+  if (asksShelfLife && !asksPrice && !asksVariants && !asksEverything) {
+    const text = input.language === "hi"
+      ? "मुदितम के सभी प्रोडक्ट की शेल्फ लाइफ 18 महीने है।"
+      : repliesInHinglish
+        ? "Muditam ke sabhi products ki shelf life 18 months hai."
+        : "All Muditam products have a shelf life of 18 months.";
+    return response(input, {
+      decision: "ALLOW",
+      category: "PRODUCT_INFORMATION",
+      messages: [{ type: "text", text }],
+      handoff: null,
+      guardrailStage: "INPUT",
+    });
+  }
+
+  const productEntries = knowledge.filter((entry) => entry.sourceType === "product"
+    && entry.recommendationEligible === true
+    && entry.productSlug);
+  const normalizedMessage = ` ${normalizedWords(input.message)} `;
+  const explicitlyMatched = productEntries.find((entry) => {
+    return productReferenceMatches(normalizedMessage, productName(entry));
+  });
+  const uniqueSlugs = [...new Set(productEntries.map((entry) => entry.productSlug as string))];
+  const productSlug = explicitlyMatched?.productSlug ?? (uniqueSlugs.length === 1 ? uniqueSlugs[0] : null);
+  const matchingEntries = productSlug ? productEntries.filter((entry) => entry.productSlug === productSlug) : [];
+  const detailsEntry = matchingEntries.find((entry) => shopifyVariants(entry).length > 0)
+    ?? matchingEntries.find((entry) => /Shelf life:\s*18 months/iu.test(entry.content));
+
+  if (!productSlug || !detailsEntry) {
+    return response(input, {
+      decision: "HANDOFF",
+      category: "ORDER_OR_SUPPORT",
+      messages: [{
+        type: "text",
+        text: repliesInHinglish
+          ? "Is product ki current Shopify details available nahi hain. Muditam support aapko price aur pack options confirm kar sakta hai."
+          : "I couldn’t load the current Shopify details for this product. Muditam support can confirm its price and pack options.",
+      }],
+      handoff: expertHandoff("support", "Current Shopify product details were unavailable"),
+      guardrailStage: "INPUT",
+    });
+  }
+
+  const overview = matchingEntries.find((entry) => /:overview$/u.test(entry.key)) ?? detailsEntry;
+  const name = productName(overview);
+  const allVariants = shopifyVariants(detailsEntry);
+  const requestedVariant = allVariants.find((variant) => normalizedMessage.includes(` ${normalizedWords(variant.title)} `));
+  const variants = (requestedVariant ? [requestedVariant] : allVariants).filter((variant) => variant.available);
+  if ((asksPrice || asksVariants || asksEverything) && !variants.length) {
+    return response(input, {
+      decision: "HANDOFF",
+      category: "ORDER_OR_SUPPORT",
+      messages: [{ type: "text", text: `${name} ke current price aur pack options Shopify se available nahi hain. Muditam support inhe confirm kar sakta hai.` }],
+      handoff: expertHandoff("support", `Shopify variants unavailable for ${name}`),
+      guardrailStage: "INPUT",
+    });
+  }
+
+  const variantText = variants.map((variant) => {
+    const mrp = variant.compareAtPrice && variant.compareAtPrice > variant.price
+      ? `, MRP ${formatRupees(variant.compareAtPrice)}`
+      : "";
+    return `${variant.title}: ${formatRupees(variant.price)}${mrp}`;
+  }).join("; ");
+  const parts = [
+    (asksPrice || asksVariants || asksEverything) && `${name} ke available Shopify options hain: ${variantText}.`,
+    (asksShelfLife || asksEverything) && "Shelf life 18 months hai.",
+  ].filter(Boolean);
+  const hinglishText = parts.join(" ");
+  const englishText = hinglishText
+    .replace("ke available Shopify options hain:", "has these available Shopify options:")
+    .replace("Shelf life 18 months hai.", "The shelf life is 18 months.");
+  return {
+    decision: "ALLOW",
+    category: "PRODUCT_INFORMATION",
+    messages: [{ type: "text", text: repliesInHinglish ? hinglishText : englishText }],
+    recommendedProducts: [{ productSlug, name, productUrl: overview.sourceUrl, reason: `View ${name}` }],
+    knowledgeReferences: [{ key: detailsEntry.key, title: detailsEntry.title, sourceName: detailsEntry.sourceName, sourceUrl: detailsEntry.sourceUrl }],
+    handoff: null,
+    model: null,
+    promptVersion: COMMERCE_PROMPT_VERSION,
+    guardrailStage: "INPUT",
+    usage: noUsage,
+  };
+}
 
 export function deterministicBestSeller(
   input: CommerceChatRequest,
@@ -207,6 +546,21 @@ export function deterministicCommerceGuardrail(input: CommerceChatRequest): Comm
       guardrailStage: "INPUT",
     });
   }
+  if (vaguePersonalRecommendationPattern.test(input.message) && !explicitWellnessGoalPattern.test(input.message)) {
+    const hinglish = input.language === "hinglish" || /\b(?:mere|mujhe|konsa|kaunsa|sahi|rahega)\b/iu.test(input.message);
+    return response(input, {
+      decision: "ALLOW",
+      category: "PRODUCT_DISCOVERY",
+      messages: [{
+        type: "text",
+        text: hinglish
+          ? "Aap kis wellness goal ke liye product chahte hain, jaise blood sugar, liver, heart, thyroid, gut health, sleep, bones, ya daily wellness?"
+          : "What wellness goal would you like support with, such as blood sugar, liver, heart, thyroid, gut health, sleep, bones, or daily wellness?",
+      }],
+      handoff: null,
+      guardrailStage: "INPUT",
+    });
+  }
   if (medicalHandoffPattern.test(input.message)) {
     return response(input, {
       decision: "HANDOFF",
@@ -223,18 +577,6 @@ export function deterministicCommerceGuardrail(input: CommerceChatRequest): Comm
   }
   const condition = disclosedCondition(input.message);
   if (condition) return conditionHandoffResponse(input, condition);
-  if (dosageQuestionPattern.test(input.message)) {
-    return response(input, {
-      decision: "HANDOFF",
-      category: "EXPERT_HANDOFF",
-      messages: [{
-        type: "text",
-        text: "The right supplement dosage can vary by individual needs. Our doctor or dietitian can guide you through a FREE supplement consultation.",
-      }],
-      handoff: expertHandoff("dietitian", "Customer requested personalized supplement dosage"),
-      guardrailStage: "INPUT",
-    });
-  }
   const priorOfferedConsultation = input.recentMessages
     .filter((message) => message.role === "assistant")
     .slice(-3)
@@ -245,7 +587,11 @@ export function deterministicCommerceGuardrail(input: CommerceChatRequest): Comm
       category: "EXPERT_HANDOFF",
       messages: [{
         type: "text",
-        text: "Yes, the consultation is completely FREE. Our doctor or dietitian can provide personalized supplement and diet guidance.",
+        text: input.language === "hi"
+          ? "हाँ, यह परामर्श पूरी तरह मुफ़्त है। हमारे डॉक्टर या डाइटिशियन व्यक्तिगत सप्लीमेंट और डाइट मार्गदर्शन दे सकते हैं।"
+          : input.language === "hinglish"
+            ? "Haan, consultation bilkul FREE hai. Hamare doctor ya dietitian personalized supplement aur diet guidance de sakte hain."
+            : "Yes, the consultation is completely FREE. Our doctor or dietitian can provide personalized supplement and diet guidance.",
       }],
       handoff: expertHandoff("dietitian", "Customer asked about the price of an offered consultation"),
       guardrailStage: "INPUT",
@@ -257,7 +603,11 @@ export function deterministicCommerceGuardrail(input: CommerceChatRequest): Comm
       category: "EXPERT_HANDOFF",
       messages: [{
         type: "text",
-        text: "All our products are health supplements and can generally be taken without consulting a doctor. However, if you want to be extra sure, we offer FREE doctor consultations to provide personalized guidance.",
+        text: input.language === "hi"
+          ? "हमारे सभी प्रोडक्ट हेल्थ सप्लीमेंट हैं और आमतौर पर डॉक्टर से पूछे बिना लिए जा सकते हैं। फिर भी, पूरी तरह आश्वस्त होने के लिए आप हमारा मुफ़्त डॉक्टर परामर्श ले सकते हैं।"
+          : input.language === "hinglish"
+            ? "Hamare sabhi products health supplements hain aur generally doctor se consult kiye bina liye ja sakte hain. Agar aap extra sure hona chahte hain, hum FREE doctor consultation bhi dete hain."
+            : "All our products are health supplements and can generally be taken without consulting a doctor. However, if you want to be extra sure, we offer FREE doctor consultations to provide personalized guidance.",
       }],
       handoff: expertHandoff("doctor", "Customer asked whether a doctor consultation is required"),
       guardrailStage: "INPUT",

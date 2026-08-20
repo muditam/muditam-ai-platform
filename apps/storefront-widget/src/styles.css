@@ -297,6 +297,21 @@ button, a { -webkit-tap-highlight-color: transparent; }
   scrollbar-width: thin;
 }
 
+.products.product-count-1 {
+  grid-auto-flow: row;
+  grid-template-columns: minmax(0, min(240px, 100%));
+  overflow-x: hidden;
+}
+
+.products.product-count-2 {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  overflow-x: hidden;
+  padding-inline: 10px;
+  scroll-snap-type: none;
+}
+
 .product {
   display: flex;
   flex-direction: column;
@@ -401,12 +416,44 @@ button, a { -webkit-tap-highlight-color: transparent; }
   line-height: 1;
   z-index: 1;
 }
+.product-nav[hidden] { display: none; }
 .product-nav.previous { left: 7px; }
 .product-nav.next { right: 7px; }
 
 @keyframes muditam-product-loading {
   to { background-position-x: -220%; }
 }
+
+.order-tracking-card {
+  display: grid;
+  gap: 9px;
+  margin: 2px 0 14px;
+  padding: 14px;
+  border: 1px solid #e4d9e9;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #fff 0%, #faf7fc 100%);
+  box-shadow: 0 8px 24px rgb(87 49 111 / 8%);
+}
+
+.order-tracking-heading,
+.order-tracking-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.order-tracking-heading strong { color: var(--muditam-text); font-size: 14px; }
+.order-tracking-heading span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: var(--muditam-purple-dark);
+  background: #f0e8f4;
+  font-size: 10px;
+  font-weight: 800;
+}
+.order-tracking-row { color: var(--muditam-muted); font-size: 11px; }
+.order-tracking-row strong { color: var(--muditam-text); text-align: right; font-size: 11px; }
 
 .handoff-actions {
   display: grid;
@@ -435,6 +482,17 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 @media (max-width: 360px) {
   .handoff-actions { grid-template-columns: 1fr; }
+  .products.product-count-2 { padding-inline: 8px; gap: 6px; }
+  .products.product-count-2 .product-media { height: 126px; }
+  .products.product-count-2 .product strong { padding-inline: 8px; font-size: 12px; }
+  .products.product-count-2 .product-rating { gap: 3px; padding-inline: 8px; font-size: 10px; }
+  .products.product-count-2 .product-rating-stars { font-size: 10px; letter-spacing: 0; }
+  .products.product-count-2 .product-add-to-cart {
+    width: calc(100% - 16px);
+    margin-inline: 8px;
+    padding-inline: 5px;
+    font-size: 11px;
+  }
 }
 
 .composer {

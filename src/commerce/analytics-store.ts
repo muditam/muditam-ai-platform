@@ -11,9 +11,20 @@ let client: MongoClient | null = null;
 async function database() {
   const uri = mongoUri();
   if (!uri) return null;
-  client ??= new MongoClient(uri, { maxPoolSize: 5, minPoolSize: 0, serverSelectionTimeoutMS: 5_000 });
-  await client.connect();
-  return client.db(process.env.MUDITAM_KNOWLEDGE_DB || undefined);
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    client ??= new MongoClient(uri, { maxPoolSize: 5, minPoolSize: 0, serverSelectionTimeoutMS: 5_000 });
+    try {
+      await client.connect();
+      return client.db(process.env.MUDITAM_KNOWLEDGE_DB || undefined);
+    } catch (error) {
+      lastError = error;
+      await client.close().catch(() => {});
+      client = null;
+      if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, attempt * 150));
+    }
+  }
+  throw lastError;
 }
 
 function todayDateString(now: Date): string {

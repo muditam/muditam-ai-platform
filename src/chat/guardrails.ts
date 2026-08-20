@@ -149,9 +149,9 @@ const productDiscoveryConcerns = [
   },
   {
     pattern: /\b(?:fatty liver|liver|lever)\b|(?:लिवर|जिगर)/iu,
-    slugs: ["liver-defend-pro"],
-    en: (names: string[]) => `For liver wellness support, you can consider ${names[0]}.`,
-    hi: (names: string[]) => `लिवर वेलनेस सपोर्ट के लिए आप ${names[0]} के बारे में जान सकते हैं।`,
+    slugs: ["liver-fix", "liver-defend-pro"],
+    en: (names: string[]) => `For liver wellness support, you can consider ${names.join(" and ")}. They offer different options for convenient daily support.`,
+    hi: (names: string[]) => `लिवर वेलनेस सपोर्ट के लिए आप ${names.join(" और ")} के बारे में जान सकते हैं। ये रोज़मर्रा के सपोर्ट के लिए अलग-अलग विकल्प हैं।`,
   },
 ] as const;
 

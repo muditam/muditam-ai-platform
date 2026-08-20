@@ -103,6 +103,19 @@ export interface CommerceChatResponse {
     phoneHref: string;
     whatsappUrl: string;
   };
+  orderTracking?: null | {
+    orderName: string;
+    status: string;
+    statusDetail: string;
+    productNames: string[];
+    placedAt: string | null;
+    courier: string | null;
+    trackingNumberMasked: string | null;
+    currentLocation: string | null;
+    expectedDeliveryDate: string | null;
+    latestEventAt: string | null;
+  };
+  orderTrackings?: Array<NonNullable<CommerceChatResponse["orderTracking"]>>;
   model: string | null;
   promptVersion: string;
   guardrailStage: "INPUT" | "MODEL" | "OUTPUT" | null;
