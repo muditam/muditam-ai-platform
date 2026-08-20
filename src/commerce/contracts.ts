@@ -67,6 +67,9 @@ export const botFlowTextDataSchema = z.object({
 
 export const botFlowProductConfigSchema = z.object({
   recommendationPriority: z.enum(["hidden", "normal", "boosted"]),
+  visible: z.boolean().optional(),
+  overallRank: z.number().int().min(1).max(999).nullable().default(null),
+  tagRanks: z.record(z.string().trim().min(1).max(80), z.number().int().min(1).max(999)).default({}),
   tags: z.array(z.string().trim().min(1).max(80)).max(40).default([]),
   aliases: z.array(z.string().trim().min(1).max(100)).max(40).default([]),
   approvedDescription: z.string().trim().max(2_000).default(""),

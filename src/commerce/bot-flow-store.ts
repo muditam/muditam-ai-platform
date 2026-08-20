@@ -55,6 +55,9 @@ export async function listBotFlowProducts() {
       recommendationPriority: product.recommendationEligible !== true
         ? "hidden"
         : product.recommendationPriority === "boosted" ? "boosted" : "normal",
+      visible: product.recommendationEligible === true,
+      overallRank: Number.isInteger(product.chatbotOverallRank) ? Number(product.chatbotOverallRank) : null,
+      tagRanks: product.chatbotTagRanks && typeof product.chatbotTagRanks === "object" ? product.chatbotTagRanks : {},
       knowledgeChunkCount: Number(knowledge?.count ?? 0),
       updatedAt: knowledge?.lastUpdatedAt ?? product.updatedAt ?? null,
       tags: Array.isArray(product.chatbotTags) ? product.chatbotTags.map(String) : (Array.isArray(product.websiteCatalog?.tags) ? product.websiteCatalog.tags.map(String) : (Array.isArray(product.tags) ? product.tags.map(String) : [])),
@@ -98,6 +101,9 @@ async function recordChange(db: Awaited<ReturnType<typeof database>>, action: st
 
 export async function updateBotFlowProduct(slug: string, value: {
   recommendationPriority: ProductPriority;
+  visible?: boolean | undefined;
+  overallRank: number | null;
+  tagRanks: Record<string, number>;
   tags: string[];
   aliases: string[];
   approvedDescription: string;
@@ -114,9 +120,15 @@ export async function updateBotFlowProduct(slug: string, value: {
   const db = await database();
   if (!db) throw new Error("Knowledge database is not configured");
   const now = new Date();
+  const visible = value.visible ?? value.recommendationPriority !== "hidden";
+  const tagRanks = Object.fromEntries(Object.entries(value.tagRanks)
+    .map(([tag, rank]) => [tag.trim().toLowerCase(), rank] as const)
+    .filter(([tag]) => tag && !tag.includes(".") && !tag.startsWith("$")));
   const result = await db.collection("metabolic_products").updateOne({ slug }, { $set: {
-    recommendationEligible: value.recommendationPriority !== "hidden",
-    recommendationPriority: value.recommendationPriority,
+    recommendationEligible: visible,
+    recommendationPriority: visible ? "normal" : "hidden",
+    chatbotOverallRank: value.overallRank,
+    chatbotTagRanks: tagRanks,
     chatbotTags: [...new Set(value.tags.map((item) => item.trim()).filter(Boolean))],
     chatbotAliases: [...new Set(value.aliases.map((item) => item.trim()).filter(Boolean))],
     chatbotDescription: value.approvedDescription,
@@ -126,7 +138,7 @@ export async function updateBotFlowProduct(slug: string, value: {
   if (!result.matchedCount) throw new Error("Product was not found");
   await db.collection("knowledge_chunks").updateMany(
     { productSlug: slug, sourceType: "product" },
-    { $set: { recommendationEligible: value.recommendationPriority !== "hidden", updatedAt: now } },
+    { $set: { recommendationEligible: visible, updatedAt: now } },
   );
   await recordChange(db, "product.updated", slug, value);
   return (await listBotFlowProducts()).find((product) => product.slug === slug);

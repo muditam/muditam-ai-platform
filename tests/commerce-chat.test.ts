@@ -195,16 +195,17 @@ describe("commerce chat", () => {
     expect(response.recommendedProducts.map((item) => item.productSlug)).toEqual(["liver-fix", "liver-defend-pro"]);
   });
 
-  it("shows the full product catalogue with the bestseller first", async () => {
+  it("shows the full product catalogue in admin-configured overall order", async () => {
     const catalogue = [
-      { slug: "liver-fix", name: "Liver Fix" },
-      { slug: "karela-jamun-fizz", name: "Karela Jamun Fizz" },
-      { slug: "heart-defend-pro", name: "Heart Defend Pro" },
-    ].map(({ slug, name }) => ({
+      { slug: "liver-fix", name: "Liver Fix", overallRank: 2 },
+      { slug: "karela-jamun-fizz", name: "Karela Jamun Fizz", overallRank: 1 },
+      { slug: "heart-defend-pro", name: "Heart Defend Pro", overallRank: 3 },
+    ].map(({ slug, name, overallRank }) => ({
       key: `product:${slug}:overview`, title: `${name} — product information`,
       content: "Verified product.", contentHi: "Verified product.", keywords: ["product"],
       sourceName: "Muditam Ayurveda", sourceUrl: `https://www.muditam.com/products/${slug}`,
       version: "test", sourceType: "product" as const, productSlug: slug, recommendationEligible: true,
+      overallRank,
     }));
     const response = await answerCommerceChat(
       { ...baseRequest, message: "what are muditam products?" },
@@ -428,7 +429,7 @@ describe("commerce chat", () => {
     expect(response.messages[0]?.text).not.toContain("I can only help");
   });
 
-  it("ranks a boosted relevant product before normal diabetes products", async () => {
+  it("ranks a product using its admin-configured diabetes position", async () => {
     const berberine: KnowledgeEntry = {
       key: "product:berberine-pro:overview",
       title: "Berberine Pro — product information",
@@ -441,8 +442,9 @@ describe("commerce chat", () => {
       sourceType: "product",
       productSlug: "berberine-pro",
       recommendationEligible: true,
-      recommendationPriority: "boosted",
+      recommendationPriority: "normal",
       recommendationConcern: "blood_sugar",
+      tagRank: 1,
     };
     const response = await answerCommerceChat(
       { ...baseRequest, message: "Can you recommend a product for diabetes?" },
@@ -456,6 +458,43 @@ describe("commerce chat", () => {
       "karela-jamun-fizz",
     ]);
     expect(response.messages[0]?.text).toContain("Berberine Pro");
+  });
+
+  it("keeps product-discovery intent for a short diabetes follow-up", async () => {
+    const berberine: KnowledgeEntry = {
+      key: "product:berberine-pro:overview",
+      title: "Berberine Pro — product information",
+      content: "Product: Berberine Pro\nPublished description: Metabolic wellness support.",
+      contentHi: "प्रोडक्ट: Berberine Pro",
+      keywords: ["Berberine Pro", "blood sugar"],
+      sourceName: "Muditam Ayurveda",
+      sourceUrl: "https://www.muditam.com/products/berberine-pro",
+      version: "test",
+      sourceType: "product",
+      productSlug: "berberine-pro",
+      recommendationEligible: true,
+      recommendationPriority: "normal",
+      recommendationConcern: "blood_sugar",
+      tagRank: 1,
+    };
+    const response = await answerCommerceChat(
+      {
+        ...baseRequest,
+        message: "for diabetes?",
+        recentMessages: [
+          { role: "user", content: "Which product is right for me?" },
+          { role: "assistant", content: "Which wellness goal do you want support for?" },
+        ],
+      },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => [...productKnowledge, berberine],
+    );
+
+    expect(response.recommendedProducts.map((item) => item.productSlug)).toEqual([
+      "berberine-pro",
+      "sugar-defend-pro",
+      "karela-jamun-fizz",
+    ]);
   });
 
   it("does not allow the model to invent a product card", async () => {

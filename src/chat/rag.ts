@@ -95,6 +95,8 @@ function toKnowledgeEntry(item: Document): KnowledgeEntry {
     ...(item.recommendationPriority === "hidden" || item.recommendationPriority === "boosted" || item.recommendationPriority === "normal"
       ? { recommendationPriority: item.recommendationPriority }
       : {}),
+    ...(Number.isInteger(item.overallRank) ? { overallRank: Number(item.overallRank) } : {}),
+    ...(Number.isInteger(item.tagRank) ? { tagRank: Number(item.tagRank) } : {}),
     ...(item.recommendationConcern === "blood_sugar" || item.recommendationConcern === "liver" || item.recommendationConcern === "heart"
       ? { recommendationConcern: item.recommendationConcern }
       : {}),
@@ -179,8 +181,12 @@ const discoveryConcerns = [
 
 async function concernProductResults(question: string): Promise<KnowledgeEntry[]> {
   const latest = latestCustomerMessage(question);
-  const asksForProduct = fuzzyIntent(latest, ["product", "products", "supplement", "something", "anything", "recommend"])
-    || /\b(?:kuch|chahiye)\b|(?:प्रोडक्ट|उत्पाद|सप्लीमेंट|कुछ)/iu.test(latest);
+  // The latest turn can be a short answer such as "diabetes" or "for diabetes?"
+  // after the bot has asked which concern the customer wants a product for.
+  // Preserve the product intent from the recent transcript while requiring the
+  // concern itself to appear in the latest customer message.
+  const asksForProduct = fuzzyIntent(question, ["product", "products", "supplement", "something", "anything", "recommend"])
+    || /\b(?:kuch|chahiye)\b|(?:प्रोडक्ट|उत्पाद|सप्लीमेंट|कुछ)/iu.test(question);
   const concern = asksForProduct ? discoveryConcerns.find((item) => item.pattern.test(latest)) : undefined;
   if (!concern) return [];
   const db = await database();
@@ -193,10 +199,16 @@ async function concernProductResults(question: string): Promise<KnowledgeEntry[]
       { category: concern.key },
       { chatbotTags: { $in: [...concern.tags] } },
     ],
-  }, { projection: { slug: 1, name: 1, recommendationPriority: 1 } }).toArray();
+  }, { projection: { slug: 1, name: 1, recommendationPriority: 1, chatbotOverallRank: 1, chatbotTagRanks: 1, chatbotTags: 1 } }).toArray();
   products.sort((left, right) => {
-    const priority = Number(right.recommendationPriority === "boosted") - Number(left.recommendationPriority === "boosted");
-    return priority || String(left.name).localeCompare(String(right.name));
+    const rankFor = (product: Document) => {
+      const ranks = product.chatbotTagRanks && typeof product.chatbotTagRanks === "object" ? product.chatbotTagRanks : {};
+      const matching = concern.tags.map((tag) => Number(ranks[tag])).filter((rank) => Number.isInteger(rank) && rank > 0);
+      return matching.length ? Math.min(...matching) : Number.MAX_SAFE_INTEGER;
+    };
+    return rankFor(left) - rankFor(right)
+      || (Number(left.chatbotOverallRank) || Number.MAX_SAFE_INTEGER) - (Number(right.chatbotOverallRank) || Number.MAX_SAFE_INTEGER)
+      || String(left.name).localeCompare(String(right.name));
   });
   const entries: KnowledgeEntry[] = [];
   for (const product of products.slice(0, 8)) {
@@ -205,6 +217,12 @@ async function concernProductResults(question: string): Promise<KnowledgeEntry[]
       ...entry,
       recommendationConcern: concern.key,
       recommendationPriority: product.recommendationPriority === "boosted" ? "boosted" : "normal",
+      overallRank: Number.isInteger(product.chatbotOverallRank) ? Number(product.chatbotOverallRank) : null,
+      tagRank: (() => {
+        const ranks = product.chatbotTagRanks && typeof product.chatbotTagRanks === "object" ? product.chatbotTagRanks : {};
+        const matching = concern.tags.map((tag) => Number(ranks[tag])).filter((rank) => Number.isInteger(rank) && rank > 0);
+        return matching.length ? Math.min(...matching) : null;
+      })(),
     });
   }
   return entries;
@@ -336,7 +354,10 @@ async function catalogueProductResults(): Promise<KnowledgeEntry[]> {
     active: true,
     websiteStatus: "active",
     recommendationEligible: true,
-  }, { projection: { slug: 1, recommendationPriority: 1, chatbotDescription: 1, chatbotFields: 1 } }).sort({ recommendationPriority: 1, name: 1 }).toArray();
+  }, { projection: { slug: 1, recommendationPriority: 1, chatbotOverallRank: 1, chatbotDescription: 1, chatbotFields: 1 } }).toArray();
+  products.sort((left, right) =>
+    (Number(left.chatbotOverallRank) || Number.MAX_SAFE_INTEGER) - (Number(right.chatbotOverallRank) || Number.MAX_SAFE_INTEGER)
+    || String(left.name).localeCompare(String(right.name)));
   const slugs = products.map((product) => String(product.slug)).filter(Boolean);
   const rows = await db.collection("knowledge_chunks").find({
     productSlug: { $in: slugs },
@@ -350,8 +371,7 @@ async function catalogueProductResults(): Promise<KnowledgeEntry[]> {
     const existing = bySlug.get(slug);
     if (!existing || /:overview$/u.test(String(row.key))) bySlug.set(slug, row);
   }
-  const boostedSlugs = products.filter((product) => product.recommendationPriority === "boosted").map((product) => String(product.slug));
-  const orderedSlugs = [...new Set([...boostedSlugs, "karela-jamun-fizz", ...slugs])];
+  const orderedSlugs = [...new Set(slugs)];
   return orderedSlugs.flatMap((slug) => {
     const row = bySlug.get(slug);
     if (!row) return [];
@@ -367,7 +387,8 @@ async function catalogueProductResults(): Promise<KnowledgeEntry[]> {
       product?.chatbotFields?.variantFormats && `Approved variant formats: ${String(product.chatbotFields.variantFormats)}`,
     ].filter(Boolean).join("\n");
     const entry = toKnowledgeEntry(row);
-    return [{ ...entry, content: override ? `${entry.content}\n${override}` : entry.content }];
+    return [{ ...entry, content: override ? `${entry.content}\n${override}` : entry.content,
+      overallRank: Number.isInteger(product?.chatbotOverallRank) ? Number(product?.chatbotOverallRank) : null }];
   });
 }
 
