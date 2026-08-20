@@ -65,6 +65,27 @@ export const botFlowTextDataSchema = z.object({
   content: z.string().trim().min(10).max(30_000),
 });
 
+export const botFlowProductConfigSchema = z.object({
+  recommendationPriority: z.enum(["hidden", "normal", "boosted"]),
+  tags: z.array(z.string().trim().min(1).max(80)).max(40).default([]),
+  aliases: z.array(z.string().trim().min(1).max(100)).max(40).default([]),
+  approvedDescription: z.string().trim().max(2_000).default(""),
+  fields: z.object({
+    concern: z.string().trim().max(2_000).default(""),
+    keyBenefits: z.string().trim().max(4_000).default(""),
+    quantity: z.string().trim().max(1_000).default(""),
+    usage: z.string().trim().max(2_000).default(""),
+    warning: z.string().trim().max(3_000).default(""),
+    other: z.string().trim().max(4_000).default(""),
+    variantFormats: z.string().trim().max(2_000).default(""),
+  }).default({ concern: "", keyBenefits: "", quantity: "", usage: "", warning: "", other: "", variantFormats: "" }),
+});
+
+export const botFlowBulkProductConfigSchema = z.object({
+  tags: z.array(z.string().trim().min(1).max(80)).min(1).max(40),
+  recommendationPriority: z.enum(["hidden", "normal", "boosted"]),
+});
+
 export const discountConfigSchema = z.object({
   sharingMode: z.enum(["disabled", "relevant", "all"]),
   autoUpdate: z.boolean().default(false),

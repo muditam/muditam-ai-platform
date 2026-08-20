@@ -196,10 +196,13 @@ export async function explicitlyReferencedProduct(question: string): Promise<{ s
   if (!db) return null;
   const normalizedQuestion = ` ${normalizedProductName(question)} `;
   const products = await db.collection("metabolic_products").find({}, {
-    projection: { name: 1, slug: 1, active: 1, recommendationEligible: 1, websiteStatus: 1 },
+    projection: { name: 1, slug: 1, active: 1, recommendationEligible: 1, websiteStatus: 1, chatbotAliases: 1 },
   }).toArray();
   const candidates = products
-    .flatMap((product) => productReferenceNames(String(product.name)).map((name) => ({ product, name })))
+    .flatMap((product) => [
+      ...productReferenceNames(String(product.name)),
+      ...(Array.isArray(product.chatbotAliases) ? product.chatbotAliases.map((alias: unknown) => normalizedProductName(String(alias))) : []),
+    ].map((name) => ({ product, name })))
     .filter(({ name }) => name.length >= 5 && normalizedQuestion.includes(` ${name} `))
     .sort((left, right) => right.name.length - left.name.length);
   const match = candidates[0]?.product;
@@ -241,6 +244,8 @@ async function exactProductResults(productSlug: string, question: string): Promi
     "websiteCatalog.contentHash": 1,
     "websiteCatalog.publishedDosage": 1,
     "websiteCatalog.variants": 1,
+    chatbotDescription: 1,
+    chatbotFields: 1,
   } });
   const publishedDosage = String(product?.websiteCatalog?.publishedDosage || "").trim();
   if (product) {
@@ -257,6 +262,14 @@ async function exactProductResults(productSlug: string, question: string): Promi
       title: `${String(product.name)} — live Shopify details`,
       content: [
         `Product: ${String(product.name)}`,
+        product.chatbotDescription && `Approved description: ${String(product.chatbotDescription)}`,
+        product.chatbotFields?.concern && `Approved concerns: ${String(product.chatbotFields.concern)}`,
+        product.chatbotFields?.keyBenefits && `Approved key benefits: ${String(product.chatbotFields.keyBenefits)}`,
+        product.chatbotFields?.quantity && `Approved quantity: ${String(product.chatbotFields.quantity)}`,
+        product.chatbotFields?.usage && `Approved usage: ${String(product.chatbotFields.usage)}`,
+        product.chatbotFields?.warning && `Approved warning/disclaimer: ${String(product.chatbotFields.warning)}`,
+        product.chatbotFields?.other && `Other approved product information: ${String(product.chatbotFields.other)}`,
+        product.chatbotFields?.variantFormats && `Approved variant formats: ${String(product.chatbotFields.variantFormats)}`,
         publishedDosage && `Published dosage: ${publishedDosage}`,
         variants.length && `Shopify variants: ${variants.map((variant) => JSON.stringify(variant)).join(" | ")}`,
         "Shelf life: 18 months.",
@@ -281,7 +294,7 @@ async function catalogueProductResults(): Promise<KnowledgeEntry[]> {
     active: true,
     websiteStatus: "active",
     recommendationEligible: true,
-  }, { projection: { slug: 1 } }).toArray();
+  }, { projection: { slug: 1, recommendationPriority: 1, chatbotDescription: 1, chatbotFields: 1 } }).sort({ recommendationPriority: 1, name: 1 }).toArray();
   const slugs = products.map((product) => String(product.slug)).filter(Boolean);
   const rows = await db.collection("knowledge_chunks").find({
     productSlug: { $in: slugs },
@@ -295,10 +308,24 @@ async function catalogueProductResults(): Promise<KnowledgeEntry[]> {
     const existing = bySlug.get(slug);
     if (!existing || /:overview$/u.test(String(row.key))) bySlug.set(slug, row);
   }
-  const orderedSlugs = ["karela-jamun-fizz", ...slugs.filter((slug) => slug !== "karela-jamun-fizz")];
+  const boostedSlugs = products.filter((product) => product.recommendationPriority === "boosted").map((product) => String(product.slug));
+  const orderedSlugs = [...new Set([...boostedSlugs, "karela-jamun-fizz", ...slugs])];
   return orderedSlugs.flatMap((slug) => {
     const row = bySlug.get(slug);
-    return row ? [toKnowledgeEntry(row)] : [];
+    if (!row) return [];
+    const product = products.find((item) => String(item.slug) === slug);
+    const override = [
+      product?.chatbotDescription && `Approved description: ${String(product.chatbotDescription)}`,
+      product?.chatbotFields?.concern && `Approved concerns: ${String(product.chatbotFields.concern)}`,
+      product?.chatbotFields?.keyBenefits && `Approved key benefits: ${String(product.chatbotFields.keyBenefits)}`,
+      product?.chatbotFields?.quantity && `Approved quantity: ${String(product.chatbotFields.quantity)}`,
+      product?.chatbotFields?.usage && `Approved usage: ${String(product.chatbotFields.usage)}`,
+      product?.chatbotFields?.warning && `Approved warning/disclaimer: ${String(product.chatbotFields.warning)}`,
+      product?.chatbotFields?.other && `Other approved product information: ${String(product.chatbotFields.other)}`,
+      product?.chatbotFields?.variantFormats && `Approved variant formats: ${String(product.chatbotFields.variantFormats)}`,
+    ].filter(Boolean).join("\n");
+    const entry = toKnowledgeEntry(row);
+    return [{ ...entry, content: override ? `${entry.content}\n${override}` : entry.content }];
   });
 }
 
