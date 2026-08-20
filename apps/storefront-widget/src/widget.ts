@@ -24,6 +24,19 @@ interface CommerceResponse {
     phoneHref: string;
     whatsappUrl: string;
   };
+  orderTracking?: null | {
+    orderName: string;
+    status: string;
+    statusDetail: string;
+    productNames: string[];
+    placedAt: string | null;
+    courier: string | null;
+    trackingNumberMasked: string | null;
+    currentLocation: string | null;
+    expectedDeliveryDate: string | null;
+    latestEventAt: string | null;
+  };
+  orderTrackings?: Array<NonNullable<CommerceResponse["orderTracking"]>>;
 }
 
 interface RecentMessage { role: "user" | "assistant"; content: string }
@@ -40,9 +53,9 @@ interface ProductRating {
   count: number;
 }
 
-// Used only when Judge.me's live API has zero real reviews for a product. Values
-// taken from what the storefront's own product pages already display, since the
-// Judge.me widget API is the accurate source when it has data at all.
+// Authoritative storefront display values. These intentionally take precedence
+// over Judge.me because reviews may still be attached to older Shopify product
+// IDs after a product listing is recreated.
 const FALLBACK_RATINGS: Record<string, ProductRating> = {
   "sugar-defend-pro": { average: 4.8, count: 2000 },
   "karela-jamun-fizz": { average: 4.8, count: 5000 },
@@ -52,6 +65,8 @@ const FALLBACK_RATINGS: Record<string, ProductRating> = {
   "liver-fix": { average: 4.8, count: 3500 },
   "bone-dense": { average: 4.8, count: 900 },
   "core-essentials": { average: 4.8, count: 900 },
+  "thyroid-defend-pro": { average: 4.8, count: 400 },
+  "snooze-well": { average: 4.8, count: 150 },
   "shilajit-with-gold": { average: 4.8, count: 1500 },
 };
 
@@ -167,6 +182,7 @@ class MuditamChat extends HTMLElement {
   readonly #reviewsPublicToken: string;
   #session: Session | null = null;
   #recentMessages: RecentMessage[] = [];
+  #conversationLanguage: "en" | "hi" | "hinglish" | null = null;
   #pending = false;
   #productDataCache = new Map<string, Promise<ShopifyProductJson | null>>();
   #ratingCache = new Map<number, Promise<ProductRating | null>>();
@@ -550,6 +566,7 @@ class MuditamChat extends HTMLElement {
     carousel.className = "product-carousel";
     const container = document.createElement("div");
     container.className = "products";
+    container.classList.add(`product-count-${Math.min(products.length, 3)}`);
     container.setAttribute("aria-label", "Recommended products");
     for (const product of products) {
       const card = document.createElement("article");
@@ -583,11 +600,14 @@ class MuditamChat extends HTMLElement {
       const rating = document.createElement("span");
       rating.className = "product-rating";
       link.append(media, name, rating);
-      void this.#shopifyProduct(product.productUrl).then((shopifyProduct) => {
-        if (!shopifyProduct) return null;
-        return this.#judgeMeRating(shopifyProduct.id);
-      }).then((productRating) => {
-        const rated = productRating ?? FALLBACK_RATINGS[product.productSlug];
+      const storefrontRating = FALLBACK_RATINGS[product.productSlug];
+      const ratingRequest = storefrontRating
+        ? Promise.resolve(storefrontRating)
+        : this.#shopifyProduct(product.productUrl).then((shopifyProduct) => {
+          if (!shopifyProduct) return null;
+          return this.#judgeMeRating(shopifyProduct.id);
+        });
+      void ratingRequest.then((rated) => {
         if (!rated) return;
         const stars = document.createElement("span");
         stars.className = "product-rating-stars";
@@ -624,7 +644,18 @@ class MuditamChat extends HTMLElement {
     next.textContent = "›";
     next.addEventListener("click", () => scroll(1));
     carousel.append(container);
-    if (products.length > 1) carousel.append(previous, next);
+    if (products.length > 2) {
+      previous.hidden = true;
+      next.hidden = true;
+      carousel.append(previous, next);
+      const updateNavigation = (): void => {
+        const overflow = container.scrollWidth > container.clientWidth + 2;
+        previous.hidden = !overflow;
+        next.hidden = !overflow;
+      };
+      requestAnimationFrame(updateNavigation);
+      new ResizeObserver(updateNavigation).observe(container);
+    }
     this.#required<HTMLElement>(".messages").append(carousel);
   }
 
@@ -649,6 +680,40 @@ class MuditamChat extends HTMLElement {
 
     container.append(call, whatsapp);
     this.#required<HTMLElement>(".messages").append(container);
+  }
+
+  #appendOrderTracking(tracking: NonNullable<CommerceResponse["orderTracking"]>): void {
+    const card = document.createElement("section");
+    card.className = "order-tracking-card";
+    card.setAttribute("aria-label", `Tracking details for ${tracking.orderName}`);
+    const heading = document.createElement("div");
+    heading.className = "order-tracking-heading";
+    const orderName = document.createElement("strong");
+    orderName.textContent = tracking.orderName;
+    const badge = document.createElement("span");
+    badge.textContent = tracking.status;
+    heading.append(orderName, badge);
+    card.append(heading);
+    const details = [
+      tracking.productNames.length ? ["Products", tracking.productNames.join(", ")] : null,
+      tracking.placedAt ? ["Placed on", new Date(tracking.placedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })] : null,
+      tracking.courier ? ["Courier", tracking.courier] : null,
+      tracking.trackingNumberMasked ? ["Tracking", tracking.trackingNumberMasked] : null,
+      tracking.currentLocation ? ["Current location", tracking.currentLocation] : null,
+      tracking.expectedDeliveryDate ? ["Expected delivery", new Date(tracking.expectedDeliveryDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })] : null,
+      tracking.latestEventAt ? ["Last updated", new Date(tracking.latestEventAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })] : null,
+    ].filter((item): item is [string, string] => Boolean(item));
+    for (const [label, value] of details) {
+      const row = document.createElement("div");
+      row.className = "order-tracking-row";
+      const key = document.createElement("span");
+      key.textContent = label;
+      const text = document.createElement("strong");
+      text.textContent = value;
+      row.append(key, text);
+      card.append(row);
+    }
+    this.#required<HTMLElement>(".messages").append(card);
   }
 
   #emit(event: string, productSlug?: string): void {
@@ -731,6 +796,11 @@ class MuditamChat extends HTMLElement {
       status.remove();
       const recommendedNames = result.recommendedProducts.map((product) => product.name);
       for (const item of result.messages) this.#appendMessage("assistant", item.text, recommendedNames);
+      if (result.orderTrackings?.length) {
+        for (const tracking of result.orderTrackings) this.#appendOrderTracking(tracking);
+      } else if (result.orderTracking) {
+        this.#appendOrderTracking(result.orderTracking);
+      }
       this.#appendProducts(result.recommendedProducts);
       if (result.handoff) this.#appendHandoff(result.handoff);
       this.#recentMessages.push({ role: "user", content: message });
@@ -761,10 +831,24 @@ class MuditamChat extends HTMLElement {
 
   #languageFor(message: string): "en" | "hi" | "hinglish" {
     if (this.#language !== "auto") return this.#language;
-    if (/\p{Script=Devanagari}/u.test(message)) return "hi";
-    const hinglishSignals = /\b(?:kya|kyu|kyun|kaise|kaisa|kaunsi|kaun|hai|hain|hoon|hu|haan|nahi|nahin|mujhe|mera|meri|mere|aap|ap|batao|bataiye|chahiye|karna|karu|le sakta|le sakti|kitna|kitni|kab|mein|mai|aur|wala|wali)\b/giu;
+    if (/\p{Script=Devanagari}/u.test(message)) {
+      this.#conversationLanguage = "hi";
+      return "hi";
+    }
+    const hinglishSignals = /\b(?:kya|kyu|kyun|kaise|kaisa|kaunsi|kaun|hai|hain|hoon|hu|haan|nahi|nahin|mujhe|mera|meri|mere|aap|ap|batao|bataiye|chahiye|karna|karu|le sakta|le sakti|kitna|kitni|ka|ki|ke|kab|mein|mai|aur|wala|wali)\b/giu;
     const matches = message.match(hinglishSignals) ?? [];
-    return matches.length >= 1 ? "hinglish" : "en";
+    if (matches.length >= 1) {
+      this.#conversationLanguage = "hinglish";
+      return "hinglish";
+    }
+    const words = message.toLocaleLowerCase("en-IN").match(/[a-z]+/gu) ?? [];
+    const clearlyEnglish = words.length >= 4
+      && /\b(?:what|which|how|can|could|would|please|tell|need|want|should|does|is|are)\b/iu.test(message);
+    if (clearlyEnglish) {
+      this.#conversationLanguage = "en";
+      return "en";
+    }
+    return this.#conversationLanguage ?? "en";
   }
 
   #productSlug(): string | null {

@@ -13,9 +13,14 @@ import {
   COMMERCE_PROMPT_VERSION,
   deterministicBestSeller,
   deterministicCommerceGuardrail,
+  deterministicProductCatalogue,
+  deterministicProductCommercialDetails,
   deterministicProductDiscovery,
+  deterministicProductDosage,
+  deterministicProductInformation,
   enforceCommerceResult,
 } from "./guardrails.js";
+import { deterministicOrderTracking, type OrderTrackingLookup } from "./order-tracking.js";
 
 export interface CommerceModelProvider {
   answer(input: CommerceChatRequest, knowledge: readonly KnowledgeEntry[]): Promise<{
@@ -64,6 +69,7 @@ export class OpenAICommerceModelProvider implements CommerceModelProvider {
             "Greet only at the beginning of a conversation or when the customer greets you; do not repeat hello on later turns.",
             "The main answer must be 25-45 words in one short paragraph. Never exceed 55 words.",
             "For ordinary product discovery, recommend at most two relevant products and explain their practical difference in one short sentence each.",
+            "Never infer that a customer has a condition or symptom merely because they previously asked about a related product. If they ask what is right for them without stating a current goal, symptom, condition, or preference, ask which wellness goal they want support with and recommend nothing yet.",
             "Do not dump ingredient lists. Mention at most one distinguishing ingredient only when the customer asks about ingredients.",
             "Do not introduce doctors, medicines, pregnancy, warnings, or disclaimers unless the customer mentioned a relevant condition, medicine, symptom, pregnancy, interaction, adverse effect, or asked for personalized suitability.",
             "Never diagnose, prescribe, recommend medication changes, guarantee an outcome, or claim that a supplement treats, cures, or reverses a disease.",
@@ -138,15 +144,26 @@ export async function answerCommerceChat(
   value: unknown,
   provider?: CommerceModelProvider,
   retrieve: CommerceKnowledgeRetriever = retrieveCommerceRagKnowledge,
+  orderLookup?: OrderTrackingLookup,
 ): Promise<CommerceChatResponse> {
   const input = commerceChatRequestSchema.parse(value);
+  const orderTracking = await deterministicOrderTracking(input, orderLookup);
+  if (orderTracking) return orderTracking;
   const deterministic = deterministicCommerceGuardrail(input);
   if (deterministic) return deterministic;
   const knowledge = await retrieve(commerceRetrievalQuery(input));
+  const commercialDetails = deterministicProductCommercialDetails(input, knowledge);
+  if (commercialDetails) return commercialDetails;
+  const dosage = deterministicProductDosage(input, knowledge);
+  if (dosage) return dosage;
   const bestSeller = deterministicBestSeller(input, knowledge);
   if (bestSeller) return bestSeller;
+  const catalogue = deterministicProductCatalogue(input, knowledge);
+  if (catalogue) return catalogue;
   const productDiscovery = deterministicProductDiscovery(input, knowledge);
   if (productDiscovery) return productDiscovery;
+  const productInformation = deterministicProductInformation(input, knowledge);
+  if (productInformation) return productInformation;
   const activeProvider = provider ?? new OpenAICommerceModelProvider(
     process.env.MUDITAM_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY ?? "",
   );

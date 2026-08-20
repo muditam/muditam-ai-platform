@@ -172,6 +172,259 @@ describe("commerce chat", () => {
     ]);
   });
 
+  it("recommends both eligible liver products from verified knowledge", async () => {
+    const liverKnowledge = [
+      { slug: "liver-fix", name: "Liver Fix" },
+      { slug: "liver-defend-pro", name: "Liver Defend Pro" },
+    ].map(({ slug, name }) => ({
+      key: `product:${slug}:overview`, title: `${name} — product information`,
+      content: "Verified liver wellness product.", contentHi: "Verified liver wellness product.",
+      keywords: ["liver"], sourceName: "Muditam Ayurveda",
+      sourceUrl: `https://www.muditam.com/products/${slug}`, version: "test",
+      sourceType: "product" as const, productSlug: slug, recommendationEligible: true,
+    }));
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "can you recommend products for liver?" },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => liverKnowledge,
+    );
+    expect(response.messages[0]?.text).toContain("Liver Fix and Liver Defend Pro");
+    expect(response.recommendedProducts.map((item) => item.productSlug)).toEqual(["liver-fix", "liver-defend-pro"]);
+  });
+
+  it("shows the full product catalogue with the bestseller first", async () => {
+    const catalogue = [
+      { slug: "liver-fix", name: "Liver Fix" },
+      { slug: "karela-jamun-fizz", name: "Karela Jamun Fizz" },
+      { slug: "heart-defend-pro", name: "Heart Defend Pro" },
+    ].map(({ slug, name }) => ({
+      key: `product:${slug}:overview`, title: `${name} — product information`,
+      content: "Verified product.", contentHi: "Verified product.", keywords: ["product"],
+      sourceName: "Muditam Ayurveda", sourceUrl: `https://www.muditam.com/products/${slug}`,
+      version: "test", sourceType: "product" as const, productSlug: slug, recommendationEligible: true,
+    }));
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "what are muditam products?" },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => catalogue,
+    );
+    expect(response.handoff).toBeNull();
+    expect(response.messages[0]?.text).toContain("Karela Jamun Fizz is our best-selling product");
+    expect(response.messages[0]?.text).toContain("liver, heart, thyroid, gut health");
+    expect(response.messages[0]?.text).toContain("heart, diabetes, liver");
+    expect(response.recommendedProducts.map((item) => item.productSlug)).toEqual([
+      "karela-jamun-fizz", "liver-fix", "heart-defend-pro",
+    ]);
+  });
+
+  it("recognizes a typo in a Muditam catalogue question", async () => {
+    const catalogue = [{
+      key: "product:karela-jamun-fizz:overview", title: "Karela Jamun Fizz — product information",
+      content: "Verified product.", contentHi: "Verified product.", keywords: ["product"],
+      sourceName: "Muditam Ayurveda", sourceUrl: "https://www.muditam.com/products/karela-jamun-juice",
+      version: "test", sourceType: "product" as const, productSlug: "karela-jamun-fizz", recommendationEligible: true,
+    }];
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "wgat are muditam products?" },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => catalogue,
+    );
+    expect(response.category).toBe("PRODUCT_DISCOVERY");
+    expect(response.messages[0]?.text).toContain("best-selling product");
+    expect(response.handoff).toBeNull();
+  });
+
+  it("answers a direct Hinglish product question from verified overview knowledge", async () => {
+    const liverFix = [{
+      key: "product:liver-fix:overview", title: "Liver Fix — product information",
+      content: "Product: Liver Fix\nCategory: liver\nPublished description: A botanical blend crafted to support liver health and natural detoxification.\nKey ingredients: Milk Thistle Extract, N-Acetyl L-Cysteine, Kutaki Extract, Dandelion Extract",
+      contentHi: "Verified product.", keywords: ["liver"], sourceName: "Muditam Ayurveda",
+      sourceUrl: "https://www.muditam.com/products/liver-fix", version: "test",
+      sourceType: "product" as const, productSlug: "liver-fix", recommendationEligible: true,
+    }];
+    const response = await answerCommerceChat(
+      { ...baseRequest, language: "hinglish", message: "Liver Fix kya karta hai?" },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => liverFix,
+    );
+    expect(response.category).toBe("PRODUCT_INFORMATION");
+    expect(response.messages[0]?.text).toContain("Liver Fix liver wellness ko support");
+    expect(response.messages[0]?.text).toContain("Milk Thistle Extract");
+    expect(response.recommendedProducts.map((item) => item.productSlug)).toEqual(["liver-fix"]);
+    expect(response.handoff).toBeNull();
+  });
+
+  it("asks for the wellness goal instead of inventing one for a vague personal recommendation", async () => {
+    let retrievalCalled = false;
+    const response = await answerCommerceChat(
+      {
+        ...baseRequest,
+        language: "hinglish",
+        message: "Mere liye konsa product sahi rahega?",
+        recentMessages: [
+          { role: "user", content: "Liver Fix kya karta hai?" },
+          { role: "assistant", content: "Liver Fix liver wellness ko support karne ke liye formulated hai." },
+        ],
+      },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => { retrievalCalled = true; return []; },
+    );
+    expect(retrievalCalled).toBe(false);
+    expect(response.messages[0]?.text).toContain("Aap kis wellness goal");
+    expect(response.messages[0]?.text).not.toContain("fatty liver");
+    expect(response.recommendedProducts).toEqual([]);
+    expect(response.handoff).toBeNull();
+  });
+
+  it("uses a verified published dosage and keeps the response in Hinglish", async () => {
+    const dosageKnowledge = [{
+      key: "product:shilajit-with-gold:faq-1",
+      title: "Shilajit with Gold — What should be the dosage of Shilajit?",
+      content: "Product: Shilajit with Gold\nQuestion: What should be the dosage of Shilajit?\nPublished answer: Pure Himalayan Shilajit with Gold is recommended to be consumed twice a day. Dosage may vary based on individual preferences and lifestyle. For personalized advice, feel free to contact our experts at 8989174741.",
+      contentHi: "Verified product dosage.", keywords: ["dosage"], sourceName: "Muditam Ayurveda",
+      sourceUrl: "https://www.muditam.com/products/shilajit-with-gold", version: "test",
+      sourceType: "product" as const, productSlug: "shilajit-with-gold", recommendationEligible: true,
+    }];
+    const response = await answerCommerceChat(
+      { ...baseRequest, language: "hinglish", message: "Shilajit with Gold ka kya dosage hai?" },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => dosageKnowledge,
+    );
+    expect(response.messages[0]?.text).toContain("Shilajit with Gold ka published dosage");
+    expect(response.messages[0]?.text).toContain("consumed twice a day");
+    expect(response.messages[0]?.text).not.toContain("8989174741");
+    expect(response.handoff).toBeNull();
+    expect(response.recommendedProducts[0]?.productSlug).toBe("shilajit-with-gold");
+  });
+
+  it("offers expert help when Shopify has no verified published dosage", async () => {
+    const response = await answerCommerceChat(
+      { ...baseRequest, language: "hinglish", message: "liver fix ka kya dosage hai?" },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => [],
+    );
+    expect(response.messages[0]?.text).toContain("verified dosage abhi available nahi hai");
+    expect(response.handoff?.queue).toBe("dietitian");
+  });
+
+  it("answers price and pack questions from live Shopify variants", async () => {
+    const shopifyKnowledge = [{
+      key: "product:liver-defend-pro:live-shopify-details",
+      title: "Liver Defend Pro — live Shopify details",
+      content: 'Product: Liver Defend Pro\nShopify variants: {"title":"1 Bottle","price":715,"compareAtPrice":725,"available":true} | {"title":"2 Bottles","price":1350,"compareAtPrice":1450,"available":true} | {"title":"3 Bottles","price":1995,"compareAtPrice":2175,"available":true} | {"title":"6 Bottles","price":3850,"compareAtPrice":4350,"available":true}\nShelf life: 18 months.',
+      contentHi: "Verified Shopify details.", keywords: ["price", "variants"], sourceName: "Muditam Ayurveda",
+      sourceUrl: "https://www.muditam.com/products/liver-defend-pro", version: "test",
+      sourceType: "product" as const, productSlug: "liver-defend-pro", recommendationEligible: true,
+    }];
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "price of liver defend pro" },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => shopifyKnowledge,
+    );
+    expect(response.messages[0]?.text).toContain("1 Bottle: ₹715, MRP ₹725");
+    expect(response.messages[0]?.text).toContain("6 Bottles: ₹3,850, MRP ₹4,350");
+    expect(response.handoff).toBeNull();
+    expect(response.recommendedProducts[0]?.productSlug).toBe("liver-defend-pro");
+  });
+
+  it("recognizes Karela Jamun as Karela Jamun Fizz for pricing", async () => {
+    const shopifyKnowledge = [{
+      key: "product:karela-jamun-fizz:live-shopify-details", title: "Karela Jamun Fizz — live Shopify details",
+      content: 'Product: Karela Jamun Fizz\nShopify variants: {"title":"1 Bottle","price":465,"compareAtPrice":null,"available":true} | {"title":"3 Bottles","price":990,"compareAtPrice":1395,"available":true}\nShelf life: 18 months.',
+      contentHi: "Verified Shopify details.", keywords: ["price"], sourceName: "Muditam Ayurveda",
+      sourceUrl: "https://www.muditam.com/products/karela-jamun-juice", version: "test",
+      sourceType: "product" as const, productSlug: "karela-jamun-fizz", recommendationEligible: true,
+    }];
+    const response = await answerCommerceChat(
+      { ...baseRequest, language: "hinglish", message: "karela jamun ka price kya hai" },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => shopifyKnowledge,
+    );
+    expect(response.messages[0]?.text).toContain("Karela Jamun Fizz ke available Shopify options");
+    expect(response.messages[0]?.text).toContain("1 Bottle: ₹465");
+    expect(response.handoff).toBeNull();
+  });
+
+  it("recognizes Karela Fizz and replies in Hinglish even if the client sent English language", async () => {
+    const shopifyKnowledge = [{
+      key: "product:karela-jamun-fizz:live-shopify-details", title: "Karela Jamun Fizz — live Shopify details",
+      content: 'Product: Karela Jamun Fizz\nShopify variants: {"title":"1 Bottle","price":465,"compareAtPrice":null,"available":true} | {"title":"3 Bottles","price":990,"compareAtPrice":1395,"available":true}\nShelf life: 18 months.',
+      contentHi: "Verified Shopify details.", keywords: ["quantity"], sourceName: "Muditam Ayurveda",
+      sourceUrl: "https://www.muditam.com/products/karela-jamun-juice", version: "test",
+      sourceType: "product" as const, productSlug: "karela-jamun-fizz", recommendationEligible: true,
+    }];
+    const response = await answerCommerceChat(
+      { ...baseRequest, language: "en", message: "karela fizz ki quantity?" },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => shopifyKnowledge,
+    );
+    expect(response.messages[0]?.text).toContain("Karela Jamun Fizz ke available Shopify options hain");
+    expect(response.messages[0]?.text).not.toContain("has these available");
+    expect(response.handoff).toBeNull();
+  });
+
+  it("answers a specific Shopify set price without listing every variant", async () => {
+    const shopifyKnowledge = [{
+      key: "product:liver-defend-pro:live-shopify-details", title: "Liver Defend Pro — live Shopify details",
+      content: 'Product: Liver Defend Pro\nShopify variants: {"title":"1 Bottle","price":715,"compareAtPrice":725,"available":true} | {"title":"2 Bottles","price":1350,"compareAtPrice":1450,"available":true}\nShelf life: 18 months.',
+      contentHi: "Verified Shopify details.", keywords: ["price"], sourceName: "Muditam Ayurveda",
+      sourceUrl: "https://www.muditam.com/products/liver-defend-pro", version: "test",
+      sourceType: "product" as const, productSlug: "liver-defend-pro", recommendationEligible: true,
+    }];
+    const response = await answerCommerceChat(
+      { ...baseRequest, language: "hinglish", message: "Liver Defend Pro 2 bottles kitne ka hai?" },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => shopifyKnowledge,
+    );
+    expect(response.messages[0]?.text).toContain("2 Bottles: ₹1,350, MRP ₹1,450");
+    expect(response.messages[0]?.text).not.toContain("1 Bottle:");
+  });
+
+  it("uses the approved 18 month shelf life", async () => {
+    const shopifyKnowledge = [{
+      key: "product:bone-dense:live-shopify-details", title: "Bone Dense — live Shopify details",
+      content: 'Product: Bone Dense\nShopify variants: {"title":"1 Bottle","price":600,"compareAtPrice":675,"available":true}\nShelf life: 18 months.',
+      contentHi: "Verified Shopify details.", keywords: ["shelf life"], sourceName: "Muditam Ayurveda",
+      sourceUrl: "https://www.muditam.com/products/bone-dense", version: "test",
+      sourceType: "product" as const, productSlug: "bone-dense", recommendationEligible: true,
+    }];
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "What is the shelf life of Bone Dense?" },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => shopifyKnowledge,
+    );
+    expect(response.messages[0]?.text).toBe("All Muditam products have a shelf life of 18 months.");
+    expect(response.handoff).toBeNull();
+  });
+
+  it("answers a shelf-life follow-up without requiring a repeated product name", async () => {
+    const response = await answerCommerceChat(
+      {
+        ...baseRequest,
+        language: "hinglish",
+        message: "shelf life kya hai",
+        recentMessages: [{ role: "user", content: "karela jamun ka price kya hai" }],
+      },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => [],
+    );
+    expect(response.messages[0]?.text).toBe("Muditam ke sabhi products ki shelf life 18 months hai.");
+    expect(response.handoff).toBeNull();
+  });
+
+  it("does not call an in-scope liver question off-topic when catalogue retrieval is unavailable", async () => {
+    let generated = false;
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "any product for liver?" },
+      { answer: async () => { generated = true; throw new Error("should not run"); } },
+      async () => [],
+    );
+    expect(generated).toBe(false);
+    expect(response.category).toBe("PRODUCT_DISCOVERY");
+    expect(response.messages[0]?.text).toContain("trouble loading the current Muditam product catalogue");
+    expect(response.messages[0]?.text).not.toContain("I can only help");
+  });
+
   it("does not allow the model to invent a product card", async () => {
     const response = await answerCommerceChat(
       { ...baseRequest, message: "What should I buy?" },
@@ -273,7 +526,7 @@ describe("commerce chat", () => {
     const response = await answerCommerceChat(
       { ...baseRequest, message: "He is unconscious and cannot breathe" },
       { answer: async () => { throw new Error("should not run"); } },
-      async () => { throw new Error("should not retrieve"); },
+      async () => [],
     );
 
     expect(response.decision).toBe("SAFETY");
@@ -465,11 +718,11 @@ describe("commerce chat", () => {
     const response = await answerCommerceChat(
       { ...baseRequest, message: "Heart Defend Pro ki exact dosage kya hai?" },
       { answer: async () => { throw new Error("should not run"); } },
-      async () => { throw new Error("should not retrieve"); },
+      async () => [],
     );
 
     expect(response.decision).toBe("HANDOFF");
-    expect(response.messages[0]?.text).toContain("dosage can vary");
+    expect(response.messages[0]?.text).toContain("don’t have a verified published dosage");
     expect(response.messages[0]?.text).not.toContain("pregnan");
     expect(response.messages[0]?.text).not.toContain("breastfeed");
   });
