@@ -52,11 +52,108 @@ export async function listBotFlowProducts() {
       productUrl: String(product.productUrl ?? product.websiteCatalog?.sourceUrl ?? `https://www.muditam.com/products/${slug}`),
       imageUrl: imageUrl(product),
       recommendationEligible: product.recommendationEligible === true,
+      recommendationPriority: product.recommendationEligible !== true
+        ? "hidden"
+        : product.recommendationPriority === "boosted" ? "boosted" : "normal",
       knowledgeChunkCount: Number(knowledge?.count ?? 0),
       updatedAt: knowledge?.lastUpdatedAt ?? product.updatedAt ?? null,
-      tags: Array.isArray(product.tags) ? product.tags.map(String) : [],
+      tags: Array.isArray(product.chatbotTags) ? product.chatbotTags.map(String) : (Array.isArray(product.websiteCatalog?.tags) ? product.websiteCatalog.tags.map(String) : (Array.isArray(product.tags) ? product.tags.map(String) : [])),
+      aliases: Array.isArray(product.chatbotAliases) ? product.chatbotAliases.map(String) : [],
+      approvedDescription: String(product.chatbotDescription ?? ""),
+      fields: {
+        concern: String(product.chatbotFields?.concern ?? ""),
+        keyBenefits: String(product.chatbotFields?.keyBenefits ?? ""),
+        quantity: String(product.chatbotFields?.quantity ?? ""),
+        usage: String(product.chatbotFields?.usage ?? ""),
+        warning: String(product.chatbotFields?.warning ?? ""),
+        other: String(product.chatbotFields?.other ?? ""),
+        variantFormats: String(product.chatbotFields?.variantFormats ?? ""),
+      },
+      shopify: {
+        productId: String(product.websiteCatalog?.shopifyProductId ?? ""),
+        handle: String(product.websiteCatalog?.handle ?? slug),
+        description: String(product.websiteCatalog?.description ?? ""),
+        dosage: String(product.websiteCatalog?.publishedDosage ?? ""),
+        images: Array.isArray(product.websiteCatalog?.images) ? product.websiteCatalog.images.map(String) : [],
+        collections: Array.isArray(product.websiteCatalog?.collections) ? product.websiteCatalog.collections.map(String) : [],
+        sourceUpdatedAt: product.websiteCatalog?.sourceUpdatedAt ?? null,
+      },
+      variants: Array.isArray(product.websiteCatalog?.variants) ? product.websiteCatalog.variants.map((variant: Document) => ({
+        shopifyVariantId: String(variant.shopifyVariantId ?? ""),
+        title: String(variant.title ?? ""),
+        price: Number(variant.price ?? 0),
+        compareAtPrice: variant.compareAtPrice == null ? null : Number(variant.compareAtPrice),
+        available: variant.available === true,
+      })) : [],
     };
   });
+}
+
+type ProductPriority = "hidden" | "normal" | "boosted";
+
+async function recordChange(db: Awaited<ReturnType<typeof database>>, action: string, target: string, details: Document) {
+  if (!db) return;
+  await db.collection("commerce_bot_change_logs").insertOne({ action, target, details, createdAt: new Date() });
+}
+
+export async function updateBotFlowProduct(slug: string, value: {
+  recommendationPriority: ProductPriority;
+  tags: string[];
+  aliases: string[];
+  approvedDescription: string;
+  fields: {
+    concern: string;
+    keyBenefits: string;
+    quantity: string;
+    usage: string;
+    warning: string;
+    other: string;
+    variantFormats: string;
+  };
+}) {
+  const db = await database();
+  if (!db) throw new Error("Knowledge database is not configured");
+  const now = new Date();
+  const result = await db.collection("metabolic_products").updateOne({ slug }, { $set: {
+    recommendationEligible: value.recommendationPriority !== "hidden",
+    recommendationPriority: value.recommendationPriority,
+    chatbotTags: [...new Set(value.tags.map((item) => item.trim()).filter(Boolean))],
+    chatbotAliases: [...new Set(value.aliases.map((item) => item.trim()).filter(Boolean))],
+    chatbotDescription: value.approvedDescription,
+    chatbotFields: value.fields,
+    chatbotConfigUpdatedAt: now,
+  } });
+  if (!result.matchedCount) throw new Error("Product was not found");
+  await db.collection("knowledge_chunks").updateMany(
+    { productSlug: slug, sourceType: "product" },
+    { $set: { recommendationEligible: value.recommendationPriority !== "hidden", updatedAt: now } },
+  );
+  await recordChange(db, "product.updated", slug, value);
+  return (await listBotFlowProducts()).find((product) => product.slug === slug);
+}
+
+export async function bulkUpdateBotFlowProducts(tags: string[], recommendationPriority: ProductPriority) {
+  const db = await database();
+  if (!db) throw new Error("Knowledge database is not configured");
+  const normalized = [...new Set(tags.map((item) => item.trim()).filter(Boolean))];
+  const products = await db.collection("metabolic_products").find({
+    $or: [{ chatbotTags: { $in: normalized } }, { tags: { $in: normalized } }],
+  }, { projection: { slug: 1 } }).toArray();
+  const slugs = products.map((product) => String(product.slug));
+  if (slugs.length) {
+    const now = new Date();
+    await db.collection("metabolic_products").updateMany({ slug: { $in: slugs } }, { $set: {
+      recommendationEligible: recommendationPriority !== "hidden",
+      recommendationPriority,
+      chatbotConfigUpdatedAt: now,
+    } });
+    await db.collection("knowledge_chunks").updateMany({ productSlug: { $in: slugs }, sourceType: "product" }, { $set: {
+      recommendationEligible: recommendationPriority !== "hidden",
+      updatedAt: now,
+    } });
+  }
+  await recordChange(db, "products.bulk_updated", normalized.join(","), { tags: normalized, recommendationPriority, matched: slugs.length });
+  return { matched: slugs.length, slugs };
 }
 
 export async function listBotFlowKnowledge() {
@@ -110,6 +207,34 @@ export async function addBotFlowTextData(title: string, content: string) {
   };
   await db.collection("knowledge_chunks").insertOne(document);
   return { ...document, embedding: undefined };
+}
+
+export async function updateBotFlowTextData(key: string, title: string, content: string) {
+  const db = await database();
+  if (!db) throw new Error("Knowledge database is not configured");
+  const existing = await db.collection("knowledge_chunks").findOne({ key, sourceType: "platform", managedBy: "bot_flow" });
+  if (!existing) throw new Error("Editable knowledge source was not found");
+  const now = new Date();
+  const embedding = await createEmbedding(`${title}\n${content}`);
+  await db.collection("knowledge_chunks").updateOne({ key }, { $set: {
+    title, content, contentHi: content, embedding,
+    contentHash: createHash("sha256").update(content).digest("hex"),
+    version: now.toISOString(), updatedAt: now,
+  } });
+  await recordChange(db, "knowledge.updated", key, { title });
+  return { ...existing, title, content, contentHi: content, version: now.toISOString(), updatedAt: now, embedding: undefined };
+}
+
+export async function deleteBotFlowTextData(key: string) {
+  const db = await database();
+  if (!db) throw new Error("Knowledge database is not configured");
+  const result = await db.collection("knowledge_chunks").updateOne(
+    { key, sourceType: "platform", managedBy: "bot_flow" },
+    { $set: { active: false, updatedAt: new Date() } },
+  );
+  if (!result.matchedCount) throw new Error("Editable knowledge source was not found");
+  await recordChange(db, "knowledge.deleted", key, {});
+  return { deleted: true };
 }
 
 export async function listMissingInformation(limit = 100) {

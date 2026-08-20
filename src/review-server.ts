@@ -7,7 +7,7 @@ import Busboy from "busboy";
 import { ZodError } from "zod";
 import { answerChat } from "./chat/chat-engine.js";
 import { answerCommerceChat } from "./commerce/commerce-engine.js";
-import { botFlowTextDataSchema, commerceChatRequestSchema, discountConfigSchema, widgetConfigSchema } from "./commerce/contracts.js";
+import { botFlowBulkProductConfigSchema, botFlowProductConfigSchema, botFlowTextDataSchema, commerceChatRequestSchema, discountConfigSchema, widgetConfigSchema } from "./commerce/contracts.js";
 import {
   getConversationDetail,
   getOverview,
@@ -20,11 +20,15 @@ import {
 import { getWidgetConfig, saveWidgetConfig } from "./commerce/widget-config-store.js";
 import {
   addBotFlowTextData,
+  bulkUpdateBotFlowProducts,
+  deleteBotFlowTextData,
   getDiscountConfig,
   listBotFlowKnowledge,
   listBotFlowProducts,
   listMissingInformation,
   saveDiscountConfig,
+  updateBotFlowProduct,
+  updateBotFlowTextData,
 } from "./commerce/bot-flow-store.js";
 import {
   bearerToken,
@@ -882,6 +886,35 @@ async function handle(
     return;
   }
 
+  const productConfigMatch = url.pathname.match(/^\/internal\/commerce-bot-flow\/products\/([^/]+)$/u);
+  if (request.method === "PATCH" && productConfigMatch) {
+    try {
+      const payload = botFlowProductConfigSchema.parse(await readJson(request, MAX_CHAT_JSON_BYTES));
+      json(response, 200, { product: await updateBotFlowProduct(decodeURIComponent(productConfigMatch[1]!), payload) });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        json(response, 400, { error: "Invalid product configuration.", details: error.issues });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/internal/commerce-bot-flow/products/bulk") {
+    try {
+      const payload = botFlowBulkProductConfigSchema.parse(await readJson(request, MAX_CHAT_JSON_BYTES));
+      json(response, 200, await bulkUpdateBotFlowProducts(payload.tags, payload.recommendationPriority));
+    } catch (error) {
+      if (error instanceof ZodError) {
+        json(response, 400, { error: "Invalid bulk product configuration.", details: error.issues });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
   if (request.method === "GET" && url.pathname === "/internal/commerce-bot-flow/knowledge") {
     json(response, 200, { sources: await listBotFlowKnowledge() });
     return;
@@ -898,6 +931,26 @@ async function handle(
       }
       throw error;
     }
+    return;
+  }
+
+  const knowledgeMatch = url.pathname.match(/^\/internal\/commerce-bot-flow\/knowledge\/(.+)$/u);
+  if (request.method === "PUT" && knowledgeMatch) {
+    try {
+      const payload = botFlowTextDataSchema.parse(await readJson(request, MAX_CHAT_JSON_BYTES));
+      json(response, 200, { source: await updateBotFlowTextData(decodeURIComponent(knowledgeMatch[1]!), payload.title, payload.content) });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        json(response, 400, { error: "Invalid knowledge content.", details: error.issues });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (request.method === "DELETE" && knowledgeMatch) {
+    json(response, 200, await deleteBotFlowTextData(decodeURIComponent(knowledgeMatch[1]!)));
     return;
   }
 
