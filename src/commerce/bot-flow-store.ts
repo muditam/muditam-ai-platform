@@ -44,6 +44,8 @@ export async function listBotFlowProducts() {
   return products.map((product) => {
     const slug = String(product.slug);
     const knowledge = bySlug.get(slug);
+    const explicitTags = Array.isArray(product.chatbotTags) ? product.chatbotTags.map(String).filter(Boolean) : [];
+    const legacyCategory = String(product.category ?? "").trim();
     return {
       id: String(product._id),
       name: String(product.name ?? slug),
@@ -60,7 +62,8 @@ export async function listBotFlowProducts() {
       tagRanks: product.chatbotTagRanks && typeof product.chatbotTagRanks === "object" ? product.chatbotTagRanks : {},
       knowledgeChunkCount: Number(knowledge?.count ?? 0),
       updatedAt: knowledge?.lastUpdatedAt ?? product.updatedAt ?? null,
-      tags: Array.isArray(product.chatbotTags) ? product.chatbotTags.map(String) : (Array.isArray(product.websiteCatalog?.tags) ? product.websiteCatalog.tags.map(String) : (Array.isArray(product.tags) ? product.tags.map(String) : [])),
+      tags: explicitTags,
+      legacyCategory,
       aliases: Array.isArray(product.chatbotAliases) ? product.chatbotAliases.map(String) : [],
       approvedDescription: String(product.chatbotDescription ?? ""),
       fields: {
@@ -121,6 +124,7 @@ export async function updateBotFlowProduct(slug: string, value: {
   if (!db) throw new Error("Knowledge database is not configured");
   const now = new Date();
   const visible = value.visible ?? value.recommendationPriority !== "hidden";
+  const normalizedTags = [...new Set(value.tags.map((item) => item.trim().toLowerCase()).filter(Boolean))];
   const tagRanks = Object.fromEntries(Object.entries(value.tagRanks)
     .map(([tag, rank]) => [tag.trim().toLowerCase(), rank] as const)
     .filter(([tag]) => tag && !tag.includes(".") && !tag.startsWith("$")));
@@ -129,7 +133,7 @@ export async function updateBotFlowProduct(slug: string, value: {
     recommendationPriority: visible ? "normal" : "hidden",
     chatbotOverallRank: value.overallRank,
     chatbotTagRanks: tagRanks,
-    chatbotTags: [...new Set(value.tags.map((item) => item.trim()).filter(Boolean))],
+    chatbotTags: normalizedTags,
     chatbotAliases: [...new Set(value.aliases.map((item) => item.trim()).filter(Boolean))],
     chatbotDescription: value.approvedDescription,
     chatbotFields: value.fields,

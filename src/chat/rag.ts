@@ -179,7 +179,7 @@ const discoveryConcerns = [
   { key: "heart" as const, pattern: /\b(?:heart|cardiac|cardiovascular)\b|(?:हार्ट|दिल)/iu, tags: ["heart", "cardiac", "cardiovascular"] },
 ] as const;
 
-async function concernProductResults(question: string): Promise<KnowledgeEntry[]> {
+function discoveryConcernForQuestion(question: string) {
   const latest = latestCustomerMessage(question);
   // The latest turn can be a short answer such as "diabetes" or "for diabetes?"
   // after the bot has asked which concern the customer wants a product for.
@@ -187,18 +187,20 @@ async function concernProductResults(question: string): Promise<KnowledgeEntry[]
   // concern itself to appear in the latest customer message.
   const asksForProduct = fuzzyIntent(question, ["product", "products", "supplement", "something", "anything", "recommend"])
     || /\b(?:kuch|chahiye)\b|(?:प्रोडक्ट|उत्पाद|सप्लीमेंट|कुछ)/iu.test(question);
-  const concern = asksForProduct ? discoveryConcerns.find((item) => item.pattern.test(latest)) : undefined;
+  return asksForProduct ? discoveryConcerns.find((item) => item.pattern.test(latest)) : undefined;
+}
+
+async function concernProductResults(question: string): Promise<KnowledgeEntry[]> {
+  const concern = discoveryConcernForQuestion(question);
   if (!concern) return [];
   const db = await database();
   if (!db) return [];
+  const tagMatchers = concern.tags.map((tag) => new RegExp(`^${tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"));
   const products = await db.collection("metabolic_products").find({
     active: true,
     websiteStatus: "active",
     recommendationEligible: true,
-    $or: [
-      { category: concern.key },
-      { chatbotTags: { $in: [...concern.tags] } },
-    ],
+    chatbotTags: { $in: tagMatchers },
   }, { projection: { slug: 1, name: 1, recommendationPriority: 1, chatbotOverallRank: 1, chatbotTagRanks: 1, chatbotTags: 1 } }).toArray();
   products.sort((left, right) => {
     const rankFor = (product: Document) => {
@@ -246,10 +248,14 @@ function productReferenceNames(value: string): string[] {
 }
 
 export async function explicitlyReferencedProduct(question: string): Promise<{ slug: string; eligible: boolean } | null> {
-  if (!enabled() || !mongoUri() || !PRODUCT_INTENT.test(question)) return null;
+  const latest = latestCustomerMessage(question);
+  if (!enabled() || !mongoUri() || !PRODUCT_INTENT.test(latest)) return null;
   const db = await database();
   if (!db) return null;
-  const normalizedQuestion = ` ${normalizedProductName(question)} `;
+  // Explicit product resolution must use the latest customer turn. Searching the
+  // whole transcript lets a longer product name from an older answer override the
+  // product the customer is asking about now.
+  const normalizedQuestion = ` ${normalizedProductName(latest)} `;
   const products = await db.collection("metabolic_products").find({}, {
     projection: { name: 1, slug: 1, active: 1, recommendationEligible: 1, websiteStatus: 1, chatbotAliases: 1 },
   }).toArray();
@@ -423,6 +429,7 @@ export async function retrieveRagKnowledge(
 ): Promise<KnowledgeEntry[]> {
   const wantsProducts = PRODUCT_INTENT.test(question);
   const wantsPlatform = PLATFORM_INTENT.test(question);
+  const concernDiscovery = discoveryConcernForQuestion(question);
   const allowedCurated = curated.filter((entry) => knowledgeAllowedForContext(entry, context.channel, context.audience));
   if (!enabled() || !mongoUri() || (!wantsProducts && !wantsPlatform)) return allowedCurated;
   let retrieved: KnowledgeEntry[] = [];
@@ -436,7 +443,7 @@ export async function retrieveRagKnowledge(
       if (explicitlyNamed && !explicitlyNamed.eligible) return curated;
       retrieved.push(...(explicitlyNamed
         ? await exactProductResults(explicitlyNamed.slug, question)
-        : await vectorResults(question, "product")));
+        : concernDiscovery ? [] : await vectorResults(question, "product")));
     }
     if (wantsPlatform) retrieved.push(...await vectorResults(question, "platform"));
   } catch (error) {
@@ -446,7 +453,7 @@ export async function retrieveRagKnowledge(
       error: error instanceof Error ? error.message : String(error),
     }));
     try {
-      if (wantsProducts) retrieved.push(...await lexicalResults(question, "product"));
+      if (wantsProducts && !concernDiscovery) retrieved.push(...await lexicalResults(question, "product"));
       if (wantsPlatform) retrieved.push(...await lexicalResults(question, "platform"));
     } catch (fallbackError) {
       console.error(JSON.stringify({
@@ -487,6 +494,7 @@ export async function retrieveCommerceRagKnowledge(question: string): Promise<Kn
   let retrieved: KnowledgeEntry[] = [];
   const productQuery = expandCommerceProductQuery(question);
   const forcedSlugs = forcedProductSlugs(question);
+  const concernDiscovery = discoveryConcernForQuestion(question);
   try {
     retrieved.push(...await concernProductResults(question));
     for (const slug of forcedSlugs) retrieved.push(...await exactProductResults(slug, question));
@@ -494,7 +502,7 @@ export async function retrieveCommerceRagKnowledge(question: string): Promise<Kn
     if (explicitlyNamed && !explicitlyNamed.eligible) return [];
     retrieved.push(...(explicitlyNamed
       ? await exactProductResults(explicitlyNamed.slug, question)
-      : await vectorResults(productQuery, "product")));
+      : concernDiscovery ? [] : await vectorResults(productQuery, "product")));
     // Bot Flow text additions are stored as verified platform knowledge. Search
     // that collection on every commerce turn so custom FAQs can answer arbitrary
     // customer wording, not only questions that explicitly mention Muditam.
@@ -510,7 +518,7 @@ export async function retrieveCommerceRagKnowledge(question: string): Promise<Kn
       try {
         retrieved.push(...await concernProductResults(question));
         for (const slug of forcedSlugs) retrieved.push(...await exactProductResults(slug, question));
-        retrieved.push(...await lexicalResults(productQuery, "product"));
+        if (!concernDiscovery) retrieved.push(...await lexicalResults(productQuery, "product"));
         retrieved.push(...await lexicalResults(question, "platform"));
         break;
       } catch (fallbackError) {
