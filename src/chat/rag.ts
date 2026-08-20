@@ -92,6 +92,9 @@ function toKnowledgeEntry(item: Document): KnowledgeEntry {
     sourceType: item.sourceType === "platform" ? "platform" : "product",
     ...(item.productSlug ? { productSlug: String(item.productSlug) } : {}),
     recommendationEligible: item.recommendationEligible === true,
+    ...(item.recommendationPriority === "hidden" || item.recommendationPriority === "boosted" || item.recommendationPriority === "normal"
+      ? { recommendationPriority: item.recommendationPriority }
+      : {}),
     ...(channels.length ? { channels } : {}),
     ...(audiences.length ? { audiences } : {}),
   };
@@ -166,7 +169,7 @@ function discoveryProductSlugs(question: string): string[] {
     || /\b(?:kuch|chahiye)\b|(?:प्रोडक्ट|उत्पाद|सप्लीमेंट|कुछ)/iu.test(latest);
   if (!asksForProduct) return [];
   if (/\b(?:diabetes|diabetic|blood sugar|glucose|sugar patient)\b|(?:डायबिटीज|मधुमेह|ब्लड शुगर)/iu.test(latest)) {
-    return ["sugar-defend-pro", "karela-jamun-fizz"];
+    return ["sugar-defend-pro", "karela-jamun-fizz", "berberine-pro"];
   }
   if (/\b(?:heart|cardiac)\b|(?:हार्ट|दिल)/iu.test(latest)) return ["heart-defend-pro"];
   if (/\b(?:fatty liver|liver|lever)\b|(?:लिवर|जिगर)/iu.test(latest)) return ["liver-fix", "liver-defend-pro"];
@@ -246,6 +249,7 @@ async function exactProductResults(productSlug: string, question: string): Promi
     "websiteCatalog.variants": 1,
     chatbotDescription: 1,
     chatbotFields: 1,
+    recommendationPriority: 1,
   } });
   const publishedDosage = String(product?.websiteCatalog?.publishedDosage || "").trim();
   if (product) {
@@ -280,11 +284,15 @@ async function exactProductResults(productSlug: string, question: string): Promi
       sourceType: "product",
       productSlug,
       recommendationEligible: true,
+      recommendationPriority: product.recommendationPriority === "boosted" ? "boosted" : "normal",
       channels: ["mobile_app", "shopify_web"],
       audiences: ["anonymous_visitor", "verified_customer"],
     }));
   }
-  return entries;
+  return entries.map((entry) => ({
+    ...entry,
+    recommendationPriority: product?.recommendationPriority === "boosted" ? "boosted" : "normal",
+  }));
 }
 
 async function catalogueProductResults(): Promise<KnowledgeEntry[]> {

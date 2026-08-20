@@ -10,6 +10,7 @@ export interface KnowledgeEntry {
   sourceType?: "curated" | "product" | "platform";
   productSlug?: string;
   recommendationEligible?: boolean;
+  recommendationPriority?: "hidden" | "normal" | "boosted";
   channels?: Array<"mobile_app" | "shopify_web">;
   audiences?: Array<"anonymous_visitor" | "verified_customer">;
 }

@@ -137,7 +137,7 @@ export function inactiveProductResponse(language: InternalChatRequest["language"
 const productDiscoveryConcerns = [
   {
     pattern: /\b(?:diabetes|diabetic|blood sugar|glucose|sugar patient)\b|(?:डायबिटीज|मधुमेह|ब्लड शुगर)/iu,
-    slugs: ["sugar-defend-pro", "karela-jamun-fizz"],
+    slugs: ["sugar-defend-pro", "karela-jamun-fizz", "berberine-pro"],
     en: (names: string[]) => `For blood-sugar wellness support, you can consider ${names.join(" and ")}. They offer different formats for convenient daily support.`,
     hi: (names: string[]) => `ब्लड शुगर वेलनेस सपोर्ट के लिए आप ${names.join(" और ")} के बारे में जान सकते हैं। ये रोज़मर्रा के सपोर्ट के लिए अलग-अलग विकल्प हैं।`,
   },
@@ -169,7 +169,7 @@ export function deterministicProductDiscoveryResponse(
       && item.recommendationEligible === true
       && item.productSlug === slug);
     return entry ? [entry] : [];
-  });
+  }).sort((left, right) => Number(right.recommendationPriority === "boosted") - Number(left.recommendationPriority === "boosted")).slice(0, 2);
   if (!entries.length) return null;
   const names = entries.map((entry) => entry.title.split(" — ")[0]?.trim() || entry.productSlug as string);
   return {

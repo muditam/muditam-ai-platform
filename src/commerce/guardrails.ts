@@ -92,18 +92,15 @@ function response(
 const discoveryByConcern = [
   {
     pattern: /\b(?:diabetes|diabetic|blood sugar|glucose|sugar patient)\b|(?:डायबिटीज|मधुमेह|ब्लड शुगर)/iu,
-    slugs: ["sugar-defend-pro", "karela-jamun-fizz"],
-    copy: "Diabetes support ke liye Sugar Defend Pro aur Karela Jamun Fizz dekh sakte hain. Sugar Defend Pro broader daily metabolic support deta hai, while Karela Jamun Fizz ek convenient drink format hai.",
+    slugs: ["sugar-defend-pro", "karela-jamun-fizz", "berberine-pro"],
   },
   {
     pattern: /\b(?:heart|cardiac)\b|(?:हार्ट|दिल)/iu,
     slugs: ["heart-defend-pro"],
-    copy: "Heart wellness support ke liye Heart Defend Pro dekh sakte hain. Yeh daily cardiovascular wellness support ke liye formulated supplement hai.",
   },
   {
     pattern: /\b(?:fatty liver|liver|lever)\b|(?:लिवर|जिगर)/iu,
     slugs: ["liver-fix", "liver-defend-pro"],
-    copy: "Liver wellness support ke liye Liver Fix aur Liver Defend Pro dekh sakte hain. Dono daily liver wellness support ke liye formulated options hain.",
   },
 ] as const;
 
@@ -121,7 +118,7 @@ export function deterministicProductDiscovery(
       && item.recommendationEligible === true
       && item.productSlug === slug);
     return entry ? [entry] : [];
-  });
+  }).sort((left, right) => Number(right.recommendationPriority === "boosted") - Number(left.recommendationPriority === "boosted")).slice(0, 2);
   if (!entries.length) {
     return response(input, {
       decision: "ALLOW",
@@ -143,7 +140,9 @@ export function deterministicProductDiscovery(
   const english = names.length > 1
     ? `For ${concern} wellness support, you can consider ${names.join(" and ")}. They offer different options for convenient daily support.`
     : `For ${concern} wellness support, you can consider ${names[0]}.`;
-  const text = input.language === "hinglish" ? match.copy : english;
+  const text = input.language === "hinglish"
+    ? `${concern} wellness support ke liye aap ${names.join(" aur ")} consider kar sakte hain.`
+    : english;
   return {
     decision: "ALLOW",
     category: "PRODUCT_DISCOVERY",

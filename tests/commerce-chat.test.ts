@@ -425,6 +425,34 @@ describe("commerce chat", () => {
     expect(response.messages[0]?.text).not.toContain("I can only help");
   });
 
+  it("ranks a boosted relevant product before normal diabetes products", async () => {
+    const berberine: KnowledgeEntry = {
+      key: "product:berberine-pro:overview",
+      title: "Berberine Pro — product information",
+      content: "Product: Berberine Pro\nPublished description: Metabolic wellness support.",
+      contentHi: "प्रोडक्ट: Berberine Pro",
+      keywords: ["Berberine Pro", "blood sugar"],
+      sourceName: "Muditam Ayurveda",
+      sourceUrl: "https://www.muditam.com/products/berberine-pro",
+      version: "test",
+      sourceType: "product",
+      productSlug: "berberine-pro",
+      recommendationEligible: true,
+      recommendationPriority: "boosted",
+    };
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "Can you recommend a product for diabetes?" },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => [...productKnowledge, berberine],
+    );
+
+    expect(response.recommendedProducts.map((item) => item.productSlug)).toEqual([
+      "berberine-pro",
+      "sugar-defend-pro",
+    ]);
+    expect(response.messages[0]?.text).toContain("Berberine Pro");
+  });
+
   it("does not allow the model to invent a product card", async () => {
     const response = await answerCommerceChat(
       { ...baseRequest, message: "What should I buy?" },
