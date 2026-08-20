@@ -108,8 +108,14 @@ export function deterministicProductDiscovery(
   input: CommerceChatRequest,
   knowledge: readonly KnowledgeEntry[],
 ): CommerceChatResponse | null {
-  const asksForProduct = fuzzyIntent(input.message, ["product", "products", "supplement", "something", "anything", "recommend"])
-    || /\b(?:kuch|chahiye)\b|(?:प्रोडक्ट|उत्पाद|सप्लीमेंट|कुछ)/iu.test(input.message);
+  const recentUserContext = input.recentMessages
+    .filter((message) => message.role === "user")
+    .slice(-3)
+    .map((message) => message.content)
+    .join(" ");
+  const productIntentContext = `${recentUserContext} ${input.message}`;
+  const asksForProduct = fuzzyIntent(productIntentContext, ["product", "products", "supplement", "something", "anything", "recommend"])
+    || /\b(?:kuch|chahiye)\b|(?:प्रोडक्ट|उत्पाद|सप्लीमेंट|कुछ)/iu.test(productIntentContext);
   if (!asksForProduct) return null;
   const match = discoveryByConcern.find((item) => item.pattern.test(input.message));
   if (!match) return null;
@@ -119,7 +125,8 @@ export function deterministicProductDiscovery(
       && item.productSlug
       && item.recommendationConcern === match.key)
     .map((item) => [item.productSlug as string, item])).values()]
-    .sort((left, right) => Number(right.recommendationPriority === "boosted") - Number(left.recommendationPriority === "boosted"))
+    .sort((left, right) => (left.tagRank ?? Number.MAX_SAFE_INTEGER) - (right.tagRank ?? Number.MAX_SAFE_INTEGER)
+      || (left.overallRank ?? Number.MAX_SAFE_INTEGER) - (right.overallRank ?? Number.MAX_SAFE_INTEGER))
     .slice(0, 8);
   if (!entries.length) {
     return response(input, {
@@ -191,7 +198,8 @@ export function deterministicProductCatalogue(
   const entries = [...new Map(knowledge
     .filter((entry) => entry.sourceType === "product" && entry.recommendationEligible === true && entry.productSlug)
     .map((entry) => [entry.productSlug as string, entry])).values()];
-  entries.sort((left, right) => Number(right.productSlug === BEST_SELLER_SLUG) - Number(left.productSlug === BEST_SELLER_SLUG));
+  entries.sort((left, right) => (left.overallRank ?? Number.MAX_SAFE_INTEGER) - (right.overallRank ?? Number.MAX_SAFE_INTEGER)
+  );
   if (!entries.length) {
     return response(input, {
       decision: "ALLOW",
