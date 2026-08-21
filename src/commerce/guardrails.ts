@@ -184,10 +184,14 @@ const productCataloguePattern = /\b(?:what (?:are|products? (?:do|does)) muditam
 
 function productCatalogueIntent(message: string): boolean {
   if (productCataloguePattern.test(message)) return true;
-  const hasProduct = fuzzyIntent(message, ["product", "products", "catalogue", "catalog"]);
+  const hasProduct = fuzzyIntent(message, ["product", "products", "prodcuts", "produts", "catalogue", "catalog"]);
   const hasCatalogueRequest = fuzzyIntent(message, ["what", "show", "list", "all", "catalogue", "catalog"]);
   const identifiesMuditamCatalogue = fuzzyIntent(message, ["muditam"]) || /\b(?:your|aapke|apke)\b/iu.test(message);
-  return hasProduct && hasCatalogueRequest && identifiesMuditamCatalogue;
+  // A short phrase such as "Muditam products?" or "aapke products" already
+  // contains both the catalogue owner and subject. Requiring an additional
+  // command word (show/list/what) caused these natural queries to fall through
+  // to the model and return prose without product cards.
+  return hasProduct && identifiesMuditamCatalogue && (hasCatalogueRequest || message.trim().length <= 48);
 }
 
 export function deterministicProductCatalogue(

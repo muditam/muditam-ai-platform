@@ -238,6 +238,27 @@ describe("commerce chat", () => {
     expect(response.handoff).toBeNull();
   });
 
+  it.each(["muditam products?", "aapke products", "muditam prodcuts?"])(
+    "shows catalogue cards for short natural wording: %s",
+    async (message) => {
+      const catalogue = [{
+        key: "product:karela-jamun-fizz:overview", title: "Karela Jamun Fizz — product information",
+        content: "Verified product.", contentHi: "Verified product.", keywords: ["product"],
+        sourceName: "Muditam Ayurveda", sourceUrl: "https://www.muditam.com/products/karela-jamun-juice",
+        version: "test", sourceType: "product" as const, productSlug: "karela-jamun-fizz",
+        recommendationEligible: true, overallRank: 1,
+      }];
+      const response = await answerCommerceChat(
+        { ...baseRequest, message },
+        { answer: async () => { throw new Error("should not run"); } },
+        async () => catalogue,
+      );
+      expect(response.category).toBe("PRODUCT_DISCOVERY");
+      expect(response.recommendedProducts.map((item) => item.productSlug)).toEqual(["karela-jamun-fizz"]);
+      expect(response.model).toBeNull();
+    },
+  );
+
   it("answers a direct Hinglish product question from verified overview knowledge", async () => {
     const liverFix = [{
       key: "product:liver-fix:overview", title: "Liver Fix — product information",
