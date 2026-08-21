@@ -23,9 +23,28 @@ describe("commerce order tracking", () => {
     });
     expect(lookupCalled).toBe(false);
     expect(result?.decision).toBe("HANDOFF");
-    expect(result?.messages[0]?.text).toBe("Order cancellations are handled by our support team. Please connect with them by call or WhatsApp.");
+    expect(result?.messages[0]?.text).toBe("I can only help you check your order status. To cancel or modify an order, please connect with our support team by call or WhatsApp.");
     expect(result?.handoff?.queue).toBe("support");
   });
+
+  for (const message of [
+    "change the delivery address on my order",
+    "remove one product from my order",
+    "can you reschedule my delivery date?",
+    "I want to exchange an item in my order",
+  ]) {
+    it(`routes an order modification directly to support: ${message}`, async () => {
+      let lookupCalled = false;
+      const result = await deterministicOrderTracking({ ...request, message }, async () => {
+        lookupCalled = true;
+        return "NOT_FOUND";
+      });
+      expect(lookupCalled).toBe(false);
+      expect(result?.decision).toBe("HANDOFF");
+      expect(result?.handoff?.queue).toBe("support");
+      expect(result?.messages[0]?.text).toContain("only help you check your order status");
+    });
+  }
 
   it("recognizes English and Hinglish tracking questions", () => {
     expect(orderTrackingIntent(request)).toBe(true);

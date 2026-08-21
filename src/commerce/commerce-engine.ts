@@ -98,6 +98,7 @@ export class OpenAICommerceModelProvider implements CommerceModelProvider {
             "Mention only precautions relevant to facts the customer actually disclosed. Never list pregnancy, breastfeeding, children, allergies, kidney disease, or medicines as a generic precaution dump.",
             "Use only facts in supplied knowledge. Put keys only in citedKnowledgeKeys; never print keys, citations, brackets, or source labels in answer or followUp.",
             "Never print a phone number or WhatsApp URL in answer or followUp. Choose HANDOFF and let the application render verified contact actions.",
+            "For orders, you may only retrieve and explain status or tracking information. Never claim to cancel, modify, edit, reschedule, return, replace, exchange, or refund an order; route every such request to support.",
             "Whenever your answer or followUp mentions, offers, or suggests a dietitian, doctor, or expert consultation in any wording, you must set decision to HANDOFF and category to EXPERT_HANDOFF in the same turn so the application can render the verified call and WhatsApp actions. Never reference a consultation without also choosing HANDOFF.",
             "Recommend only supplied product entries where recommendationEligible is true, using their exact productSlug.",
             "Recommend only relevant supplied products, ordered by their configured recommendation priority, with no more than eight products. Never invent a price, discount, stock status, product, ingredient, usage, or result timeline.",
