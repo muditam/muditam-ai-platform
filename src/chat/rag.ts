@@ -9,12 +9,12 @@ const DEFAULT_MODEL = "text-embedding-3-small";
 const DEFAULT_DIMENSIONS = 1024;
 const PRODUCT_CATALOGUE_PATTERN = /\b(?:what (?:are|products? (?:do|does)) muditam products?|what products? do (?:you|muditam) (?:have|offer|sell)|show (?:me )?(?:all |your )?products?|all (?:muditam )?products?|(?:your|muditam) product (?:catalogue|catalog))\b/iu;
 
-function productCatalogueIntent(message: string): boolean {
+export function productCatalogueIntent(message: string): boolean {
   if (PRODUCT_CATALOGUE_PATTERN.test(message)) return true;
-  const hasProduct = fuzzyIntent(message, ["product", "products", "catalogue", "catalog"]);
+  const hasProduct = fuzzyIntent(message, ["product", "products", "prodcuts", "produts", "catalogue", "catalog"]);
   const hasCatalogueRequest = fuzzyIntent(message, ["what", "show", "list", "all", "catalogue", "catalog"]);
   const identifiesMuditamCatalogue = fuzzyIntent(message, ["muditam"]) || /\b(?:your|aapke|apke)\b/iu.test(message);
-  return hasProduct && hasCatalogueRequest && identifiesMuditamCatalogue;
+  return hasProduct && identifiesMuditamCatalogue && (hasCatalogueRequest || message.trim().length <= 48);
 }
 
 let mongoClient: MongoClient | null = null;

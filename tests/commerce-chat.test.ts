@@ -6,6 +6,7 @@ import {
 } from "../src/commerce/commerce-engine.js";
 import { formatCommerceCopy } from "../src/commerce/guardrails.js";
 import type { KnowledgeEntry } from "../src/chat/knowledge.js";
+import { productCatalogueIntent as retrievalCatalogueIntent } from "../src/chat/rag.js";
 
 const baseRequest = {
   conversationId: "commerce-conversation-1",
@@ -256,6 +257,7 @@ describe("commerce chat", () => {
       expect(response.category).toBe("PRODUCT_DISCOVERY");
       expect(response.recommendedProducts.map((item) => item.productSlug)).toEqual(["karela-jamun-fizz"]);
       expect(response.model).toBeNull();
+      expect(retrievalCatalogueIntent(message)).toBe(true);
     },
   );
 
