@@ -48,6 +48,18 @@ const productKnowledge: KnowledgeEntry[] = [
 ];
 
 describe("commerce chat", () => {
+  it("routes refund requests directly to support without collecting refund details", async () => {
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "i need refund" },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => { throw new Error("retrieval should not run"); },
+    );
+    expect(response.decision).toBe("HANDOFF");
+    expect(response.category).toBe("ORDER_OR_SUPPORT");
+    expect(response.messages[0]?.text).toBe("Refund requests are handled by our support team. Please connect with them by call or WhatsApp.");
+    expect(response.handoff?.queue).toBe("support");
+  });
+
   it("carries product context into retrieval for affirmative follow-up questions", async () => {
     const query = commerceRetrievalQuery({
       ...baseRequest,
@@ -173,6 +185,99 @@ describe("commerce chat", () => {
       "sugar-defend-pro",
       "karela-jamun-fizz",
     ]);
+  });
+
+  it("offers support when no verified product exists for an in-scope concern", async () => {
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "can you recommend a product for skin concern?" },
+      {
+        answer: async () => ({
+          model: "test-model",
+          result: {
+            decision: "REFUSE", category: "OFF_TOPIC", answer: "I cannot help with that.",
+            followUp: null, citedKnowledgeKeys: [], recommendations: [],
+          },
+        }),
+      },
+      async () => [],
+    );
+    expect(response.decision).toBe("HANDOFF");
+    expect(response.category).toBe("ORDER_OR_SUPPORT");
+    expect(response.messages[0]?.text).toContain("support team can help");
+    expect(response.handoff?.queue).toBe("support");
+  });
+
+  it("answers a disease claim about the named product without substituting category products", async () => {
+    let generated = false;
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "can karela jamun fizz cure diabetes?" },
+      { answer: async () => { generated = true; throw new Error("should not run"); } },
+      async () => productKnowledge,
+    );
+
+    expect(generated).toBe(false);
+    expect(response.model).toBeNull();
+    expect(response.decision).toBe("HANDOFF");
+    expect(response.category).toBe("PRODUCT_INFORMATION");
+    expect(response.messages[0]?.text).toContain("Karela Jamun Fizz does not cure diabetes");
+    expect(response.messages[0]?.text).toContain("support healthy blood-sugar management");
+    expect(response.recommendedProducts.map((item) => item.productSlug)).toEqual(["karela-jamun-fizz"]);
+    expect(response.handoff?.queue).toBe("dietitian");
+  });
+
+  it("does not recommend products for a diabetes cure or disappearance question", async () => {
+    let generated = false;
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "how quickly will my diabetes disappear?" },
+      { answer: async () => { generated = true; throw new Error("should not run"); } },
+      async () => productKnowledge,
+    );
+
+    expect(generated).toBe(false);
+    expect(response.decision).toBe("HANDOFF");
+    expect(response.messages[0]?.text).toContain("do not cure diabetes or make it disappear");
+    expect(response.messages[0]?.text).toContain("support healthy blood-sugar management");
+    expect(response.recommendedProducts).toEqual([]);
+    expect(response.handoff?.queue).toBe("dietitian");
+  });
+
+  it("recognizes a cure claim when the named product supplies the wellness context", async () => {
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "will karela jamun fizz cure me permanently" },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => productKnowledge,
+    );
+
+    expect(response.messages[0]?.text).toContain("Karela Jamun Fizz does not cure a health condition");
+    expect(response.messages[0]?.text).toContain("support healthy blood-sugar management");
+    expect(response.recommendedProducts.map((item) => item.productSlug)).toEqual(["karela-jamun-fizz"]);
+    expect(response.handoff?.queue).toBe("dietitian");
+  });
+
+  it("answers certification questions from product-specific published data", async () => {
+    const certifiedKnowledge: KnowledgeEntry[] = [{
+      ...productKnowledge[1]!,
+      content: `${productKnowledge[1]!.content}\nPublished certifications: FSSAI, GMP, USFDA documentation, WHO-GMP`,
+    }];
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "is karela jamun fizz FDA and WHO GMP approved?" },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => certifiedKnowledge,
+    );
+    expect(response.messages[0]?.text).toContain("FSSAI, GMP, USFDA documentation, WHO-GMP");
+    expect(response.messages[0]?.text).toContain("should not be described as FDA approval");
+    expect(response.recommendedProducts.map((item) => item.productSlug)).toEqual(["karela-jamun-fizz"]);
+  });
+
+  it("does not generalize product-specific USFDA and WHO-GMP documents", async () => {
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "are all Muditam products FDA and WHO GMP approved?" },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => [],
+    );
+    expect(response.messages[0]?.text).toContain("every product is FSSAI and GMP certified");
+    expect(response.messages[0]?.text).toContain("Karela Jamun Fizz and Sugar Defend Pro");
+    expect(response.messages[0]?.text).toContain("should not describe every product as FDA approved");
   });
 
   it("recommends both eligible liver products from verified knowledge", async () => {
@@ -367,6 +472,27 @@ describe("commerce chat", () => {
     expect(response.recommendedProducts[0]?.productSlug).toBe("liver-defend-pro");
   });
 
+  it("finds the cheapest product using available live Shopify variants", async () => {
+    const catalogue: KnowledgeEntry[] = [
+      { slug: "karela-jamun-fizz", name: "Karela Jamun Fizz", price: 465, rank: 1 },
+      { slug: "core-essentials", name: "Core Essentials", price: 420, rank: 2 },
+      { slug: "bone-dense", name: "Bone Dense", price: 600, rank: 3 },
+    ].map(({ slug, name, price, rank }) => ({
+      key: `product:${slug}:overview`, title: `${name} — product information`,
+      content: `Product: ${name}\nShopify variants: ${JSON.stringify({ title: "1 Pack", price, compareAtPrice: null, available: true })}`,
+      contentHi: "Verified Shopify details.", keywords: ["price"], sourceName: "Muditam Ayurveda",
+      sourceUrl: `https://www.muditam.com/products/${slug}`, version: "test", sourceType: "product",
+      productSlug: slug, recommendationEligible: true, overallRank: rank,
+    }));
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "what is your cheapest product?" },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => catalogue,
+    );
+    expect(response.messages[0]?.text).toContain("Core Essentials, starting at ₹420");
+    expect(response.recommendedProducts.map((item) => item.productSlug)).toEqual(["core-essentials"]);
+  });
+
   it("recognizes Karela Jamun as Karela Jamun Fizz for pricing", async () => {
     const shopifyKnowledge = [{
       key: "product:karela-jamun-fizz:live-shopify-details", title: "Karela Jamun Fizz — live Shopify details",
@@ -460,8 +586,9 @@ describe("commerce chat", () => {
       async () => [],
     );
     expect(generated).toBe(false);
-    expect(response.category).toBe("PRODUCT_DISCOVERY");
-    expect(response.messages[0]?.text).toContain("trouble loading the current Muditam product catalogue");
+    expect(response.category).toBe("ORDER_OR_SUPPORT");
+    expect(response.messages[0]?.text).toContain("support team can help");
+    expect(response.handoff?.queue).toBe("support");
     expect(response.messages[0]?.text).not.toContain("I can only help");
   });
 

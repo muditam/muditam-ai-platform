@@ -46,8 +46,8 @@ export const platformKnowledgeSources: readonly PlatformSourceInput[] = [
     chunks: [{
       suffix: "overview",
       title: "Muditam company and platform information",
-      content: "Muditam Ayurveda is an India-based wellness company combining Ayurvedic herbs, nutrition, lifestyle guidance, and modern research. Its stated approach is to support wellness through natural solutions and personalized wellness plans guided by experts. Muditam products are described on its website as FSSAI and GMP certified. The Muditam mobile platform supports users with health-report tracking, general educational AI assistance, and access to human dietitian and doctor guidance. The AI assistant provides education and platform information; it does not diagnose, prescribe medicines, or decide personalized supplement dosage.",
-      keywords: ["Muditam", "company", "platform", "app", "about", "Ayurveda", "wellness", "what is Muditam"],
+      content: "Muditam Ayurveda is an India-based wellness company combining Ayurvedic herbs, nutrition, lifestyle guidance, and modern research. Its stated approach is to support wellness through natural solutions and personalized wellness plans guided by experts. Muditam's About page states that every product is FSSAI and GMP certified. Its separate Certificates page lists product-specific documents; it lists USFDA documentation and WHO-GMP for Karela Jamun Fizz and Sugar Defend Pro. Do not describe every Muditam product as FDA approved or WHO-GMP certified unless that product's published certification data explicitly says so. The Muditam mobile platform supports users with health-report tracking, general educational AI assistance, and access to human dietitian and doctor guidance. The AI assistant provides education and platform information; it does not diagnose, prescribe medicines, or decide personalized supplement dosage.",
+      keywords: ["Muditam", "company", "platform", "app", "about", "Ayurveda", "wellness", "certification", "FSSAI", "GMP", "WHO-GMP", "USFDA", "what is Muditam"],
     }],
   },
   {
@@ -126,6 +126,7 @@ function productChunks(product: Document): ChunkInput[] {
     `Category: ${product.category}`,
     product.websiteCatalog.description && `Published description: ${product.websiteCatalog.description}`,
     product.websiteCatalog.publishedDosage && `Published dosage: ${product.websiteCatalog.publishedDosage}`,
+    strings(product.websiteCatalog.certifications).length && `Published certifications: ${strings(product.websiteCatalog.certifications).join(", ")}`,
     publishedVariants(product) && `Shopify variants: ${publishedVariants(product)}`,
     "Shelf life: 18 months.",
     product.indication && `Indication: ${product.indication}`,

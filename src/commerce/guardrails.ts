@@ -20,10 +20,14 @@ const generalDoctorGuidancePattern = /\bdo\s+i?\s*need\b.{0,45}\b(?:doctor|physi
 const individualizedRiskContextPattern = /\b(?:pregnan(?:t|cy)|breastfeed(?:ing)?|child|kidney|liver disease|allergy|allergic|adverse|side effect|symptom|medicine|medication|metformin|insulin|prescription)\b/iu;
 const dosageQuestionPattern = /\b(?:dose|dosage|how many|how much|how often|times? (?:a|per) day|kitni baar|kitna lena|kaise lena)\b|\b(?:tablet|tablets|capsule|capsules)\b.{0,24}\b(?:take|daily|day|time|times)\b|(खुराक|डोज|कितनी (?:गोली|टैबलेट)|कितना लेना)/iu;
 const priceQuestionPattern = /\b(?:price|cost|mrp|offer price|how much (?:is|does)|kitne ka|kitni price|daam)\b|(?:कीमत|दाम)/iu;
+const cheapestProductPattern = /\b(?:cheapest|lowest[ -]?priced|least expensive|most affordable|budget(?:-friendly)?)\b/iu;
 const variantQuestionPattern = /\b(?:quantity|quantities|pack|packs|set|sets|variant|variants|option|options|size|sizes|bottles?|boxes?|sachets?)\b|(?:कितनी बोतल|पैक|सेट)/iu;
 const shelfLifeQuestionPattern = /\b(?:shelf[ -]?life|expiry|expires?|expiration|best before)\b|(?:शेल्फ लाइफ|एक्सपायरी)/iu;
 const completeProductDetailsPattern = /\b(?:all|complete|full|every(?:thing)?)\b.{0,25}\b(?:details?|information|info)\b|\b(?:details?|information|info)\b.{0,25}\b(?:all|complete|full|every(?:thing)?)\b/iu;
+const certificationQuestionPattern = /\b(?:certif(?:ied|icate|ication)|approv(?:ed|al)|fda|usfda|who[ -]?gmp|gmp|fssai|haccp|halal|iso)\b/iu;
 const consultationPricePattern = /\b(?:is it|is this|consultation).{0,24}\b(?:free|paid|charge|cost|money)\b|\b(?:free|paid|charge|cost|money)\b.{0,24}\b(?:consultation|doctor|dietitian|dietician|expert)\b|\b(?:take|charge)\s+(?:any\s+)?money\b/iu;
+const refundRequestPattern = /\b(?:i (?:need|want|would like|require)(?: a| my)? refund|refund (?:my|this|the|an?)?\s*(?:order|purchase|product)?|money back|return (?:my|this|the) (?:order|purchase|product))\b|(?:रिफंड|पैसे वापस)/iu;
+const pregnancyOrBreastfeedingPattern = /\b(?:pregnan(?:t|cy)|pregnacy|pregnency|pregnent|breastfeed(?:ing)?|nursing mother|trying to conceive|conceiv(?:e|ing))\b|(?:गर्भवती|गर्भावस्था|स्तनपान)/iu;
 const vaguePersonalRecommendationPattern = /\b(?:which|what|konsa|kaunsa|konsi|kaunsi)\b.{0,35}\b(?:product|supplement)\b.{0,25}\b(?:for me|mere liye|mujhe|sahi|right|best|take)\b|\b(?:mere liye|mujhe)\b.{0,35}\b(?:which|what|konsa|kaunsa|konsi|kaunsi|product|supplement|sahi|best)\b|\bwhat should i take\b|(?:मेरे लिए कौनसा|मेरे लिए कौन सा|मुझे कौनसा)/iu;
 const explicitWellnessGoalPattern = /\b(?:diabetes|diabetic|blood sugar|glucose|liver|fatty liver|heart|cardiac|thyroid|gut|digestion|digestive|bloating|nerve|neuropathy|bone|calcium|sleep|insomnia|stress|energy|stamina|men'?s wellness|weight)\b|(?:डायबिटीज|शुगर|लिवर|हार्ट|थायराइड|पेट|नींद|हड्डी|नस)/iu;
 // Any mention of Muditam's dietitian is treated as a consult offer: in this commerce
@@ -32,6 +36,11 @@ const explicitWellnessGoalPattern = /\b(?:diabetes|diabetic|blood sugar|glucose|
 // through whenever the model phrased it differently, e.g. "Muditam dietitians create
 // plans using your reports" with no "book/consult" wording at all.
 const consultationOfferPattern = /\b(?:dietitian|dietician)s?\b|(डाइटिशियन|डायटीशियन)|\b(?:book|schedule|connect|arrange|offer|suggest|recommend|get|talk to|speak (?:to|with)|reach out to)\b.{0,40}\b(?:free\s+)?(?:consultation|consult|doctor|expert)\b|\bconsult(?:ation)?\b.{0,40}\b(?:free\s+)?(?:doctor|expert)\b/iu;
+
+function likelyInScopeSupportRequest(message: string): boolean {
+  return fuzzyIntent(message, ["product", "products", "supplement", "recommend", "order", "refund", "delivery", "price", "dosage"])
+    || /\b(?:wellness|health concern|blood sugar|diabetes|liver|heart|thyroid|gut|sleep|bone|nerve|symptom|muditam)\b/iu.test(message);
+}
 
 /** Recognizes the intent, not one exact sentence, while requiring two independent signals. */
 function asksWhetherDoctorIsNeeded(message: string): boolean {
@@ -130,13 +139,13 @@ export function deterministicProductDiscovery(
     .slice(0, 8);
   if (!entries.length) {
     return response(input, {
-      decision: "ALLOW",
-      category: "PRODUCT_DISCOVERY",
+      decision: "HANDOFF",
+      category: "ORDER_OR_SUPPORT",
       messages: [{
         type: "text",
-        text: "I can help with that, but I’m having trouble loading the current Muditam product catalogue. Please try again in a moment.",
+        text: "I couldn’t find a verified product for that concern. Our support team can help you with the right information.",
       }],
-      handoff: null,
+      handoff: expertHandoff("support", "No verified product was available for the requested concern"),
       guardrailStage: "INPUT",
     });
   }
@@ -206,10 +215,10 @@ export function deterministicProductCatalogue(
   );
   if (!entries.length) {
     return response(input, {
-      decision: "ALLOW",
-      category: "PRODUCT_DISCOVERY",
-      messages: [{ type: "text", text: "I can show you our products, but I’m having trouble loading the current catalogue. Please try again in a moment." }],
-      handoff: null,
+      decision: "HANDOFF",
+      category: "ORDER_OR_SUPPORT",
+      messages: [{ type: "text", text: "I couldn’t load the verified Muditam product catalogue. Please connect with our support team for help." }],
+      handoff: expertHandoff("support", "Verified product catalogue was unavailable"),
       guardrailStage: "INPUT",
     });
   }
@@ -250,6 +259,116 @@ function productReferenceMatches(normalizedMessage: string, name: string): boole
   return [full, withoutMerchandisingSuffix, ...knownAliases]
     .filter((candidate) => candidate.split(" ").length >= 2)
     .some((candidate) => normalizedMessage.includes(` ${candidate} `));
+}
+
+const productDiseaseClaimPattern = /\b(?:cure|treat|reverse|heal|control|manage|disa+p+ear|go away|end|remove)\b.{0,45}\b(?:diabetes|diabetic|blood sugar|glucose|liver|fatty liver|heart|thyroid)\b|\b(?:diabetes|diabetic|blood sugar|glucose|liver|fatty liver|heart|thyroid)\b.{0,45}\b(?:cure|treat|reverse|heal|control|manage|disa+p+ear|go away|end|remove)\b|\b(?:ठीक|इलाज|कंट्रोल)\b/iu;
+const diseaseOutcomeVerbPattern = /\b(?:cure|treat|reverse|heal|control|manage|disa+p+ear|go away|end|remove|permanent(?:ly)?)\b|\b(?:ठीक|इलाज|कंट्रोल)\b/iu;
+
+/**
+ * Keeps an outcome/condition question about one named product anchored to that
+ * product. Without this route, the condition word (for example, "diabetes")
+ * can incorrectly invoke broad category discovery and replace the product the
+ * customer actually asked about.
+ */
+export function deterministicNamedProductClaim(
+  input: CommerceChatRequest,
+  knowledge: readonly KnowledgeEntry[],
+): CommerceChatResponse | null {
+  const normalizedMessage = ` ${normalizedWords(input.message)} `;
+  const productEntries = knowledge.filter((entry) => entry.sourceType === "product"
+    && entry.recommendationEligible === true
+    && entry.productSlug);
+  const matched = productEntries.find((entry) => productReferenceMatches(normalizedMessage, productName(entry)));
+  if (!productDiseaseClaimPattern.test(input.message)
+    && !(matched && diseaseOutcomeVerbPattern.test(input.message))) return null;
+  const diabetes = /\b(?:diabetes|diabetic|blood sugar|glucose)\b|(?:डायबिटीज|मधुमेह|ब्लड शुगर)/iu.test(input.message);
+  if (!matched) {
+    if (!diabetes) return null;
+    const text = input.language === "hi"
+      ? "सप्लीमेंट डायबिटीज़ का इलाज नहीं करते और इसे खत्म नहीं कर सकते। Muditam सप्लीमेंट स्वस्थ ब्लड शुगर मैनेजमेंट को सपोर्ट करने के लिए बनाए गए हैं। अधिक जानकारी और व्यक्तिगत सलाह के लिए हमारे डाइटिशियन या सपोर्ट टीम से संपर्क करें।"
+      : input.language === "hinglish" || /\b(?:kya|kab|kitni|jaldi|hoga|hogi|hai)\b/iu.test(input.message)
+        ? "Supplements diabetes ko cure ya khatam nahi karte. Muditam supplements healthy blood-sugar management ko support karne ke liye formulated hain. Zyada jaankari aur personalized guidance ke liye hamare dietitian ya support team se connect karein."
+        : "Supplements do not cure diabetes or make it disappear. Muditam supplements are formulated to support healthy blood-sugar management. For more information and personalized guidance, please connect with our dietitian or support team.";
+    return {
+      ...response(input, {
+        decision: "HANDOFF",
+        category: "EXPERT_HANDOFF",
+        messages: [{ type: "text", text }],
+        handoff: expertHandoff("dietitian", "Customer asked whether diabetes can be cured or made to disappear"),
+        guardrailStage: "INPUT",
+      }),
+    };
+  }
+  const overview = productEntries.find((entry) => entry.productSlug === matched.productSlug && /:overview$/u.test(entry.key)) ?? matched;
+  const name = productName(overview);
+  const supportsBloodSugar = diabetes || overview.recommendationConcern === "blood_sugar";
+  const concern = diabetes ? "diabetes" : "a health condition";
+  const text = input.language === "hi"
+    ? `${name} ${concern === "diabetes" ? "डायबिटीज़ का इलाज नहीं करता" : "किसी स्वास्थ्य स्थिति का इलाज नहीं करता"}। यह एक हेल्थ सप्लीमेंट है, जिसे स्वस्थ ${supportsBloodSugar ? "ब्लड शुगर मैनेजमेंट" : "वेलनेस मैनेजमेंट"} को सपोर्ट करने के लिए बनाया गया है। अधिक जानकारी और व्यक्तिगत सलाह के लिए हमारे डाइटिशियन या सपोर्ट टीम से संपर्क करें।`
+    : input.language === "hinglish" || /\b(?:kya|karta|karti|hai|kar|sakta|saktha)\b/iu.test(input.message)
+      ? `${name} ${concern} ko cure nahi karta. Yeh ek health supplement hai jo healthy ${supportsBloodSugar ? "blood-sugar management" : "wellness management"} ko support karne ke liye formulated hai. Zyada jaankari aur personalized guidance ke liye hamare dietitian ya support team se connect karein.`
+      : `${name} does not cure ${concern}. It is a health supplement formulated to support healthy ${supportsBloodSugar ? "blood-sugar management" : "wellness management"}. For more information and personalized guidance, please connect with our dietitian or support team.`;
+  return {
+    decision: "HANDOFF",
+    category: "PRODUCT_INFORMATION",
+    messages: [{ type: "text", text }],
+    recommendedProducts: [{
+      productSlug: overview.productSlug as string,
+      name,
+      productUrl: overview.sourceUrl,
+      reason: `View ${name}`,
+    }],
+    knowledgeReferences: [{ key: overview.key, title: overview.title, sourceName: overview.sourceName, sourceUrl: overview.sourceUrl }],
+    handoff: expertHandoff("dietitian", `Customer asked whether ${name} cures or controls a health condition`),
+    model: null,
+    promptVersion: COMMERCE_PROMPT_VERSION,
+    guardrailStage: "INPUT",
+    usage: noUsage,
+  };
+}
+
+export function deterministicProductCertification(
+  input: CommerceChatRequest,
+  knowledge: readonly KnowledgeEntry[],
+): CommerceChatResponse | null {
+  if (!certificationQuestionPattern.test(input.message)) return null;
+  const normalizedMessage = ` ${normalizedWords(input.message)} `;
+  const productEntries = knowledge.filter((entry) => entry.sourceType === "product"
+    && entry.recommendationEligible === true
+    && entry.productSlug);
+  const matched = productEntries.find((entry) => productReferenceMatches(normalizedMessage, productName(entry)));
+  if (!matched) {
+    return response(input, {
+      decision: "ALLOW",
+      category: "PRODUCT_INFORMATION",
+      messages: [{
+        type: "text",
+        text: "Muditam’s published About page states that every product is FSSAI and GMP certified. The Certificates page specifically lists USFDA documentation and WHO-GMP for Karela Jamun Fizz and Sugar Defend Pro. We should not describe every product as FDA approved or WHO-GMP certified.",
+      }],
+      handoff: null,
+      guardrailStage: "INPUT",
+    });
+  }
+  const overview = productEntries.find((entry) => entry.productSlug === matched.productSlug && /:overview$/u.test(entry.key)) ?? matched;
+  const certificationEntry = productEntries.find((entry) => entry.productSlug === matched.productSlug
+    && /^Published certifications:/imu.test(entry.content)) ?? overview;
+  const certifications = certificationEntry.content.match(/^Published certifications:\s*(.+)$/imu)?.[1]?.trim();
+  const name = productName(overview);
+  const text = certifications
+    ? `${name} has these certifications or published compliance documents listed by Muditam: ${certifications}. “USFDA documentation” should not be described as FDA approval.`
+    : `${name} is covered by Muditam’s published FSSAI and GMP certification statement. No additional product-specific USFDA or WHO-GMP document is currently listed in the verified catalogue.`;
+  return {
+    decision: "ALLOW",
+    category: "PRODUCT_INFORMATION",
+    messages: [{ type: "text", text }],
+    recommendedProducts: [{ productSlug: overview.productSlug as string, name, productUrl: overview.sourceUrl, reason: `View ${name}` }],
+    knowledgeReferences: [{ key: certificationEntry.key, title: certificationEntry.title, sourceName: certificationEntry.sourceName, sourceUrl: certificationEntry.sourceUrl }],
+    handoff: null,
+    model: null,
+    promptVersion: COMMERCE_PROMPT_VERSION,
+    guardrailStage: "INPUT",
+    usage: noUsage,
+  };
 }
 
 export function deterministicProductInformation(
@@ -327,8 +446,7 @@ export function deterministicProductDosage(
     && entry.productSlug);
   const normalizedMessage = ` ${normalizedWords(input.message)} `;
   const explicitlyMatched = productEntries.find((entry) => {
-    const name = normalizedWords(productName(entry));
-    return name.length >= 4 && normalizedMessage.includes(` ${name} `);
+    return productReferenceMatches(normalizedMessage, productName(entry));
   });
   const uniqueSlugs = [...new Set(productEntries.map((entry) => entry.productSlug as string))];
   const productSlug = explicitlyMatched?.productSlug ?? (uniqueSlugs.length === 1 ? uniqueSlugs[0] : null);
@@ -411,12 +529,13 @@ export function deterministicProductCommercialDetails(
   knowledge: readonly KnowledgeEntry[],
 ): CommerceChatResponse | null {
   const asksPrice = priceQuestionPattern.test(input.message);
+  const asksCheapest = cheapestProductPattern.test(input.message);
   const asksVariants = variantQuestionPattern.test(input.message);
   const asksShelfLife = shelfLifeQuestionPattern.test(input.message);
   const asksEverything = completeProductDetailsPattern.test(input.message);
   const repliesInHinglish = input.language === "hinglish"
     || /\b(?:kya|ka|ki|ke|kitna|kitni|hai|hain|batao|chahiye)\b/iu.test(input.message);
-  if (!asksPrice && !asksVariants && !asksShelfLife && !asksEverything) return null;
+  if (!asksPrice && !asksCheapest && !asksVariants && !asksShelfLife && !asksEverything) return null;
 
   if (asksShelfLife && !asksPrice && !asksVariants && !asksEverything) {
     const text = input.language === "hi"
@@ -436,6 +555,51 @@ export function deterministicProductCommercialDetails(
   const productEntries = knowledge.filter((entry) => entry.sourceType === "product"
     && entry.recommendationEligible === true
     && entry.productSlug);
+  if (asksCheapest) {
+    const candidates = [...new Map(productEntries.map((entry) => [entry.productSlug as string, entry])).values()]
+      .flatMap((overview) => {
+        const details = productEntries.find((entry) => entry.productSlug === overview.productSlug && shopifyVariants(entry).length > 0);
+        const cheapestVariant = details && shopifyVariants(details)
+          .filter((variant) => variant.available && variant.price > 0)
+          .sort((left, right) => left.price - right.price)[0];
+        return details && cheapestVariant ? [{ overview, details, variant: cheapestVariant }] : [];
+      });
+    const lowestPrice = Math.min(...candidates.map((candidate) => candidate.variant.price));
+    const cheapest = candidates
+      .filter((candidate) => candidate.variant.price === lowestPrice)
+      .sort((left, right) => (left.overview.overallRank ?? Number.MAX_SAFE_INTEGER) - (right.overview.overallRank ?? Number.MAX_SAFE_INTEGER));
+    if (!cheapest.length || !Number.isFinite(lowestPrice)) {
+      return response(input, {
+        decision: "HANDOFF",
+        category: "ORDER_OR_SUPPORT",
+        messages: [{ type: "text", text: "I couldn’t load the current Shopify prices. Muditam support can confirm the lowest-priced available product." }],
+        handoff: expertHandoff("support", "Current Shopify catalogue prices were unavailable"),
+        guardrailStage: "INPUT",
+      });
+    }
+    const names = cheapest.map(({ overview }) => productName(overview));
+    const option = cheapest[0]!.variant.title;
+    const text = names.length === 1
+      ? `Our lowest-priced available product is ${names[0]}, starting at ${formatRupees(lowestPrice)} for ${option}. Prices are taken from the current Shopify catalogue.`
+      : `Our lowest current starting price is ${formatRupees(lowestPrice)}, available for ${names.join(" and ")}. Prices are taken from the current Shopify catalogue.`;
+    return {
+      decision: "ALLOW",
+      category: "PRODUCT_DISCOVERY",
+      messages: [{ type: "text", text }],
+      recommendedProducts: cheapest.map(({ overview }) => ({
+        productSlug: overview.productSlug as string,
+        name: productName(overview),
+        productUrl: overview.sourceUrl,
+        reason: `Starts at ${formatRupees(lowestPrice)}`,
+      })),
+      knowledgeReferences: cheapest.map(({ details }) => ({ key: details.key, title: details.title, sourceName: details.sourceName, sourceUrl: details.sourceUrl })),
+      handoff: null,
+      model: null,
+      promptVersion: COMMERCE_PROMPT_VERSION,
+      guardrailStage: "INPUT",
+      usage: noUsage,
+    };
+  }
   const normalizedMessage = ` ${normalizedWords(input.message)} `;
   const explicitlyMatched = productEntries.find((entry) => {
     return productReferenceMatches(normalizedMessage, productName(entry));
@@ -542,6 +706,38 @@ export function deterministicBestSeller(
 }
 
 export function deterministicCommerceGuardrail(input: CommerceChatRequest): CommerceChatResponse | null {
+  if (refundRequestPattern.test(input.message)) {
+    return response(input, {
+      decision: "HANDOFF",
+      category: "ORDER_OR_SUPPORT",
+      messages: [{
+        type: "text",
+        text: input.language === "hi"
+          ? "रिफंड अनुरोध हमारी सपोर्ट टीम संभालती है। कृपया उनसे कॉल या WhatsApp पर संपर्क करें।"
+          : input.language === "hinglish"
+            ? "Refund request hamari support team handle karti hai. Please unse call ya WhatsApp par connect karein."
+            : "Refund requests are handled by our support team. Please connect with them by call or WhatsApp.",
+      }],
+      handoff: expertHandoff("support", "Customer requested a refund"),
+      guardrailStage: "INPUT",
+    });
+  }
+  if (pregnancyOrBreastfeedingPattern.test(input.message)) {
+    const breastfeeding = /\b(?:breastfeed(?:ing)?|nursing mother)\b|(?:स्तनपान)/iu.test(input.message);
+    const situation = breastfeeding ? "breastfeeding" : "pregnancy";
+    const text = input.language === "hi"
+      ? `${breastfeeding ? "स्तनपान" : "गर्भावस्था"} के दौरान कोई भी Muditam सप्लीमेंट लेने से पहले अपने स्वास्थ्य सेवा प्रदाता से सलाह लेना ज़रूरी है। व्यक्तिगत सप्लीमेंट मार्गदर्शन के लिए आप हमारे डाइटिशियन या सपोर्ट टीम से भी जुड़ सकते हैं।`
+      : input.language === "hinglish" || /\b(?:kya|le|lena|sakti|sakta|pregnancy mein)\b/iu.test(input.message)
+        ? `${situation} ke dauran koi bhi Muditam supplement lene se pehle apne healthcare provider se consult karna zaroori hai. Personalized supplement guidance ke liye aap hamare dietitian ya support team se bhi connect kar sakte hain.`
+        : `Regarding taking Muditam supplements during ${situation}, it is essential to consult your healthcare provider first. You can also connect with our dietitian or support team for personalized supplement guidance.`;
+    return response(input, {
+      decision: "HANDOFF",
+      category: "EXPERT_HANDOFF",
+      messages: [{ type: "text", text }],
+      handoff: expertHandoff("dietitian", `Customer asked about supplement use during ${situation}`),
+      guardrailStage: "INPUT",
+    });
+  }
   if (urgentPattern.test(input.message)) {
     return response(input, {
       decision: "SAFETY",
@@ -707,6 +903,25 @@ export function enforceCommerceResult(
   }
 
   if (result.category === "OFF_TOPIC") {
+    if (likelyInScopeSupportRequest(input.message)) {
+      return {
+        decision: "HANDOFF",
+        category: "ORDER_OR_SUPPORT",
+        messages: [{
+          type: "text",
+          text: input.language === "hinglish"
+            ? "Main is request ka verified answer nahi de pa raha hoon. Hamari support team aapki help kar sakti hai."
+            : "I couldn’t provide a verified answer for that request. Our support team can help you.",
+        }],
+        recommendedProducts: [],
+        knowledgeReferences: [],
+        handoff: expertHandoff("support", "In-scope request could not be answered from verified information"),
+        model,
+        promptVersion: COMMERCE_PROMPT_VERSION,
+        guardrailStage: "OUTPUT",
+        usage,
+      };
+    }
     return {
       decision: "REFUSE",
       category: "OFF_TOPIC",

@@ -11,6 +11,8 @@ const PRODUCT_CATALOGUE_PATTERN = /\b(?:what (?:are|products? (?:do|does)) mudit
 
 export function productCatalogueIntent(message: string): boolean {
   const latest = latestCustomerMessage(message);
+  if (/\b(?:cheapest|lowest[ -]?priced|least expensive|most affordable|budget(?:-friendly)?)\b/iu.test(latest)
+    && fuzzyIntent(latest, ["product", "products", "supplement", "supplements"])) return true;
   if (PRODUCT_CATALOGUE_PATTERN.test(latest)) return true;
   const hasProduct = fuzzyIntent(latest, ["product", "products", "prodcuts", "produts", "catalogue", "catalog"]);
   const hasCatalogueRequest = fuzzyIntent(latest, ["what", "show", "list", "all", "catalogue", "catalog"]);
@@ -303,12 +305,16 @@ async function exactProductResults(productSlug: string, question: string): Promi
     "websiteCatalog.sourceUrl": 1,
     "websiteCatalog.contentHash": 1,
     "websiteCatalog.publishedDosage": 1,
+    "websiteCatalog.certifications": 1,
     "websiteCatalog.variants": 1,
     chatbotDescription: 1,
     chatbotFields: 1,
     recommendationPriority: 1,
   } });
   const publishedDosage = String(product?.websiteCatalog?.publishedDosage || "").trim();
+  const certifications = Array.isArray(product?.websiteCatalog?.certifications)
+    ? product.websiteCatalog.certifications.map(String).filter(Boolean)
+    : [];
   if (product) {
     const variants: Array<{ title: string; price: number; compareAtPrice: number | null; available: boolean }> = Array.isArray(product.websiteCatalog?.variants)
       ? product.websiteCatalog.variants.map((variant: Document) => ({
@@ -332,6 +338,7 @@ async function exactProductResults(productSlug: string, question: string): Promi
         product.chatbotFields?.other && `Other approved product information: ${String(product.chatbotFields.other)}`,
         product.chatbotFields?.variantFormats && `Approved variant formats: ${String(product.chatbotFields.variantFormats)}`,
         publishedDosage && `Published dosage: ${publishedDosage}`,
+        certifications.length && `Published certifications: ${certifications.join(", ")}`,
         variants.length && `Shopify variants: ${variants.map((variant) => JSON.stringify(variant)).join(" | ")}`,
         "Shelf life: 18 months.",
       ].filter(Boolean).join("\n"),
@@ -359,7 +366,11 @@ async function catalogueProductResults(): Promise<KnowledgeEntry[]> {
     active: true,
     websiteStatus: "active",
     recommendationEligible: true,
-  }, { projection: { slug: 1, recommendationPriority: 1, chatbotOverallRank: 1, chatbotDescription: 1, chatbotFields: 1 } }).toArray();
+  }, { projection: {
+    name: 1, slug: 1, productUrl: 1, recommendationPriority: 1, chatbotOverallRank: 1,
+    chatbotDescription: 1, chatbotFields: 1, "websiteCatalog.sourceUrl": 1,
+    "websiteCatalog.contentHash": 1, "websiteCatalog.variants": 1,
+  } }).toArray();
   products.sort((left, right) =>
     (Number(left.chatbotOverallRank) || Number.MAX_SAFE_INTEGER) - (Number(right.chatbotOverallRank) || Number.MAX_SAFE_INTEGER)
     || String(left.name).localeCompare(String(right.name)));
@@ -381,6 +392,14 @@ async function catalogueProductResults(): Promise<KnowledgeEntry[]> {
     const row = bySlug.get(slug);
     if (!row) return [];
     const product = products.find((item) => String(item.slug) === slug);
+    const variants = Array.isArray(product?.websiteCatalog?.variants)
+      ? product.websiteCatalog.variants.map((variant: Document) => ({
+        title: String(variant.title || ""),
+        price: Number(variant.price),
+        compareAtPrice: variant.compareAtPrice == null ? null : Number(variant.compareAtPrice),
+        available: variant.available === true,
+      })).filter((variant: { title: string; price: number }) => variant.title && Number.isFinite(variant.price))
+      : [];
     const override = [
       product?.chatbotDescription && `Approved description: ${String(product.chatbotDescription)}`,
       product?.chatbotFields?.concern && `Approved concerns: ${String(product.chatbotFields.concern)}`,
@@ -392,7 +411,11 @@ async function catalogueProductResults(): Promise<KnowledgeEntry[]> {
       product?.chatbotFields?.variantFormats && `Approved variant formats: ${String(product.chatbotFields.variantFormats)}`,
     ].filter(Boolean).join("\n");
     const entry = toKnowledgeEntry(row);
-    return [{ ...entry, content: override ? `${entry.content}\n${override}` : entry.content,
+    const liveDetails = variants.length ? `Shopify variants: ${variants.map((variant: Document) => JSON.stringify(variant)).join(" | ")}` : "";
+    const additions = [override, liveDetails].filter(Boolean).join("\n");
+    return [{ ...entry, content: additions ? `${entry.content}\n${additions}` : entry.content,
+      sourceUrl: String(product?.productUrl || product?.websiteCatalog?.sourceUrl || entry.sourceUrl),
+      version: String(product?.websiteCatalog?.contentHash || entry.version),
       overallRank: Number.isInteger(product?.chatbotOverallRank) ? Number(product?.chatbotOverallRank) : null }];
   });
 }

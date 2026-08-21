@@ -13,6 +13,8 @@ import {
   COMMERCE_PROMPT_VERSION,
   deterministicBestSeller,
   deterministicCommerceGuardrail,
+  deterministicNamedProductClaim,
+  deterministicProductCertification,
   deterministicProductCatalogue,
   deterministicProductCommercialDetails,
   deterministicProductDiscovery,
@@ -21,6 +23,7 @@ import {
   enforceCommerceResult,
 } from "./guardrails.js";
 import { deterministicOrderTracking, type OrderTrackingLookup } from "./order-tracking.js";
+import { expertHandoff } from "./expert-contact.js";
 
 export interface CommerceModelProvider {
   answer(input: CommerceChatRequest, knowledge: readonly KnowledgeEntry[]): Promise<{
@@ -31,6 +34,24 @@ export interface CommerceModelProvider {
 }
 
 export type CommerceKnowledgeRetriever = (question: string) => Promise<KnowledgeEntry[]>;
+
+function supportFallback(reason: string): CommerceChatResponse {
+  return {
+    decision: "HANDOFF",
+    category: "ORDER_OR_SUPPORT",
+    messages: [{
+      type: "text",
+      text: "I’m unable to verify that information right now. Please connect with our support team by call or WhatsApp.",
+    }],
+    recommendedProducts: [],
+    knowledgeReferences: [],
+    handoff: expertHandoff("support", reason),
+    model: null,
+    promptVersion: COMMERCE_PROMPT_VERSION,
+    guardrailStage: "OUTPUT",
+    usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+  };
+}
 
 export function commerceRetrievalQuery(input: CommerceChatRequest): string {
   const context = input.recentMessages
@@ -151,15 +172,29 @@ export async function answerCommerceChat(
   if (orderTracking) return orderTracking;
   const deterministic = deterministicCommerceGuardrail(input);
   if (deterministic) return deterministic;
-  const knowledge = await retrieve(commerceRetrievalQuery(input));
+  let knowledge: KnowledgeEntry[];
+  try {
+    knowledge = await retrieve(commerceRetrievalQuery(input));
+  } catch (error) {
+    console.error(JSON.stringify({
+      service: "muditam-ai-platform",
+      event: "commerce_knowledge.retrieval_failed",
+      error: error instanceof Error ? error.message : String(error),
+    }));
+    return supportFallback("Verified product information could not be loaded");
+  }
   const commercialDetails = deterministicProductCommercialDetails(input, knowledge);
   if (commercialDetails) return commercialDetails;
   const dosage = deterministicProductDosage(input, knowledge);
   if (dosage) return dosage;
   const bestSeller = deterministicBestSeller(input, knowledge);
   if (bestSeller) return bestSeller;
+  const productCertification = deterministicProductCertification(input, knowledge);
+  if (productCertification) return productCertification;
   const catalogue = deterministicProductCatalogue(input, knowledge);
   if (catalogue) return catalogue;
+  const namedProductClaim = deterministicNamedProductClaim(input, knowledge);
+  if (namedProductClaim) return namedProductClaim;
   const productDiscovery = deterministicProductDiscovery(input, knowledge);
   if (productDiscovery) return productDiscovery;
   const productInformation = deterministicProductInformation(input, knowledge);
@@ -167,7 +202,17 @@ export async function answerCommerceChat(
   const activeProvider = provider ?? new OpenAICommerceModelProvider(
     process.env.MUDITAM_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY ?? "",
   );
-  const generated = await activeProvider.answer(input, knowledge);
+  let generated: Awaited<ReturnType<CommerceModelProvider["answer"]>>;
+  try {
+    generated = await activeProvider.answer(input, knowledge);
+  } catch (error) {
+    console.error(JSON.stringify({
+      service: "muditam-ai-platform",
+      event: "commerce_model.answer_failed",
+      error: error instanceof Error ? error.message : String(error),
+    }));
+    return supportFallback("The automated assistant could not prepare a verified answer");
+  }
   return enforceCommerceResult(
     generated.result,
     input,
