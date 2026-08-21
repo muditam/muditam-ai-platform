@@ -10,6 +10,7 @@ const IDENTIFIER_CORRECTION = /\b(?:this|that|previous|last)?\s*(?:mobile|phone|
 const IDENTIFIER_REPLACEMENT = /\b(?:another|different|new|other)\s+(?:mobile|phone|contact)?\s*(?:number|no\.?)\b|\b(?:dusra|doosra|naya)\s+(?:mobile|phone|contact)?\s*(?:number|no\.?)?\b/iu;
 const MULTI_ORDER_REFERENCE = /\b(?:both|all(?: of them| orders?)?|these orders|each(?: one| order)?)\b|(?:dono|donon|sabhi)\b/iu;
 const ALL_CUSTOMER_ORDERS = /\b(?:all (?:of )?(?:my )?orders|my orders|every order|order history)\b|(?:mere|meri) (?:sabhi|saare) orders?\b/iu;
+const ORDER_CANCELLATION_REQUEST = /\b(?:can|could|would|will)\s+you\s+cancel\b.{0,30}\border\b|\b(?:please|pls)\s+cancel\b.{0,30}\border\b|\b(?:i\s+(?:want|need|would like)\s+to\s+cancel|cancel\s+my)\b.{0,30}\border\b|\b(?:order\s+cancel\s+kar(?:na|do)|mera\s+order\s+cancel)\b|(?:ऑर्डर कैंसिल)/iu;
 
 let client: MongoClient | null = null;
 
@@ -246,6 +247,13 @@ export async function deterministicOrderTracking(
   lookup: OrderTrackingLookup = lookupTrackedOrder,
   lookupCustomerOrders: CustomerOrdersLookup = lookupTrackedOrdersForCustomer,
 ): Promise<CommerceChatResponse | null> {
+  if (ORDER_CANCELLATION_REQUEST.test(input.message)) {
+    return {
+      ...emptyResponse("Order cancellations are handled by our support team. Please connect with them by call or WhatsApp."),
+      decision: "HANDOFF",
+      handoff: expertHandoff("support", "Customer requested an order cancellation"),
+    };
+  }
   if (!orderTrackingIntent(input)) return null;
   if (IDENTIFIER_CORRECTION.test(input.message) || IDENTIFIER_REPLACEMENT.test(input.message)) {
     return emptyResponse("No problem. Please share the correct registered mobile number or order ID.");

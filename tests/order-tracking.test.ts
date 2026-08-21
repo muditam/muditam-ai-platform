@@ -12,6 +12,21 @@ const request = {
 };
 
 describe("commerce order tracking", () => {
+  it("routes an order cancellation directly to support without collecting identifiers", async () => {
+    let lookupCalled = false;
+    const result = await deterministicOrderTracking({
+      ...request,
+      message: "can you cancel my ordeR?",
+    }, async () => {
+      lookupCalled = true;
+      return "NOT_FOUND";
+    });
+    expect(lookupCalled).toBe(false);
+    expect(result?.decision).toBe("HANDOFF");
+    expect(result?.messages[0]?.text).toBe("Order cancellations are handled by our support team. Please connect with them by call or WhatsApp.");
+    expect(result?.handoff?.queue).toBe("support");
+  });
+
   it("recognizes English and Hinglish tracking questions", () => {
     expect(orderTrackingIntent(request)).toBe(true);
     expect(orderTrackingIntent({ ...request, message: "i need my order details" })).toBe(true);
