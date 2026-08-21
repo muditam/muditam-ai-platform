@@ -30,6 +30,7 @@ const consultationPricePattern = /\b(?:is it|is this|consultation).{0,24}\b(?:fr
 const refundRequestPattern = /\b(?:i (?:need|want|would like|require)(?: a| my)? refund|refund (?:my|this|the|an?)?\s*(?:order|purchase|product)?|money back|return (?:my|this|the) (?:order|purchase|product))\b|(?:रिफंड|पैसे वापस)/iu;
 const pregnancyOrBreastfeedingPattern = /\b(?:pregnan(?:t|cy)|pregnacy|pregnency|pregnent|breastfeed(?:ing)?|nursing mother|trying to conceive|conceiv(?:e|ing))\b|(?:गर्भवती|गर्भावस्था|स्तनपान)/iu;
 const genericSideEffectQuestionPattern = /(?:^|\b)(?:is|are|any|what|does|do|have|has|known)?\s*(?:there\s+)?(?:any\s+)?side[ -]?effects?\b|\bside[ -]?effects?\s*(?:hai|hain|hote|hotey|kya|\?)|(?:साइड इफेक्ट|दुष्प्रभाव)/iu;
+const founderQuestionPattern = /\b(?:who\s+(?:is|are)\s+(?:the\s+)?(?:founder|co[ -]?founder)s?(?:\s+of\s+muditam)?|who\s+founded\s+muditam|is\s+.{1,45}\s+(?:the\s+)?(?:founder|co[ -]?founder)(?:\s+of\s+muditam)?|(?:founder|co[ -]?founder)s?\s+(?:of\s+)?muditam|(?:founder|co[ -]?founder)\s+(?:kaun|kon)(?:\s+hai)?)\b|(?:संस्थापक|फाउंडर)/iu;
 const vaguePersonalRecommendationPattern = /\b(?:which|what|konsa|kaunsa|konsi|kaunsi)\b.{0,35}\b(?:product|supplement)\b.{0,25}\b(?:for me|mere liye|mujhe|sahi|right|best|take)\b|\b(?:mere liye|mujhe)\b.{0,35}\b(?:which|what|konsa|kaunsa|konsi|kaunsi|product|supplement|sahi|best)\b|\bwhat should i take\b|(?:मेरे लिए कौनसा|मेरे लिए कौन सा|मुझे कौनसा)/iu;
 const explicitWellnessGoalPattern = /\b(?:diabetes|diabetic|blood sugar|glucose|liver|fatty liver|heart|cardiac|thyroid|gut|digestion|digestive|constipation|constipated|constapation|bloating|gas|acidity|nerve|neuropathy|bone|calcium|sleep|insomnia|stress|energy|stamina|men'?s wellness|weight)\b|(?:डायबिटीज|शुगर|लिवर|हार्ट|थायराइड|पेट|पाचन|कब्ज|गैस|नींद|हड्डी|नस)/iu;
 // Any mention of Muditam's dietitian is treated as a consult offer: in this commerce
@@ -698,6 +699,37 @@ export function deterministicProductCommercialDetails(
   };
 }
 
+export function deterministicFounderInformation(
+  input: CommerceChatRequest,
+  knowledge: readonly KnowledgeEntry[],
+): CommerceChatResponse | null {
+  if (!founderQuestionPattern.test(input.message)) return null;
+  const approved = knowledge.find((entry) => entry.sourceType === "platform"
+    && entry.sourceName === "Muditam Bot Flow"
+    && /\b(?:founder|co[ -]?founder|founded by)\b|(?:संस्थापक|फाउंडर)/iu.test(`${entry.title} ${entry.content}`));
+  if (!approved) {
+    return response(input, {
+      decision: "HANDOFF",
+      category: "ORDER_OR_SUPPORT",
+      messages: [{ type: "text", text: "I don’t have verified information about Muditam’s founder yet. Please connect with our support team for confirmation." }],
+      handoff: expertHandoff("support", "Admin-approved founder information is unavailable"),
+      guardrailStage: "INPUT",
+    });
+  }
+  return {
+    decision: "ALLOW",
+    category: "PRODUCT_INFORMATION",
+    messages: [{ type: "text", text: formatCommerceCopy(approved.content, 55) }],
+    recommendedProducts: [],
+    knowledgeReferences: [{ key: approved.key, title: approved.title, sourceName: approved.sourceName, sourceUrl: approved.sourceUrl }],
+    handoff: null,
+    model: null,
+    promptVersion: COMMERCE_PROMPT_VERSION,
+    guardrailStage: "INPUT",
+    usage: noUsage,
+  };
+}
+
 export function deterministicBestSeller(
   input: CommerceChatRequest,
   knowledge: readonly KnowledgeEntry[],
@@ -914,6 +946,30 @@ function handoffFor(result: ModelCommerceResult): CommerceChatResponse["handoff"
   return expertHandoff("dietitian", "Customer requested personalized guidance");
 }
 
+const leadingFactQuestionPattern = /^\s*(?:is|are|was|were|does|do|did|has|have)\b/iu;
+const leadingFactStopWords = new Set([
+  "a", "an", "and", "are", "did", "do", "does", "has", "have", "is", "it", "muditam",
+  "of", "our", "the", "this", "was", "were", "your",
+]);
+
+function materialClaimTokens(message: string): string[] {
+  return [...new Set(message.toLocaleLowerCase("en-IN").match(/[\p{L}\p{N}]+/gu) ?? [])]
+    .filter((token) => token.length > 1 && !leadingFactStopWords.has(token));
+}
+
+function approvedKnowledgeExplicitlySupportsClaim(
+  input: CommerceChatRequest,
+  citedEntries: readonly KnowledgeEntry[],
+): boolean {
+  if (!leadingFactQuestionPattern.test(input.message)) return true;
+  const tokens = materialClaimTokens(input.message);
+  if (!tokens.length || !citedEntries.length) return false;
+  const approvedText = citedEntries
+    .map((entry) => `${entry.title} ${entry.content} ${entry.contentHi}`.toLocaleLowerCase("en-IN"))
+    .join("\n");
+  return tokens.every((token) => approvedText.includes(token));
+}
+
 export function enforceCommerceResult(
   result: ModelCommerceResult,
   input: CommerceChatRequest,
@@ -990,6 +1046,10 @@ export function enforceCommerceResult(
     const entry = knowledgeByKey.get(key);
     return entry ? [{ key, title: entry.title, sourceName: entry.sourceName, sourceUrl: entry.sourceUrl }] : [];
   });
+  const citedEntries = [...new Set(result.citedKnowledgeKeys)].flatMap((key) => {
+    const entry = knowledgeByKey.get(key);
+    return entry ? [entry] : [];
+  });
   const productBySlug = new Map(
     knowledge
       .filter((entry) => entry.sourceType === "product" && entry.recommendationEligible && entry.productSlug)
@@ -1021,6 +1081,26 @@ export function enforceCommerceResult(
   const knowledgeReferences = [...new Map(
     [...citedKnowledge, ...recommendationKnowledge].map((reference) => [reference.key, reference]),
   ).values()];
+
+  if (!approvedKnowledgeExplicitlySupportsClaim(input, citedEntries)) {
+    return {
+      decision: "HANDOFF",
+      category: "ORDER_OR_SUPPORT",
+      messages: [{
+        type: "text",
+        text: input.language === "hinglish"
+          ? "Main is claim ko approved Muditam information se verify nahi kar pa raha hoon. Hamari support team ise confirm kar sakti hai."
+          : "I can’t verify that claim from approved Muditam information. Our support team can confirm it for you.",
+      }],
+      recommendedProducts: [],
+      knowledgeReferences: [],
+      handoff: expertHandoff("support", "Customer claim was not explicitly supported by approved knowledge"),
+      model,
+      promptVersion: COMMERCE_PROMPT_VERSION,
+      guardrailStage: "OUTPUT",
+      usage,
+    };
+  }
 
   const requiresKnowledge = ["PRODUCT_DISCOVERY", "PRODUCT_INFORMATION", "PRODUCT_COMPARISON"].includes(result.category);
   if (requiresKnowledge && knowledgeReferences.length === 0) {

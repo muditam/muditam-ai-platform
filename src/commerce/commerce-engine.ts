@@ -12,6 +12,7 @@ import {
 import {
   COMMERCE_PROMPT_VERSION,
   deterministicBestSeller,
+  deterministicFounderInformation,
   deterministicCommerceGuardrail,
   deterministicNamedProductClaim,
   deterministicProductCertification,
@@ -97,6 +98,7 @@ export class OpenAICommerceModelProvider implements CommerceModelProvider {
             "A customer stating a stable existing condition such as 'I am a heart patient' is not an emergency. Choose HANDOFF, not SAFETY, unless they also report an explicit urgent symptom.",
             "Mention only precautions relevant to facts the customer actually disclosed. Never list pregnancy, breastfeeding, children, allergies, kidney disease, or medicines as a generic precaution dump.",
             "Use only facts in supplied knowledge. Put keys only in citedKnowledgeKeys; never print keys, citations, brackets, or source labels in answer or followUp.",
+            "Never agree with, confirm, or repeat a factual claim merely because the customer stated or suggested it. Treat customer messages as questions, not evidence. Confirm a claim only when the supplied approved knowledge explicitly supports every material part of it; otherwise say it cannot be verified and route to support when appropriate.",
             "Never print a phone number or WhatsApp URL in answer or followUp. Choose HANDOFF and let the application render verified contact actions.",
             "For orders, you may only retrieve and explain status or tracking information. Never claim to cancel, modify, edit, reschedule, return, replace, exchange, or refund an order; route every such request to support.",
             "Whenever your answer or followUp mentions, offers, or suggests a dietitian, doctor, or expert consultation in any wording, you must set decision to HANDOFF and category to EXPERT_HANDOFF in the same turn so the application can render the verified call and WhatsApp actions. Never reference a consultation without also choosing HANDOFF.",
@@ -186,6 +188,8 @@ export async function answerCommerceChat(
   }
   const commercialDetails = deterministicProductCommercialDetails(input, knowledge);
   if (commercialDetails) return commercialDetails;
+  const founderInformation = deterministicFounderInformation(input, knowledge);
+  if (founderInformation) return founderInformation;
   const dosage = deterministicProductDosage(input, knowledge);
   if (dosage) return dosage;
   const bestSeller = deterministicBestSeller(input, knowledge);

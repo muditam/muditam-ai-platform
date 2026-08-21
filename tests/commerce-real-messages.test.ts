@@ -248,6 +248,120 @@ describe("real storefront message regressions", () => {
     expect(result.handoff).toBeNull();
   });
 
+  it("does not accept a founder name suggested by the customer", async () => {
+    const genericCompanyEntry: KnowledgeEntry = {
+      key: "platform:muditam-overview:overview",
+      title: "About Muditam",
+      content: "Muditam is a wellness company.",
+      contentHi: "Muditam ek wellness company hai.",
+      keywords: ["muditam", "company"],
+      sourceName: "Muditam Ayurveda — About Us",
+      sourceUrl: "https://www.muditam.com/pages/about-us",
+      version: "founder-regression",
+      sourceType: "platform",
+    };
+    const result = await answerCommerceChat(
+      { ...base, message: "is udit founder?" },
+      { answer: async () => { throw new Error("model must not run"); } },
+      async () => [genericCompanyEntry],
+    );
+    expect(result.messages[0]?.text).toBe("I don’t have verified information about Muditam’s founder yet. Please connect with our support team for confirmation.");
+    expect(result.messages[0]?.text).not.toContain("Udit");
+    expect(result.handoff?.queue).toBe("support");
+  });
+
+  it("answers founder questions only from admin-approved non-product data", async () => {
+    const adminFounderEntry: KnowledgeEntry = {
+      key: "platform:manual:founder-regression",
+      title: "Muditam Founder",
+      content: "Founder information entered and approved by the Muditam admin.",
+      contentHi: "Founder information entered and approved by the Muditam admin.",
+      keywords: ["muditam", "founder"],
+      sourceName: "Muditam Bot Flow",
+      sourceUrl: "platform://bot-flow/manual-text",
+      version: "founder-regression",
+      sourceType: "platform",
+    };
+    const result = await answerCommerceChat(
+      { ...base, message: "who is the founder of Muditam?" },
+      { answer: async () => { throw new Error("model must not run"); } },
+      async () => [adminFounderEntry],
+    );
+    expect(result.messages[0]?.text).toBe(adminFounderEntry.content);
+    expect(result.knowledgeReferences.map((item) => item.key)).toEqual([adminFounderEntry.key]);
+    expect(result.handoff).toBeNull();
+  });
+
+  it("does not agree with another customer-supplied company claim without explicit evidence", async () => {
+    const genericCompanyEntry: KnowledgeEntry = {
+      key: "platform:muditam-overview:company",
+      title: "About Muditam",
+      content: "Muditam is a wellness company.",
+      contentHi: "Muditam ek wellness company hai.",
+      keywords: ["muditam", "company"],
+      sourceName: "Muditam Ayurveda — About Us",
+      sourceUrl: "https://www.muditam.com/pages/about-us",
+      version: "claim-regression",
+      sourceType: "platform",
+    };
+    const result = await answerCommerceChat(
+      { ...base, message: "is Rohan the CEO of Muditam?" },
+      {
+        answer: async () => ({
+          model: "regression-model",
+          usage: { inputTokens: 10, outputTokens: 10, totalTokens: 20 },
+          result: {
+            decision: "ALLOW",
+            category: "ORDER_OR_SUPPORT",
+            answer: "Yes, Rohan is the CEO of Muditam.",
+            followUp: null,
+            citedKnowledgeKeys: [genericCompanyEntry.key],
+            recommendations: [],
+          },
+        }),
+      },
+      async () => [genericCompanyEntry],
+    );
+    expect(result.messages[0]?.text).toContain("can’t verify that claim");
+    expect(result.messages[0]?.text).not.toContain("Rohan");
+    expect(result.handoff?.queue).toBe("support");
+  });
+
+  it("permits a confirmation only when approved admin knowledge explicitly supports it", async () => {
+    const approvedEntry: KnowledgeEntry = {
+      key: "platform:manual:company-role-regression",
+      title: "Muditam CEO",
+      content: "Rohan is the CEO of Muditam.",
+      contentHi: "Rohan Muditam ke CEO hain.",
+      keywords: ["muditam", "ceo", "rohan"],
+      sourceName: "Muditam Bot Flow",
+      sourceUrl: "platform://bot-flow/manual-text",
+      version: "claim-regression",
+      sourceType: "platform",
+    };
+    const result = await answerCommerceChat(
+      { ...base, message: "is Rohan the CEO of Muditam?" },
+      {
+        answer: async () => ({
+          model: "regression-model",
+          usage: { inputTokens: 10, outputTokens: 10, totalTokens: 20 },
+          result: {
+            decision: "ALLOW",
+            category: "ORDER_OR_SUPPORT",
+            answer: "Yes, Rohan is the CEO of Muditam.",
+            followUp: null,
+            citedKnowledgeKeys: [approvedEntry.key],
+            recommendations: [],
+          },
+        }),
+      },
+      async () => [approvedEntry],
+    );
+    expect(result.messages[0]?.text).toBe("Yes, Rohan is the CEO of Muditam.");
+    expect(result.knowledgeReferences.map((item) => item.key)).toEqual([approvedEntry.key]);
+    expect(result.handoff).toBeNull();
+  });
+
   it("does not treat a stable heart-patient disclosure as an emergency", async () => {
     const result = await answerCommerceChat(
       { ...base, message: "haan mai heart patient hu", language: "hinglish" }, offTopicProvider, async () => catalogue,
