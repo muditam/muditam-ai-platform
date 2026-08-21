@@ -22,14 +22,16 @@ const dosageQuestionPattern = /\b(?:dose|dosage|how many|how much|how often|time
 const priceQuestionPattern = /\b(?:price|cost|mrp|offer price|how much (?:is|does)|kitne ka|kitni price|daam)\b|(?:कीमत|दाम)/iu;
 const cheapestProductPattern = /\b(?:cheapest|lowest[ -]?priced|least expensive|most affordable|budget(?:-friendly)?)\b/iu;
 const variantQuestionPattern = /\b(?:quantity|quantities|pack|packs|set|sets|variant|variants|option|options|size|sizes|bottles?|boxes?|sachets?)\b|(?:कितनी बोतल|पैक|सेट)/iu;
+const unitQuantityQuestionPattern = /\b(?:how many|quantity|count)\b.{0,35}\b(?:tablets?|capsules?|sachets?|softgels?|sprays?)\b|\b(?:tablets?|capsules?|sachets?|softgels?|sprays?)\b.{0,35}\b(?:per|each|in (?:a|one|each)|bottle|box|pack)\b|(?:कितनी (?:गोली|टैबलेट|कैप्सूल|सैशे))/iu;
 const shelfLifeQuestionPattern = /\b(?:shelf[ -]?life|expiry|expires?|expiration|best before)\b|(?:शेल्फ लाइफ|एक्सपायरी)/iu;
 const completeProductDetailsPattern = /\b(?:all|complete|full|every(?:thing)?)\b.{0,25}\b(?:details?|information|info)\b|\b(?:details?|information|info)\b.{0,25}\b(?:all|complete|full|every(?:thing)?)\b/iu;
 const certificationQuestionPattern = /\b(?:certif(?:ied|icate|ication)|approv(?:ed|al)|fda|usfda|who[ -]?gmp|gmp|fssai|haccp|halal|iso)\b/iu;
 const consultationPricePattern = /\b(?:is it|is this|consultation).{0,24}\b(?:free|paid|charge|cost|money)\b|\b(?:free|paid|charge|cost|money)\b.{0,24}\b(?:consultation|doctor|dietitian|dietician|expert)\b|\b(?:take|charge)\s+(?:any\s+)?money\b/iu;
 const refundRequestPattern = /\b(?:i (?:need|want|would like|require)(?: a| my)? refund|refund (?:my|this|the|an?)?\s*(?:order|purchase|product)?|money back|return (?:my|this|the) (?:order|purchase|product))\b|(?:रिफंड|पैसे वापस)/iu;
 const pregnancyOrBreastfeedingPattern = /\b(?:pregnan(?:t|cy)|pregnacy|pregnency|pregnent|breastfeed(?:ing)?|nursing mother|trying to conceive|conceiv(?:e|ing))\b|(?:गर्भवती|गर्भावस्था|स्तनपान)/iu;
+const genericSideEffectQuestionPattern = /(?:^|\b)(?:is|are|any|what|does|do|have|has|known)?\s*(?:there\s+)?(?:any\s+)?side[ -]?effects?\b|\bside[ -]?effects?\s*(?:hai|hain|hote|hotey|kya|\?)|(?:साइड इफेक्ट|दुष्प्रभाव)/iu;
 const vaguePersonalRecommendationPattern = /\b(?:which|what|konsa|kaunsa|konsi|kaunsi)\b.{0,35}\b(?:product|supplement)\b.{0,25}\b(?:for me|mere liye|mujhe|sahi|right|best|take)\b|\b(?:mere liye|mujhe)\b.{0,35}\b(?:which|what|konsa|kaunsa|konsi|kaunsi|product|supplement|sahi|best)\b|\bwhat should i take\b|(?:मेरे लिए कौनसा|मेरे लिए कौन सा|मुझे कौनसा)/iu;
-const explicitWellnessGoalPattern = /\b(?:diabetes|diabetic|blood sugar|glucose|liver|fatty liver|heart|cardiac|thyroid|gut|digestion|digestive|bloating|nerve|neuropathy|bone|calcium|sleep|insomnia|stress|energy|stamina|men'?s wellness|weight)\b|(?:डायबिटीज|शुगर|लिवर|हार्ट|थायराइड|पेट|नींद|हड्डी|नस)/iu;
+const explicitWellnessGoalPattern = /\b(?:diabetes|diabetic|blood sugar|glucose|liver|fatty liver|heart|cardiac|thyroid|gut|digestion|digestive|constipation|constipated|constapation|bloating|gas|acidity|nerve|neuropathy|bone|calcium|sleep|insomnia|stress|energy|stamina|men'?s wellness|weight)\b|(?:डायबिटीज|शुगर|लिवर|हार्ट|थायराइड|पेट|पाचन|कब्ज|गैस|नींद|हड्डी|नस)/iu;
 // Any mention of Muditam's dietitian is treated as a consult offer: in this commerce
 // scope the word only ever appears when pointing the customer at that human service,
 // so waiting for a specific offering verb (book/schedule/...) let real offers slip
@@ -111,6 +113,10 @@ const discoveryByConcern = [
     key: "liver",
     pattern: /\b(?:fatty liver|liver|lever)\b|(?:लिवर|जिगर)/iu,
   },
+  {
+    key: "gut",
+    pattern: /\b(?:constipation|constipated|constapation|weak digestion|poor digestion|digestion|digestive|gut health|gut|bloating|gas|acidity)\b|(?:कब्ज|पेट|पाचन|गैस)/iu,
+  },
 ] as const;
 
 export function deterministicProductDiscovery(
@@ -126,7 +132,11 @@ export function deterministicProductDiscovery(
   const asksForProduct = fuzzyIntent(productIntentContext, ["product", "products", "supplement", "something", "anything", "recommend"])
     || /\b(?:kuch|chahiye)\b|(?:प्रोडक्ट|उत्पाद|सप्लीमेंट|कुछ)/iu.test(productIntentContext);
   if (!asksForProduct) return null;
-  const match = discoveryByConcern.find((item) => item.pattern.test(input.message));
+  const currentMatch = discoveryByConcern.find((item) => item.pattern.test(input.message));
+  const contextualFollowUp = /\b(?:for (?:this|that|it)|recommend|product|supplement|iske liye|uske liye|is ke liye|koi|kuch)\b|(?:इसके लिए|उसके लिए|कोई प्रोडक्ट)/iu.test(input.message);
+  const match = currentMatch ?? (contextualFollowUp
+    ? discoveryByConcern.find((item) => item.pattern.test(recentUserContext))
+    : undefined);
   if (!match) return null;
   const entries = [...new Map(knowledge
     .filter((item) => item.sourceType === "product"
@@ -524,6 +534,10 @@ function formatRupees(value: number): string {
   return `₹${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(value)}`;
 }
 
+function publishedQuantity(entry: KnowledgeEntry): string | null {
+  return entry.content.match(/^(?:Approved|Published) quantity:\s*(.+)$/imu)?.[1]?.trim() ?? null;
+}
+
 export function deterministicProductCommercialDetails(
   input: CommerceChatRequest,
   knowledge: readonly KnowledgeEntry[],
@@ -531,11 +545,12 @@ export function deterministicProductCommercialDetails(
   const asksPrice = priceQuestionPattern.test(input.message);
   const asksCheapest = cheapestProductPattern.test(input.message);
   const asksVariants = variantQuestionPattern.test(input.message);
+  const asksUnitQuantity = unitQuantityQuestionPattern.test(input.message);
   const asksShelfLife = shelfLifeQuestionPattern.test(input.message);
   const asksEverything = completeProductDetailsPattern.test(input.message);
   const repliesInHinglish = input.language === "hinglish"
     || /\b(?:kya|ka|ki|ke|kitna|kitni|hai|hain|batao|chahiye)\b/iu.test(input.message);
-  if (!asksPrice && !asksCheapest && !asksVariants && !asksShelfLife && !asksEverything) return null;
+  if (!asksPrice && !asksCheapest && !asksVariants && !asksUnitQuantity && !asksShelfLife && !asksEverything) return null;
 
   if (asksShelfLife && !asksPrice && !asksVariants && !asksEverything) {
     const text = input.language === "hi"
@@ -608,6 +623,7 @@ export function deterministicProductCommercialDetails(
   const productSlug = explicitlyMatched?.productSlug ?? (uniqueSlugs.length === 1 ? uniqueSlugs[0] : null);
   const matchingEntries = productSlug ? productEntries.filter((entry) => entry.productSlug === productSlug) : [];
   const detailsEntry = matchingEntries.find((entry) => shopifyVariants(entry).length > 0)
+    ?? matchingEntries.find((entry) => publishedQuantity(entry))
     ?? matchingEntries.find((entry) => /Shelf life:\s*18 months/iu.test(entry.content));
 
   if (!productSlug || !detailsEntry) {
@@ -628,9 +644,21 @@ export function deterministicProductCommercialDetails(
   const overview = matchingEntries.find((entry) => /:overview$/u.test(entry.key)) ?? detailsEntry;
   const name = productName(overview);
   const allVariants = shopifyVariants(detailsEntry);
+  const unitQuantity = matchingEntries.map(publishedQuantity).find(Boolean) ?? null;
+  if (asksUnitQuantity && !unitQuantity) {
+    return response(input, {
+      decision: "HANDOFF",
+      category: "ORDER_OR_SUPPORT",
+      messages: [{ type: "text", text: repliesInHinglish
+        ? `${name} ki verified bottle ya box quantity available nahi hai. Muditam support ise confirm kar sakta hai.`
+        : `I don't have a verified bottle or box quantity for ${name}. Muditam support can confirm it.` }],
+      handoff: expertHandoff("support", `Published unit quantity unavailable for ${name}`),
+      guardrailStage: "INPUT",
+    });
+  }
   const requestedVariant = allVariants.find((variant) => normalizedMessage.includes(` ${normalizedWords(variant.title)} `));
   const variants = (requestedVariant ? [requestedVariant] : allVariants).filter((variant) => variant.available);
-  if ((asksPrice || asksVariants || asksEverything) && !variants.length) {
+  if ((asksPrice || (asksVariants && !asksUnitQuantity) || asksEverything) && !variants.length) {
     return response(input, {
       decision: "HANDOFF",
       category: "ORDER_OR_SUPPORT",
@@ -647,11 +675,13 @@ export function deterministicProductCommercialDetails(
     return `${variant.title}: ${formatRupees(variant.price)}${mrp}`;
   }).join("; ");
   const parts = [
-    (asksPrice || asksVariants || asksEverything) && `${name} ke available Shopify options hain: ${variantText}.`,
+    asksUnitQuantity && unitQuantity && `${name} ke har bottle ya box mein ${unitQuantity} hote hain.`,
+    (asksPrice || (asksVariants && !asksUnitQuantity) || asksEverything) && `${name} ke available Shopify options hain: ${variantText}.`,
     (asksShelfLife || asksEverything) && "Shelf life 18 months hai.",
   ].filter(Boolean);
   const hinglishText = parts.join(" ");
   const englishText = hinglishText
+    .replace(`${name} ke har bottle ya box mein ${unitQuantity ?? ""} hote hain.`, `Each bottle or box of ${name} contains ${unitQuantity ?? ""}.`)
     .replace("ke available Shopify options hain:", "has these available Shopify options:")
     .replace("Shelf life 18 months hai.", "The shelf life is 18 months.");
   return {
@@ -749,6 +779,18 @@ export function deterministicCommerceGuardrail(input: CommerceChatRequest): Comm
           : "This may require immediate medical help. Please contact your local emergency service now.",
       }],
       handoff: null,
+      guardrailStage: "INPUT",
+    });
+  }
+  if (genericSideEffectQuestionPattern.test(input.message)) {
+    return response(input, {
+      decision: "HANDOFF",
+      category: "EXPERT_HANDOFF",
+      messages: [{
+        type: "text",
+        text: "All our products are health supplements and can generally be taken without consulting a doctor. However, if you want to be extra sure, we offer FREE doctor consultations to provide personalized guidance.",
+      }],
+      handoff: expertHandoff("doctor", "Customer asked a general product side-effect question"),
       guardrailStage: "INPUT",
     });
   }

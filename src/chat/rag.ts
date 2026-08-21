@@ -100,7 +100,7 @@ function toKnowledgeEntry(item: Document): KnowledgeEntry {
       : {}),
     ...(Number.isInteger(item.overallRank) ? { overallRank: Number(item.overallRank) } : {}),
     ...(Number.isInteger(item.tagRank) ? { tagRank: Number(item.tagRank) } : {}),
-    ...(item.recommendationConcern === "blood_sugar" || item.recommendationConcern === "liver" || item.recommendationConcern === "heart"
+    ...(item.recommendationConcern === "blood_sugar" || item.recommendationConcern === "liver" || item.recommendationConcern === "heart" || item.recommendationConcern === "gut"
       ? { recommendationConcern: item.recommendationConcern }
       : {}),
     ...(channels.length ? { channels } : {}),
@@ -158,6 +158,9 @@ function expandCommerceProductQuery(question: string): string {
   if (/\b(?:heart|cardiac)\b|(?:हार्ट|दिल)/iu.test(question)) {
     expansions.push("heart cardiac cardiovascular wellness support heart defend");
   }
+  if (/\b(?:constipation|constipated|weak digestion|digestion|digestive|gut|bloating|gas|acidity)\b|(?:कब्ज|पेट|पाचन|गैस)/iu.test(question)) {
+    expansions.push("gut digestive constipation bloating support power gut");
+  }
   return [question, ...expansions].join("\n");
 }
 
@@ -180,6 +183,7 @@ const discoveryConcerns = [
   { key: "blood_sugar" as const, pattern: /\b(?:diabetes|diabetic|blood sugar|glucose|sugar patient)\b|(?:डायबिटीज|मधुमेह|ब्लड शुगर)/iu, tags: ["diabetes", "blood-sugar", "blood sugar", "glucose", "metabolic"] },
   { key: "liver" as const, pattern: /\b(?:fatty liver|liver|lever)\b|(?:लिवर|जिगर)/iu, tags: ["liver", "fatty-liver", "fatty liver"] },
   { key: "heart" as const, pattern: /\b(?:heart|cardiac|cardiovascular)\b|(?:हार्ट|दिल)/iu, tags: ["heart", "cardiac", "cardiovascular"] },
+  { key: "gut" as const, pattern: /\b(?:constipation|constipated|constapation|weak digestion|poor digestion|digestion|digestive|gut health|gut|bloating|gas|acidity)\b|(?:कब्ज|पेट|पाचन|गैस)/iu, tags: ["gut", "gut-health", "gut health", "digestion", "digestive", "constipation"] },
 ] as const;
 
 export function discoveryConcernForQuestion(question: string) {
@@ -188,7 +192,15 @@ export function discoveryConcernForQuestion(question: string) {
   // customer turn. The response guardrail independently decides whether the
   // customer requested recommendations, so retrieval can safely remain broad
   // and repeated switches such as diabetes -> liver -> diabetes keep working.
-  return discoveryConcerns.find((item) => item.pattern.test(latest));
+  const current = discoveryConcerns.find((item) => item.pattern.test(latest));
+  if (current) return current;
+  const contextualFollowUp = /\b(?:for (?:this|that|it)|recommend|product|supplement|iske liye|uske liye|is ke liye|koi|kuch)\b|(?:इसके लिए|उसके लिए|कोई प्रोडक्ट)/iu.test(latest);
+  if (!contextualFollowUp) return undefined;
+  const priorCustomerMessages = [...question.matchAll(/(?:^|\n)user:\s*([^\n]+)/giu)]
+    .map((match) => match[1] ?? "")
+    .slice(0, -1)
+    .reverse();
+  return discoveryConcerns.find((item) => priorCustomerMessages.some((message) => item.pattern.test(message)));
 }
 
 async function concernProductResults(question: string): Promise<KnowledgeEntry[]> {
@@ -305,6 +317,7 @@ async function exactProductResults(productSlug: string, question: string): Promi
     "websiteCatalog.sourceUrl": 1,
     "websiteCatalog.contentHash": 1,
     "websiteCatalog.publishedDosage": 1,
+    "websiteCatalog.publishedQuantity": 1,
     "websiteCatalog.certifications": 1,
     "websiteCatalog.variants": 1,
     chatbotDescription: 1,
@@ -312,6 +325,7 @@ async function exactProductResults(productSlug: string, question: string): Promi
     recommendationPriority: 1,
   } });
   const publishedDosage = String(product?.websiteCatalog?.publishedDosage || "").trim();
+  const publishedQuantity = String(product?.websiteCatalog?.publishedQuantity || "").trim();
   const certifications = Array.isArray(product?.websiteCatalog?.certifications)
     ? product.websiteCatalog.certifications.map(String).filter(Boolean)
     : [];
@@ -333,6 +347,7 @@ async function exactProductResults(productSlug: string, question: string): Promi
         product.chatbotFields?.concern && `Approved concerns: ${String(product.chatbotFields.concern)}`,
         product.chatbotFields?.keyBenefits && `Approved key benefits: ${String(product.chatbotFields.keyBenefits)}`,
         product.chatbotFields?.quantity && `Approved quantity: ${String(product.chatbotFields.quantity)}`,
+        publishedQuantity && `Published quantity: ${publishedQuantity}`,
         product.chatbotFields?.usage && `Approved usage: ${String(product.chatbotFields.usage)}`,
         product.chatbotFields?.warning && `Approved warning/disclaimer: ${String(product.chatbotFields.warning)}`,
         product.chatbotFields?.other && `Other approved product information: ${String(product.chatbotFields.other)}`,
@@ -369,7 +384,7 @@ async function catalogueProductResults(): Promise<KnowledgeEntry[]> {
   }, { projection: {
     name: 1, slug: 1, productUrl: 1, recommendationPriority: 1, chatbotOverallRank: 1,
     chatbotDescription: 1, chatbotFields: 1, "websiteCatalog.sourceUrl": 1,
-    "websiteCatalog.contentHash": 1, "websiteCatalog.variants": 1,
+    "websiteCatalog.contentHash": 1, "websiteCatalog.publishedQuantity": 1, "websiteCatalog.variants": 1,
   } }).toArray();
   products.sort((left, right) =>
     (Number(left.chatbotOverallRank) || Number.MAX_SAFE_INTEGER) - (Number(right.chatbotOverallRank) || Number.MAX_SAFE_INTEGER)
@@ -405,6 +420,7 @@ async function catalogueProductResults(): Promise<KnowledgeEntry[]> {
       product?.chatbotFields?.concern && `Approved concerns: ${String(product.chatbotFields.concern)}`,
       product?.chatbotFields?.keyBenefits && `Approved key benefits: ${String(product.chatbotFields.keyBenefits)}`,
       product?.chatbotFields?.quantity && `Approved quantity: ${String(product.chatbotFields.quantity)}`,
+      product?.websiteCatalog?.publishedQuantity && `Published quantity: ${String(product.websiteCatalog.publishedQuantity)}`,
       product?.chatbotFields?.usage && `Approved usage: ${String(product.chatbotFields.usage)}`,
       product?.chatbotFields?.warning && `Approved warning/disclaimer: ${String(product.chatbotFields.warning)}`,
       product?.chatbotFields?.other && `Other approved product information: ${String(product.chatbotFields.other)}`,

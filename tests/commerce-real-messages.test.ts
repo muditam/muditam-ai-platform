@@ -13,7 +13,7 @@ const base = {
 function product(
   slug: string,
   name: string,
-  concern: "blood_sugar" | "liver" | "heart" | null,
+  concern: "blood_sugar" | "liver" | "heart" | "gut" | null,
   price: number,
   options: { tagRank?: number; overallRank?: number; dosage?: string; certifications?: string } = {},
 ): KnowledgeEntry {
@@ -52,7 +52,8 @@ const catalogue: KnowledgeEntry[] = [
   product("sugar-defend-pro", "Sugar Defend Pro", "blood_sugar", 1_325, { tagRank: 3, overallRank: 3 }),
   product("liver-defend-pro", "Liver Defend Pro", "liver", 715, { tagRank: 1, overallRank: 5 }),
   product("liver-fix", "Liver Fix", "liver", 650, { tagRank: 2, overallRank: 2 }),
-  product("core-essentials", "Core Essentials", null, 420, { overallRank: 6 }),
+  product("power-gut", "Power Gut", "gut", 799, { tagRank: 1, overallRank: 6 }),
+  product("core-essentials", "Core Essentials", null, 420, { overallRank: 7 }),
 ];
 
 const offTopicProvider: CommerceModelProvider = {
@@ -93,6 +94,17 @@ describe("real storefront message regressions", () => {
       expect(result.handoff?.queue).toBe("dietitian");
     });
   }
+
+  it("uses the approved consultation message for a generic side-effect question", async () => {
+    const result = await answerCommerceChat(
+      { ...base, message: "Is any side-effects" },
+      { answer: async () => { throw new Error("model must not run"); } },
+      async () => { throw new Error("retrieval must not run"); },
+    );
+    expect(result.messages[0]?.text).toBe("All our products are health supplements and can generally be taken without consulting a doctor. However, if you want to be extra sure, we offer FREE doctor consultations to provide personalized guidance.");
+    expect(result.category).toBe("EXPERT_HANDOFF");
+    expect(result.handoff?.queue).toBe("doctor");
+  });
 
   it("routes a refund directly to support", async () => {
     const result = await answerCommerceChat(
@@ -144,6 +156,34 @@ describe("real storefront message regressions", () => {
     expect(result.recommendedProducts.map((item) => item.productSlug)).toEqual([
       "liver-defend-pro", "liver-fix",
     ]);
+  });
+
+  it("recommends Power Gut directly for constipation", async () => {
+    const result = await answerCommerceChat(
+      { ...base, message: "constipation ke liye koi product?", language: "hinglish" }, offTopicProvider, async () => catalogue,
+    );
+    expect(result.recommendedProducts.map((item) => item.productSlug)).toEqual(["power-gut"]);
+    expect(result.messages[0]?.text).toContain("Power Gut");
+    expect(result.handoff).toBeNull();
+  });
+
+  it("retains weak-digestion context for an 'iske liye' recommendation follow-up", async () => {
+    const result = await answerCommerceChat(
+      {
+        ...base,
+        message: "koi product recommend kar skte ho iske liye?",
+        language: "hinglish",
+        recentMessages: [
+          { role: "user", content: "mujhe constipation aur weak digestion hai" },
+          { role: "assistant", content: "Samajh gaya." },
+        ],
+      },
+      offTopicProvider,
+      async () => catalogue,
+    );
+    expect(result.recommendedProducts.map((item) => item.productSlug)).toEqual(["power-gut"]);
+    expect(result.messages[0]?.text).toContain("Power Gut");
+    expect(result.handoff).toBeNull();
   });
 
   it("answers published dosage for the product actually named", async () => {

@@ -126,6 +126,7 @@ function productChunks(product: Document): ChunkInput[] {
     `Category: ${product.category}`,
     product.websiteCatalog.description && `Published description: ${product.websiteCatalog.description}`,
     product.websiteCatalog.publishedDosage && `Published dosage: ${product.websiteCatalog.publishedDosage}`,
+    product.websiteCatalog.publishedQuantity && `Published quantity: ${product.websiteCatalog.publishedQuantity}`,
     strings(product.websiteCatalog.certifications).length && `Published certifications: ${strings(product.websiteCatalog.certifications).join(", ")}`,
     publishedVariants(product) && `Shopify variants: ${publishedVariants(product)}`,
     "Shelf life: 18 months.",

@@ -546,6 +546,26 @@ describe("commerce chat", () => {
     expect(response.messages[0]?.text).not.toContain("1 Bottle:");
   });
 
+  it("answers per-bottle tablet quantity from the published product specification", async () => {
+    const shopifyKnowledge = [{
+      key: "product:sugar-defend-pro:live-shopify-details", title: "Sugar Defend Pro — live Shopify details",
+      content: 'Product: Sugar Defend Pro\nPublished quantity: 60 tablets\nShopify variants: {"title":"1 month","price":1325,"compareAtPrice":null,"available":true}\nShelf life: 18 months.',
+      contentHi: "Verified Shopify details.", keywords: ["quantity", "tablets"], sourceName: "Muditam Ayurveda",
+      sourceUrl: "https://www.muditam.com/products/sugar-defend-pro", version: "test",
+      sourceType: "product" as const, productSlug: "sugar-defend-pro", recommendationEligible: true,
+    }];
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "How many tablets are there in each bottle?", recentMessages: [
+        { role: "user", content: "Tell me about Sugar Defend Pro" },
+        { role: "assistant", content: "Sugar Defend Pro supports metabolic wellness." },
+      ] },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => shopifyKnowledge,
+    );
+    expect(response.messages[0]?.text).toBe("Each bottle or box of Sugar Defend Pro contains 60 tablets.");
+    expect(response.handoff).toBeNull();
+  });
+
   it("uses the approved 18 month shelf life", async () => {
     const shopifyKnowledge = [{
       key: "product:bone-dense:live-shopify-details", title: "Bone Dense — live Shopify details",
