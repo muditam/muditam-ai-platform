@@ -295,9 +295,11 @@ describe("commerce chat", () => {
       async () => dosageKnowledge,
     );
     expect(response.messages[0]?.text).toContain("Shilajit with Gold ka published dosage");
+    expect(response.messages[0]?.text).toContain("Our doctor or dietitian can guide you through a FREE consultation.");
+    expect(response.handoff?.queue).toBe("dietitian");
     expect(response.messages[0]?.text).toContain("consumed twice a day");
     expect(response.messages[0]?.text).not.toContain("8989174741");
-    expect(response.handoff).toBeNull();
+    expect(response.handoff?.queue).toBe("dietitian");
     expect(response.recommendedProducts[0]?.productSlug).toBe("shilajit-with-gold");
   });
 

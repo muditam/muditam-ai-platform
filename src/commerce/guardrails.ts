@@ -340,13 +340,14 @@ export function deterministicProductDosage(
       : input.language === "hinglish"
         ? `${name} ka published dosage: ${dosage}`
         : `The published dosage for ${name} is: ${dosage}`;
+    const consultationLine = "Our doctor or dietitian can guide you through a FREE consultation.";
     return {
       decision: "ALLOW",
       category: "PRODUCT_INFORMATION",
-      messages: [{ type: "text", text }],
+      messages: [{ type: "text", text: `${text}\n\n${consultationLine}` }],
       recommendedProducts: [{ productSlug, name, productUrl: overview.sourceUrl, reason: `View ${name}` }],
       knowledgeReferences: [{ key: dosageEntry.key, title: dosageEntry.title, sourceName: dosageEntry.sourceName, sourceUrl: dosageEntry.sourceUrl }],
-      handoff: null,
+      handoff: expertHandoff("dietitian", "Customer requested published product dosage"),
       model: null,
       promptVersion: COMMERCE_PROMPT_VERSION,
       guardrailStage: "INPUT",
