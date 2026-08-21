@@ -261,6 +261,15 @@ describe("commerce chat", () => {
     },
   );
 
+  it("does not let an earlier catalogue message override a concern follow-up", () => {
+    const retrievalQuery = [
+      "user: muditam products?",
+      "assistant: You can browse all Muditam products below.",
+      "user: for diabetes?",
+    ].join("\n");
+    expect(retrievalCatalogueIntent(retrievalQuery)).toBe(false);
+  });
+
   it("answers a direct Hinglish product question from verified overview knowledge", async () => {
     const liverFix = [{
       key: "product:liver-fix:overview", title: "Liver Fix — product information",
