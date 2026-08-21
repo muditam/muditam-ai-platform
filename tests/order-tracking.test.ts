@@ -46,6 +46,34 @@ describe("commerce order tracking", () => {
     expect(parsed.phone).toBe("9876543210");
   });
 
+  it("clears an old phone when the customer asks to use another number", async () => {
+    const replacementRequest = {
+      ...request,
+      message: "another number",
+      recentMessages: [
+        { role: "user" as const, content: "9557704466" },
+        { role: "assistant" as const, content: "I couldn’t verify that order with those details." },
+      ],
+    };
+    expect(orderTrackingIntent(replacementRequest)).toBe(true);
+    const prompt = await deterministicOrderTracking(replacementRequest, async () => {
+      throw new Error("lookup should not run until the replacement identifier is supplied");
+    });
+    expect(prompt?.messages[0]?.text).toContain("correct registered mobile number or order ID");
+
+    const parsed = trackingLookupInput({
+      ...request,
+      message: "#MA150516",
+      recentMessages: [
+        { role: "user", content: "9557704466" },
+        { role: "assistant", content: "I couldn’t verify that order with those details." },
+        { role: "user", content: "another number" },
+        { role: "assistant", content: "No problem. Please share the correct registered mobile number or order ID." },
+      ],
+    });
+    expect(parsed).toEqual({ orderName: "#MA150516", email: null, phone: null });
+  });
+
   it("releases the order flow when the customer switches to a product question", async () => {
     const switchedRequest = {
       ...request,
@@ -211,6 +239,9 @@ describe("commerce order tracking", () => {
 
     expect(received).toEqual({ orderName: null, email: null, phone: "9557704466" });
     expect(result?.messages[0]?.text).toContain("couldn’t verify");
+    expect(result?.messages[0]?.text).toContain("connect with Muditam support");
+    expect(result?.handoff?.queue).toBe("support");
+    expect(result?.handoff?.phoneDisplay).toBe("8989174741");
     expect(result?.orderTracking).toBeNull();
   });
 

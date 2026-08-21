@@ -1,11 +1,13 @@
 import { MongoClient, type Db } from "mongodb";
 import type { CommerceChatRequest, CommerceChatResponse } from "./contracts.js";
+import { expertHandoff } from "./expert-contact.js";
 
 const ORDER_INTENT = /\b(?:where(?:'s| is) my order|track(?:ing)? (?:my )?order|order status|order details?|latest order|my orders?|delivery status|shipment status)\b|(?:mera|meri) order (?:kaha|kahaan|track|status|details?)|ऑर्डर (?:कहाँ|ट्रैक|स्टेटस|डिटेल)/iu;
 const ORDER_NUMBER = /#?\s*(MA\d{4,})\b/iu;
 const EMAIL = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/iu;
 const PHONE = /(?:\+?91[\s-]?)?([6-9]\d{9})\b/u;
 const IDENTIFIER_CORRECTION = /\b(?:this|that|previous|last)?\s*(?:mobile|phone|contact)?\s*(?:number|no\.?)?\s*(?:is|was)?\s*(?:wrong|incorrect|invalid)|\b(?:wrong|incorrect)\s*(?:mobile|phone|contact)?\s*(?:number|no\.?)?|\bnot\s+(?:my|the right)\s+(?:mobile|phone|contact)?\s*(?:number|no\.?)?|(?:number|mobile|phone)\s+(?:galat|wrong)\s+(?:hai|tha)?/iu;
+const IDENTIFIER_REPLACEMENT = /\b(?:another|different|new|other)\s+(?:mobile|phone|contact)?\s*(?:number|no\.?)\b|\b(?:dusra|doosra|naya)\s+(?:mobile|phone|contact)?\s*(?:number|no\.?)?\b/iu;
 const MULTI_ORDER_REFERENCE = /\b(?:both|all(?: of them| orders?)?|these orders|each(?: one| order)?)\b|(?:dono|donon|sabhi)\b/iu;
 const ALL_CUSTOMER_ORDERS = /\b(?:all (?:of )?(?:my )?orders|my orders|every order|order history)\b|(?:mere|meri) (?:sabhi|saare) orders?\b/iu;
 
@@ -24,7 +26,9 @@ async function database(): Promise<Db | null> {
 }
 
 function customerTurns(input: CommerceChatRequest): string[] {
-  return [...input.recentMessages.filter((item) => item.role === "user").slice(-6).map((item) => item.content), input.message];
+  const turns = [...input.recentMessages.filter((item) => item.role === "user").slice(-6).map((item) => item.content), input.message];
+  const resetAt = turns.findLastIndex((content) => IDENTIFIER_CORRECTION.test(content) || IDENTIFIER_REPLACEMENT.test(content));
+  return resetAt >= 0 ? turns.slice(resetAt + 1) : turns;
 }
 
 export function orderTrackingIntent(input: CommerceChatRequest): boolean {
@@ -45,6 +49,7 @@ export function orderTrackingIntent(input: CommerceChatRequest): boolean {
   const suppliedIdentifierInOrderConversation = recentOrderConversation
     && (PHONE.test(input.message) || EMAIL.test(input.message) || ORDER_NUMBER.test(input.message));
   const correctingRecentIdentifier = recentOrderResult && IDENTIFIER_CORRECTION.test(input.message);
+  const replacingIdentifier = recentOrderConversation && IDENTIFIER_REPLACEMENT.test(input.message);
   const referencedOrderCount = conversationOrderNames(input).length;
   const requestedMultipleOrders = MULTI_ORDER_REFERENCE.test(input.message) && referencedOrderCount >= 2;
   return ORDER_INTENT.test(input.message)
@@ -54,6 +59,7 @@ export function orderTrackingIntent(input: CommerceChatRequest): boolean {
     || suppliedRequestedIdentifier
     || suppliedIdentifierInOrderConversation
     || correctingRecentIdentifier
+    || replacingIdentifier
     || requestedMultipleOrders;
 }
 
@@ -106,6 +112,13 @@ function emptyResponse(text: string): CommerceChatResponse {
     promptVersion: "commerce-order-tracking-2026-08-20.1",
     guardrailStage: "INPUT",
     usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+  };
+}
+
+function orderNotFoundResponse(text: string): CommerceChatResponse {
+  return {
+    ...emptyResponse(`${text}\n\nIf you still can’t find it, you can connect with Muditam support.`),
+    handoff: expertHandoff("support", "Order could not be verified"),
   };
 }
 
@@ -234,14 +247,14 @@ export async function deterministicOrderTracking(
   lookupCustomerOrders: CustomerOrdersLookup = lookupTrackedOrdersForCustomer,
 ): Promise<CommerceChatResponse | null> {
   if (!orderTrackingIntent(input)) return null;
-  if (IDENTIFIER_CORRECTION.test(input.message)) {
+  if (IDENTIFIER_CORRECTION.test(input.message) || IDENTIFIER_REPLACEMENT.test(input.message)) {
     return emptyResponse("No problem. Please share the correct registered mobile number or order ID.");
   }
   const details = trackingLookupInput(input);
   if (requestsAllCustomerOrders(input) && (details.phone || details.email)) {
     const orders = await lookupCustomerOrders({ email: details.email, phone: details.phone });
     if (orders === "UNAVAILABLE") return emptyResponse("Order tracking is temporarily unavailable. Please try again shortly.");
-    if (orders === "NOT_FOUND") return emptyResponse("I couldn’t find any orders with those details. Please check the registered mobile number or email.");
+    if (orders === "NOT_FOUND") return orderNotFoundResponse("I couldn’t find any orders with those details. Please check the registered mobile number or email.");
     const summary = orders.map((item) => `${item.orderName} (${item.productNames.join(", ") || "Order"}): ${item.statusDetail}`).join("\n\n");
     return { ...emptyResponse(summary), orderTracking: null, orderTrackings: orders };
   }
@@ -260,7 +273,7 @@ export async function deterministicOrderTracking(
     }
     const verified = lookedUp.filter((item): item is TrackingResult => typeof item !== "string");
     if (!verified.length) {
-      return emptyResponse("I couldn’t verify those orders with the available details.");
+      return orderNotFoundResponse("I couldn’t verify those orders with the available details.");
     }
     const summary = verified.map((item) => `${item.orderName} (${item.productNames.join(", ") || "Order"}): ${item.statusDetail}`).join("\n\n");
     return {
@@ -274,7 +287,7 @@ export async function deterministicOrderTracking(
   }
   const result = await lookup(details);
   if (result === "NOT_FOUND" || result === "IDENTITY_MISMATCH") {
-    return emptyResponse("I couldn’t verify that order with those details. Please check the order number and checkout phone or email.");
+    return orderNotFoundResponse("I couldn’t verify that order with those details. Please check the order number and checkout phone or email.");
   }
   if (result === "UNAVAILABLE") return emptyResponse("Order tracking is temporarily unavailable. Please try again shortly.");
   const productText = result.productNames.length ? ` for ${result.productNames.join(", ")}` : "";
