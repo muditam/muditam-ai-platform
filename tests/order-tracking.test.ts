@@ -16,6 +16,8 @@ describe("commerce order tracking", () => {
     expect(orderTrackingIntent(request)).toBe(true);
     expect(orderTrackingIntent({ ...request, message: "i need my order details" })).toBe(true);
     expect(orderTrackingIntent({ ...request, message: "mera order kaha hai?" })).toBe(true);
+    expect(orderTrackingIntent({ ...request, message: "9557704466" })).toBe(true);
+    expect(orderTrackingIntent({ ...request, message: "customer@example.com" })).toBe(true);
   });
 
   it("collects an order number and checkout phone over multiple turns", () => {
@@ -188,6 +190,28 @@ describe("commerce order tracking", () => {
     });
     expect(received).toEqual({ orderName: null, email: null, phone: "9876543210" });
     expect(result?.orderTracking?.orderName).toBe("#MA150237");
+  });
+
+  it("keeps a bare phone number in the verified order flow even when the prompt wording changes", async () => {
+    let received: { orderName: string | null; email: string | null; phone: string | null } | null = null;
+    const followUp = {
+      ...request,
+      message: "9557704466",
+      recentMessages: [
+        { role: "user" as const, content: "Can you pull up my latest shipment?" },
+        { role: "assistant" as const, content: "I can look up your delivery securely. What contact number did you use at checkout?" },
+      ],
+    };
+
+    expect(orderTrackingIntent(followUp)).toBe(true);
+    const result = await deterministicOrderTracking(followUp, async (lookup) => {
+      received = lookup;
+      return "NOT_FOUND";
+    });
+
+    expect(received).toEqual({ orderName: null, email: null, phone: "9557704466" });
+    expect(result?.messages[0]?.text).toContain("couldn’t verify");
+    expect(result?.orderTracking).toBeNull();
   });
 
   it("does not reveal an order when customer verification fails", async () => {

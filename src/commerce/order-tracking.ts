@@ -28,6 +28,10 @@ function customerTurns(input: CommerceChatRequest): string[] {
 }
 
 export function orderTrackingIntent(input: CommerceChatRequest): boolean {
+  const recentOrderConversation = input.recentMessages
+    .slice(-8)
+    .some((item) => ORDER_INTENT.test(item.content)
+      || /\b(?:find|fetch|look up|pull up|check|verify)\b.{0,50}\b(?:order|shipment|delivery)\b|\b(?:order|shipment|delivery)\b.{0,50}\b(?:find|fetch|look up|pull up|check|verify)\b/iu.test(item.content));
   const recentAssistantAskedForOrder = input.recentMessages
     .filter((item) => item.role === "assistant")
     .slice(-2)
@@ -38,12 +42,17 @@ export function orderTrackingIntent(input: CommerceChatRequest): boolean {
     .some((item) => /(?:found your (?:latest )?order|your order number is|order has been|current order status)/iu.test(item.content));
   const suppliedRequestedIdentifier = recentAssistantAskedForOrder
     && (PHONE.test(input.message) || EMAIL.test(input.message) || ORDER_NUMBER.test(input.message));
+  const suppliedIdentifierInOrderConversation = recentOrderConversation
+    && (PHONE.test(input.message) || EMAIL.test(input.message) || ORDER_NUMBER.test(input.message));
   const correctingRecentIdentifier = recentOrderResult && IDENTIFIER_CORRECTION.test(input.message);
   const referencedOrderCount = conversationOrderNames(input).length;
   const requestedMultipleOrders = MULTI_ORDER_REFERENCE.test(input.message) && referencedOrderCount >= 2;
   return ORDER_INTENT.test(input.message)
     || ORDER_NUMBER.test(input.message)
+    || PHONE.test(input.message)
+    || EMAIL.test(input.message)
     || suppliedRequestedIdentifier
+    || suppliedIdentifierInOrderConversation
     || correctingRecentIdentifier
     || requestedMultipleOrders;
 }
