@@ -180,15 +180,13 @@ const discoveryConcerns = [
   { key: "heart" as const, pattern: /\b(?:heart|cardiac|cardiovascular)\b|(?:हार्ट|दिल)/iu, tags: ["heart", "cardiac", "cardiovascular"] },
 ] as const;
 
-function discoveryConcernForQuestion(question: string) {
+export function discoveryConcernForQuestion(question: string) {
   const latest = latestCustomerMessage(question);
-  // The latest turn can be a short answer such as "diabetes" or "for diabetes?"
-  // after the bot has asked which concern the customer wants a product for.
-  // Preserve the product intent from the recent transcript while requiring the
-  // concern itself to appear in the latest customer message.
-  const asksForProduct = fuzzyIntent(question, ["product", "products", "supplement", "something", "anything", "recommend"])
-    || /\b(?:kuch|chahiye)\b|(?:प्रोडक्ट|उत्पाद|सप्लीमेंट|कुछ)/iu.test(question);
-  return asksForProduct ? discoveryConcerns.find((item) => item.pattern.test(latest)) : undefined;
+  // Always retrieve verified candidates for a concern stated in the latest
+  // customer turn. The response guardrail independently decides whether the
+  // customer requested recommendations, so retrieval can safely remain broad
+  // and repeated switches such as diabetes -> liver -> diabetes keep working.
+  return discoveryConcerns.find((item) => item.pattern.test(latest));
 }
 
 async function concernProductResults(question: string): Promise<KnowledgeEntry[]> {

@@ -6,7 +6,7 @@ import {
 } from "../src/commerce/commerce-engine.js";
 import { formatCommerceCopy } from "../src/commerce/guardrails.js";
 import type { KnowledgeEntry } from "../src/chat/knowledge.js";
-import { productCatalogueIntent as retrievalCatalogueIntent } from "../src/chat/rag.js";
+import { discoveryConcernForQuestion, productCatalogueIntent as retrievalCatalogueIntent } from "../src/chat/rag.js";
 
 const baseRequest = {
   conversationId: "commerce-conversation-1",
@@ -268,6 +268,8 @@ describe("commerce chat", () => {
       "user: for diabetes?",
     ].join("\n");
     expect(retrievalCatalogueIntent(retrievalQuery)).toBe(false);
+    expect(discoveryConcernForQuestion(retrievalQuery)?.key).toBe("blood_sugar");
+    expect(discoveryConcernForQuestion("assistant: Liver options shown\nuser: diabetes again")?.key).toBe("blood_sugar");
   });
 
   it("answers a direct Hinglish product question from verified overview knowledge", async () => {
