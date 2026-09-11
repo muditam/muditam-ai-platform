@@ -35,13 +35,15 @@ export interface OpenAIImageExtractorOptions {
 }
 
 const EXTRACTION_PROMPT = [
-  "Extract only visibly printed patient-result rows from this blood-test report image.",
+  "Extract only visibly printed patient-result rows from this blood-test report image, or the current reading shown on a digital glucometer display.",
+  "For a glucometer photo, read only the large primary number inside the device's LCD/display and return one observation named Blood glucose.",
+  "Ignore every number outside the glucometer display, including packaging, advertisements, posters, captions, dates, times, historical readings, targets, ranges, and example values.",
   "Return the printed test name, result value, unit, reference range, flag, method, and confidence.",
   "Do not diagnose, interpret, calculate, convert units, infer missing values, or invent reference ranges.",
   "Do not assign canonical biomarker codes.",
   "Do not treat explanatory text, reference-only tables, targets, or example ranges as patient results.",
   "Preserve inequality signs and qualitative values exactly.",
-  "Set isBloodReport=false when this is not a blood-test report.",
+  "Treat a clearly visible glucometer reading as a supported blood-result image; otherwise set isBloodReport=false when this is not a blood-test report or glucometer reading.",
   "Use confidence below 0.85 for blurry, cropped, ambiguous, or partially obscured rows.",
   "Use quality=UNREADABLE when reliable patient results cannot be read.",
 ].join("\n");
