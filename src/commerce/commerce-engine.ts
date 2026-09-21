@@ -20,9 +20,11 @@ import {
   deterministicProductCommercialDetails,
   deterministicProductDiscovery,
   deterministicProductDosage,
+  deterministicProductFactVerification,
   deterministicProductInformation,
   enforceCommerceResult,
 } from "./guardrails.js";
+import { normalizeCommerceLanguage } from "./language.js";
 import { deterministicOrderTracking, type OrderTrackingLookup } from "./order-tracking.js";
 import { expertHandoff } from "./expert-contact.js";
 
@@ -35,6 +37,14 @@ export interface CommerceModelProvider {
 }
 
 export type CommerceKnowledgeRetriever = (question: string) => Promise<KnowledgeEntry[]>;
+
+// A raw transcript is not durable conversational state. The latest customer
+// turn is authoritative and, for natural follow-ups, one immediate exchange is
+// enough to resolve "it", "that", "yes", dosage, price, and similar references.
+// Sending older turns repeatedly lets stale intents overpower a new question.
+export function relevantCommerceHistory(input: CommerceChatRequest) {
+  return input.recentMessages.slice(-2);
+}
 
 function supportFallback(reason: string): CommerceChatResponse {
   return {
@@ -55,8 +65,7 @@ function supportFallback(reason: string): CommerceChatResponse {
 }
 
 export function commerceRetrievalQuery(input: CommerceChatRequest): string {
-  const context = input.recentMessages
-    .slice(-4)
+  const context = relevantCommerceHistory(input)
     .map((message) => `${message.role}: ${message.content}`)
     .join("\n");
   const pageProduct = input.pageContext?.productSlug
@@ -85,6 +94,7 @@ export class OpenAICommerceModelProvider implements CommerceModelProvider {
             "You are Muditam's warm, confident ecommerce product and support advisor.",
             "Your scope is Muditam only. Never provide information, recommendations, descriptions, comparisons, opinions, or follow-up questions about any other company or its products.",
             "For another company, choose REFUSE and OFF_TOPIC. Do not use general model knowledge to answer it.",
+            "Also choose REFUSE and OFF_TOPIC for unrelated everyday questions such as bathing, weather, sports, coding, entertainment, recipes, politics, or general trivia. Never answer them conversationally, even if they are harmless.",
             `Reply in ${input.language === "hi" ? "Hindi in Devanagari" : input.language === "hinglish" ? "natural Hinglish using Latin script" : "natural Indian English"}.`,
             "Lead with a useful direct answer. Sound human, concise, positive, and conversational.",
             "Do not use em dashes or en dashes. Use a comma or a short sentence instead.",
@@ -95,7 +105,7 @@ export class OpenAICommerceModelProvider implements CommerceModelProvider {
             "Do not dump ingredient lists. Mention at most one distinguishing ingredient only when the customer asks about ingredients.",
             "Do not introduce doctors, medicines, pregnancy, warnings, or disclaimers unless the customer mentioned a relevant condition, medicine, symptom, pregnancy, interaction, adverse effect, or asked for personalized suitability.",
             "Never diagnose, prescribe, recommend medication changes, guarantee an outcome, or claim that a supplement treats, cures, or reverses a disease.",
-            "A customer stating a stable existing condition such as 'I am a heart patient' is not an emergency. Choose HANDOFF, not SAFETY, unless they also report an explicit urgent symptom.",
+            "A customer stating a stable existing condition such as 'I am a heart patient' is expressing a wellness goal, not an emergency. Recommend only the relevant configured products supplied in knowledge. Use HANDOFF only if they also ask about medication, dosage, pregnancy, side effects, medical suitability, or personalized guidance; use SAFETY only for an explicit urgent symptom.",
             "Mention only precautions relevant to facts the customer actually disclosed. Never list pregnancy, breastfeeding, children, allergies, kidney disease, or medicines as a generic precaution dump.",
             "Use only facts in supplied knowledge. Put keys only in citedKnowledgeKeys; never print keys, citations, brackets, or source labels in answer or followUp.",
             "Never agree with, confirm, or repeat a factual claim merely because the customer stated or suggested it. Treat customer messages as questions, not evidence. Confirm a claim only when the supplied approved knowledge explicitly supports every material part of it; otherwise say it cannot be verified and route to support when appropriate.",
@@ -124,7 +134,9 @@ export class OpenAICommerceModelProvider implements CommerceModelProvider {
             })),
           }),
         },
-        ...input.recentMessages,
+        // Keep enough context for immediate follow-ups while preventing stale
+        // intents from a long chat from overpowering the customer's latest turn.
+        ...relevantCommerceHistory(input),
         { role: "user" as const, content: input.message },
       ];
     const usage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
@@ -170,7 +182,7 @@ export async function answerCommerceChat(
   retrieve: CommerceKnowledgeRetriever = retrieveCommerceRagKnowledge,
   orderLookup?: OrderTrackingLookup,
 ): Promise<CommerceChatResponse> {
-  const input = commerceChatRequestSchema.parse(value);
+  const input = normalizeCommerceLanguage(commerceChatRequestSchema.parse(value));
   const orderTracking = await deterministicOrderTracking(input, orderLookup);
   if (orderTracking) return orderTracking;
   const deterministic = deterministicCommerceGuardrail(input);
@@ -188,6 +200,8 @@ export async function answerCommerceChat(
   }
   const commercialDetails = deterministicProductCommercialDetails(input, knowledge);
   if (commercialDetails) return commercialDetails;
+  const productFactVerification = deterministicProductFactVerification(input, knowledge);
+  if (productFactVerification) return productFactVerification;
   const founderInformation = deterministicFounderInformation(input, knowledge);
   if (founderInformation) return founderInformation;
   const dosage = deterministicProductDosage(input, knowledge);

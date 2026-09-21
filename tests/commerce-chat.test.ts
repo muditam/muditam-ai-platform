@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   answerCommerceChat,
   commerceRetrievalQuery,
+  relevantCommerceHistory,
   type CommerceModelProvider,
 } from "../src/commerce/commerce-engine.js";
 import { formatCommerceCopy } from "../src/commerce/guardrails.js";
@@ -48,6 +49,64 @@ const productKnowledge: KnowledgeEntry[] = [
 ];
 
 describe("commerce chat", () => {
+  it("treats a Roman-Hindi diabetes disclosure as Hinglish product discovery", async () => {
+    const response = await answerCommerceChat(
+      { ...baseRequest, language: "hinglish", message: "mujhe diabetes hai" },
+      { answer: async () => { throw new Error("model should not run"); } },
+      async () => productKnowledge,
+    );
+
+    expect(response.decision).toBe("ALLOW");
+    expect(response.category).toBe("PRODUCT_DISCOVERY");
+    expect(response.messages[0]?.text).toContain("wellness support ke liye");
+    expect(response.recommendedProducts.map((item) => item.productSlug)).toEqual([
+      "sugar-defend-pro",
+      "karela-jamun-fizz",
+    ]);
+    expect(response.handoff).toBeNull();
+  });
+
+  it.each([
+    "mai nahane jau?",
+    "aaj weather kaisa hai?",
+    "who won the cricket match?",
+    "tell me a joke",
+    "write javascript code",
+  ])("refuses clearly unrelated storefront questions before calling the model: %s", async (message) => {
+    const response = await answerCommerceChat(
+      { ...baseRequest, language: "hinglish", message },
+      { answer: async () => { throw new Error("model should not run"); } },
+      async () => { throw new Error("retrieval should not run"); },
+    );
+
+    expect(response.decision).toBe("REFUSE");
+    expect(response.category).toBe("OFF_TOPIC");
+    expect(response.messages[0]?.text).toContain("Main sirf Muditam");
+    expect(response.handoff).toBeNull();
+  });
+
+  it("keeps a bathing question in scope when it is explicitly about a product", async () => {
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "Can I shower after taking this supplement?" },
+      {
+        answer: async () => ({
+          model: "test-model",
+          result: {
+            decision: "HANDOFF",
+            category: "EXPERT_HANDOFF",
+            answer: "Please check the product-specific guidance with our expert.",
+            followUp: null,
+            citedKnowledgeKeys: [],
+            recommendations: [],
+          },
+        }),
+      },
+      async () => [],
+    );
+
+    expect(response.category).not.toBe("OFF_TOPIC");
+  });
+
   it("routes refund requests directly to support without collecting refund details", async () => {
     const response = await answerCommerceChat(
       { ...baseRequest, message: "i need refund" },
@@ -73,6 +132,29 @@ describe("commerce chat", () => {
     expect(query).toContain("Sugar Defend Pro");
     expect(query).toContain("complete composition");
     expect(query).toContain("yes do you have it?");
+  });
+
+  it("retains only the immediate exchange instead of replaying stale long-chat intents", () => {
+    const input = {
+      ...baseRequest,
+      message: "any product for liver?",
+      recentMessages: [
+        { role: "user" as const, content: "old diabetes question" },
+        { role: "assistant" as const, content: "old diabetes answer" },
+        { role: "user" as const, content: "old order question" },
+        { role: "assistant" as const, content: "old order answer" },
+        { role: "user" as const, content: "most recent user turn" },
+        { role: "assistant" as const, content: "most recent assistant turn" },
+      ],
+    };
+    expect(relevantCommerceHistory(input).map((item) => item.content)).toEqual([
+      "most recent user turn",
+      "most recent assistant turn",
+    ]);
+    const query = commerceRetrievalQuery(input);
+    expect(query).not.toContain("old diabetes");
+    expect(query).not.toContain("old order");
+    expect(query).toContain("any product for liver?");
   });
 
   it("uses conversation context when retrieving knowledge for a follow-up", async () => {
@@ -375,6 +457,79 @@ describe("commerce chat", () => {
     expect(retrievalCatalogueIntent(retrievalQuery)).toBe(false);
     expect(discoveryConcernForQuestion(retrievalQuery)?.key).toBe("blood_sugar");
     expect(discoveryConcernForQuestion("assistant: Liver options shown\nuser: diabetes again")?.key).toBe("blood_sugar");
+  });
+
+  it("uses verified liver products and cards for a short Hinglish concern switch", async () => {
+    const liverProducts = [
+      {
+        ...productKnowledge[0]!,
+        key: "product:liver-defend-pro:overview",
+        title: "Liver Defend Pro — product information",
+        productSlug: "liver-defend-pro",
+        recommendationConcern: "liver" as const,
+        tagRank: 1,
+      },
+      {
+        ...productKnowledge[1]!,
+        key: "product:liver-fix:overview",
+        title: "Liver Fix — product information",
+        productSlug: "liver-fix",
+        recommendationConcern: "liver" as const,
+        tagRank: 2,
+      },
+    ];
+    const response = await answerCommerceChat(
+      {
+        ...baseRequest,
+        language: "hinglish",
+        message: "aur liver ke liye",
+        recentMessages: [
+          { role: "user", content: "mujhe diabetes hai" },
+          { role: "assistant", content: "Diabetes products shown." },
+        ],
+      },
+      { answer: async () => { throw new Error("model must not run"); } },
+      async () => liverProducts,
+    );
+
+    expect(response.decision).toBe("ALLOW");
+    expect(response.category).toBe("PRODUCT_DISCOVERY");
+    expect(response.messages[0]?.text).toContain("liver wellness support ke liye");
+    expect(response.recommendedProducts.map((item) => item.productSlug)).toEqual([
+      "liver-defend-pro",
+      "liver-fix",
+    ]);
+    expect(response.messages[0]?.text).not.toContain("LivGuard");
+    expect(response.messages[0]?.text).not.toContain("HepaCare");
+  });
+
+  it("lets a bone concern override prior liver context and returns the bone card", async () => {
+    const boneDense = {
+      ...productKnowledge[0]!,
+      key: "product:bone-dense:overview",
+      title: "Bone Dense — product information",
+      productSlug: "bone-dense",
+      recommendationConcern: "bone" as const,
+      tagRank: 1,
+    };
+    const response = await answerCommerceChat(
+      {
+        ...baseRequest,
+        language: "hinglish",
+        message: "bones ke liye kuch hai?",
+        recentMessages: [
+          { role: "user", content: "liver ke liye kuch hai?" },
+          { role: "assistant", content: "Liver Defend Pro aur Liver Fix consider kar sakte hain." },
+        ],
+      },
+      { answer: async () => { throw new Error("model must not run"); } },
+      async () => [boneDense],
+    );
+
+    expect(response.category).toBe("PRODUCT_DISCOVERY");
+    expect(response.messages[0]?.text).toContain("bone wellness support ke liye");
+    expect(response.messages[0]?.text).not.toContain("liver wellness");
+    expect(response.recommendedProducts.map((item) => item.productSlug)).toEqual(["bone-dense"]);
   });
 
   it("answers a direct Hinglish product question from verified overview knowledge", async () => {
@@ -777,6 +932,58 @@ describe("commerce chat", () => {
     expect(response.messages[0]?.text).toContain("chat or a callback");
   });
 
+  it("keeps medication handoff copy in Hinglish for a Hinglish insulin disclosure", async () => {
+    const response = await answerCommerceChat(
+      { ...baseRequest, language: "hinglish", message: "yes mai insulin le raha hu" },
+      { answer: async () => { throw new Error("model should not run"); } },
+      async () => { throw new Error("retrieval should not run"); },
+    );
+
+    expect(response.decision).toBe("HANDOFF");
+    expect(response.category).toBe("EXPERT_HANDOFF");
+    expect(response.handoff?.queue).toBe("doctor");
+    expect(response.messages[0]?.text).toContain("Aap insulin ya medication le rahe hain");
+    expect(response.messages[0]?.text).toContain("chat prefer karenge ya callback");
+    expect(response.messages[0]?.text).not.toContain("Since medication is involved");
+  });
+
+  it("uses approved supplement reassurance for generic allopathic medication questions", async () => {
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "Can I take Karela Jamun Fizz with my allopathic medication?" },
+      { answer: async () => { throw new Error("model should not run"); } },
+      async () => { throw new Error("retrieval should not run"); },
+    );
+
+    expect(response.decision).toBe("HANDOFF");
+    expect(response.category).toBe("EXPERT_HANDOFF");
+    expect(response.handoff?.queue).toBe("doctor");
+    expect(response.messages[0]?.text).toBe("All our products are health supplements and can generally be taken without consulting a doctor. However, if you want to be extra sure, we offer FREE doctor consultations to provide personalized guidance.");
+  });
+
+  it("keeps stricter doctor compatibility copy for named high-risk medicines", async () => {
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "Can I take Karela Jamun Fizz with insulin?" },
+      { answer: async () => { throw new Error("model should not run"); } },
+      async () => { throw new Error("retrieval should not run"); },
+    );
+
+    expect(response.decision).toBe("HANDOFF");
+    expect(response.handoff?.queue).toBe("doctor");
+    expect(response.messages[0]?.text).toContain("Since medication is involved");
+  });
+
+  it("normalizes Hinglish even when the client sends English language", async () => {
+    const response = await answerCommerceChat(
+      { ...baseRequest, language: "en", message: "yes mai insulin le raha hu" },
+      { answer: async () => { throw new Error("model should not run"); } },
+      async () => { throw new Error("retrieval should not run"); },
+    );
+
+    expect(response.decision).toBe("HANDOFF");
+    expect(response.messages[0]?.text).toContain("Aap insulin ya medication le rahe hain");
+    expect(response.messages[0]?.text).not.toContain("Since medication is involved");
+  });
+
   it("handles an urgent message deterministically", async () => {
     const response = await answerCommerceChat(
       { ...baseRequest, message: "He is unconscious and cannot breathe" },
@@ -897,7 +1104,6 @@ describe("commerce chat", () => {
       "do ineed doctor consultation?",
       "do i need docter consultion?",
       "is doctor consulation required?",
-      "kya mujhe docter ki advice chahiye?",
     ]) {
       const typoResponse = await answerCommerceChat(
         { ...baseRequest, message },
@@ -908,6 +1114,15 @@ describe("commerce chat", () => {
       expect(typoResponse.recommendedProducts).toEqual([]);
       expect(typoResponse.handoff?.queue).toBe("doctor");
     }
+
+    const hinglishResponse = await answerCommerceChat(
+      { ...baseRequest, message: "kya mujhe docter ki advice chahiye?" },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => { throw new Error("should not retrieve"); },
+    );
+    expect(hinglishResponse.messages[0]?.text).toContain("Hamare sabhi products");
+    expect(hinglishResponse.recommendedProducts).toEqual([]);
+    expect(hinglishResponse.handoff?.queue).toBe("doctor");
   });
 
   it("does not use the general consultation copy when medication is involved", async () => {
@@ -921,20 +1136,26 @@ describe("commerce chat", () => {
     expect(response.messages[0]?.text).not.toContain("generally be taken without consulting");
   });
 
-  it("treats a disclosed heart condition as a consultation handoff, not an emergency", async () => {
+  it("treats a disclosed heart condition as product discovery, not an emergency", async () => {
+    const heartProduct = {
+      ...productKnowledge[0]!,
+      key: "product:heart-defend-pro:overview",
+      title: "Heart Defend Pro — product information",
+      productSlug: "heart-defend-pro",
+      recommendationConcern: "heart" as const,
+    };
     const response = await answerCommerceChat(
-      { ...baseRequest, message: "haan mai heart patient hu" },
+      { ...baseRequest, language: "hinglish", message: "haan mai heart patient hu" },
       { answer: async () => { throw new Error("should not run"); } },
-      async () => { throw new Error("should not retrieve"); },
+      async () => [heartProduct],
     );
 
-    expect(response.decision).toBe("HANDOFF");
-    expect(response.category).toBe("EXPERT_HANDOFF");
-    expect(response.messages[0]?.text).toContain("heart condition");
-    expect(response.messages[0]?.text).toContain("FREE supplement consultation");
+    expect(response.decision).toBe("ALLOW");
+    expect(response.category).toBe("PRODUCT_DISCOVERY");
+    expect(response.recommendedProducts.map((item) => item.productSlug)).toEqual(["heart-defend-pro"]);
     expect(response.messages[0]?.text).not.toContain("emergency");
     expect(response.messages[0]?.text).not.toContain("pregnan");
-    expect(response.handoff?.queue).toBe("doctor");
+    expect(response.handoff).toBeNull();
   });
 
   it("treats diabetes recommendation intent as product discovery, not diagnosis disclosure", async () => {
@@ -977,7 +1198,7 @@ describe("commerce chat", () => {
     );
 
     expect(response.decision).toBe("HANDOFF");
-    expect(response.messages[0]?.text).toContain("don’t have a verified published dosage");
+    expect(response.messages[0]?.text).toContain("verified dosage abhi available nahi hai");
     expect(response.messages[0]?.text).not.toContain("pregnan");
     expect(response.messages[0]?.text).not.toContain("breastfeed");
   });

@@ -153,6 +153,12 @@ const productDiscoveryConcerns = [
     en: (names: string[]) => `For liver wellness support, you can consider ${names.join(" and ")}. They offer different options for convenient daily support.`,
     hi: (names: string[]) => `लिवर वेलनेस सपोर्ट के लिए आप ${names.join(" और ")} के बारे में जान सकते हैं। ये रोज़मर्रा के सपोर्ट के लिए अलग-अलग विकल्प हैं।`,
   },
+  {
+    key: "bone",
+    pattern: /\b(?:bone|bones|bone health|calcium|joint support)\b|(?:हड्डी|हड्डियों|कैल्शियम)/iu,
+    en: (names: string[]) => `For bone wellness support, you can consider ${names.join(" and ")}.`,
+    hi: (names: string[]) => `हड्डियों की वेलनेस सपोर्ट के लिए आप ${names.join(" और ")} के बारे में जान सकते हैं।`,
+  },
 ] as const;
 
 export function deterministicProductDiscoveryResponse(

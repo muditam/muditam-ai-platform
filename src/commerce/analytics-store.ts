@@ -89,7 +89,17 @@ async function touchVisitor(
   );
 }
 
-const ESCALATING_DECISIONS = new Set(["HANDOFF", "SAFETY"]);
+/**
+ * A handoff card is often shown as a helpful fallback (refunds, pregnancy,
+ * missing information, etc.). That is not an escalation until the customer
+ * explicitly asks to speak with a person.
+ */
+export function explicitlyRequestsHumanSupport(message: string): boolean {
+  const normalized = message.trim();
+  if (!normalized) return false;
+
+  return /(?:\b(?:talk|speak|chat|connect|contact|transfer|call|whatsapp|reach)\b.{0,45}\b(?:support|agent|human|person|representative|expert|dietitian|dietician|doctor|team|someone)\b|\b(?:support|agent|human|representative|expert|dietitian|dietician|doctor)\b.{0,45}\b(?:talk|speak|chat|connect|contact|transfer|call|whatsapp|help me)\b|\b(?:live agent|human agent|customer care|customer support|talk to someone|speak to someone|connect me to someone|someone from (?:your|the) team|call me|call back|callback|need (?:human )?support|want (?:human )?support)\b|(?:support se baat|agent se baat|doctor se baat|dietitian se baat|dietician se baat|किसी से बात|सपोर्ट से बात|एजेंट से बात|डॉक्टर से बात))/iu.test(normalized);
+}
 
 export async function recordMessageTurn(
   input: CommerceChatRequest,
@@ -102,9 +112,16 @@ export async function recordMessageTurn(
     const now = new Date();
     const conversationId = input.conversationId;
 
-    const isEscalating = ESCALATING_DECISIONS.has(result.decision);
+    const isEscalating = explicitlyRequestsHumanSupport(input.message);
     const healthConcernThisTurn = disclosedCondition(input.message);
     const productSlugsThisTurn = result.recommendedProducts.map((product) => product.productSlug);
+    const reviewReason = result.decision === "REFUSE" && result.category !== "OFF_TOPIC"
+      ? "unanswered"
+      : result.guardrailStage === "OUTPUT" && result.decision === "HANDOFF"
+        ? "output_fallback"
+        : result.handoff && /(?:unavailable|could not|couldn't|no verified|not verified|failed)/iu.test(result.handoff.reason)
+          ? "missing_verified_information"
+          : null;
     const messagesInsertedThisTurn = result.messages.length + 1; // assistant bubbles + the user's own message
     // An aggregation-pipeline update (not a plain update document) so a brand-new
     // conversation whose very first turn already escalates doesn't try to set
@@ -126,7 +143,18 @@ export async function recordMessageTurn(
             language: input.language,
             pageContext: input.pageContext ?? null,
             lastMessageAt: now,
-            resolutionStatus: isEscalating ? "escalated" : { $ifNull: ["$resolutionStatus", "resolved"] },
+            explicitEscalationRequested: isEscalating
+              ? true
+              : { $ifNull: ["$explicitEscalationRequested", false] },
+            resolutionStatus: isEscalating
+              ? "escalated"
+              : {
+                  $cond: [
+                    { $eq: [{ $ifNull: ["$explicitEscalationRequested", false] }, true] },
+                    "escalated",
+                    "resolved",
+                  ],
+                },
             intents: { $setUnion: [{ $ifNull: ["$intents", []] }, [result.category]] },
             healthConcerns: healthConcernThisTurn
               ? { $setUnion: [{ $ifNull: ["$healthConcerns", []] }, [healthConcernThisTurn]] }
@@ -152,6 +180,8 @@ export async function recordMessageTurn(
       ...(index === result.messages.length - 1 ? {
         recommendedProducts: result.recommendedProducts,
         handoff: result.handoff,
+        needsReview: reviewReason !== null,
+        reviewReason,
       } : {}),
     }));
     await db.collection("commerce_messages").insertMany([
@@ -159,6 +189,7 @@ export async function recordMessageTurn(
         conversationId,
         role: "user",
         text: input.message,
+        explicitEscalationRequest: isEscalating,
         createdAt: now,
       },
       ...assistantDocs,
@@ -249,6 +280,18 @@ export async function recordFeedback(conversationId: string, rating: "up" | "dow
       { conversationId },
       { $set: { feedback: rating } },
     );
+    if (rating === "down") {
+      const latestAssistant = await db.collection("commerce_messages").findOne(
+        { conversationId, role: "assistant" },
+        { sort: { createdAt: -1 }, projection: { _id: 1 } },
+      );
+      if (latestAssistant?._id) {
+        await db.collection("commerce_messages").updateOne(
+          { _id: latestAssistant._id },
+          { $set: { needsReview: true, reviewReason: "thumbs_down", feedbackAt: new Date() } },
+        );
+      }
+    }
   } catch (error) {
     console.warn(JSON.stringify({
       service: "muditam-ai-platform",
@@ -319,11 +362,36 @@ export async function listConversations(
     query.visitorId = { $in: repeatVisitorIds };
   }
 
-  return db.collection("commerce_conversations")
+  const conversations = await db.collection("commerce_conversations")
     .find(query)
     .sort({ lastMessageAt: -1 })
     .limit(Math.min(Math.max(range.limit ?? 50, 1), 200))
     .toArray();
+
+  if (conversations.length === 0) return conversations;
+  const conversationIds = conversations
+    .map((conversation) => conversation.conversationId)
+    .filter((value): value is string => typeof value === "string");
+  const userMessages = await db.collection("commerce_messages")
+    .find(
+      { conversationId: { $in: conversationIds }, role: "user" },
+      { projection: { conversationId: 1, text: 1 } },
+    )
+    .toArray();
+  const explicitlyEscalated = new Set(
+    userMessages
+      .filter((message) => typeof message.text === "string" && explicitlyRequestsHumanSupport(message.text))
+      .map((message) => message.conversationId as string),
+  );
+
+  return conversations.map((conversation) => {
+    const escalated = explicitlyEscalated.has(conversation.conversationId as string);
+    return {
+      ...conversation,
+      explicitEscalationRequested: escalated,
+      resolutionStatus: escalated ? "escalated" : "resolved",
+    };
+  });
 }
 
 export interface ConversationDetail {
@@ -341,10 +409,23 @@ export async function getConversationDetail(conversationId: string): Promise<Con
     .find({ conversationId })
     .sort({ createdAt: 1 })
     .toArray();
+  const escalated = messages.some(
+    (message) => message.role === "user"
+      && typeof message.text === "string"
+      && explicitlyRequestsHumanSupport(message.text),
+  );
   const visitor = conversation.visitorId
     ? await db.collection("commerce_visitors").findOne({ visitorId: conversation.visitorId })
     : null;
-  return { conversation, messages, visitor };
+  return {
+    conversation: {
+      ...conversation,
+      explicitEscalationRequested: escalated,
+      resolutionStatus: escalated ? "escalated" : "resolved",
+    },
+    messages,
+    visitor,
+  };
 }
 
 export interface CommerceOverview {
@@ -438,8 +519,12 @@ export async function getOverview(range: DateRange = {}): Promise<CommerceOvervi
               $group: {
                 _id: null,
                 totalConversations: { $sum: 1 },
-                resolvedCount: { $sum: { $cond: [{ $eq: ["$resolutionStatus", "resolved"] }, 1, 0] } },
-                escalatedCount: { $sum: { $cond: [{ $eq: ["$resolutionStatus", "escalated"] }, 1, 0] } },
+                resolvedCount: {
+                  $sum: { $cond: [{ $ne: ["$explicitEscalationRequested", true] }, 1, 0] },
+                },
+                escalatedCount: {
+                  $sum: { $cond: [{ $eq: ["$explicitEscalationRequested", true] }, 1, 0] },
+                },
                 leadCaptures: { $sum: { $cond: ["$leadCaptured", 1, 0] } },
                 thumbsUp: { $sum: { $cond: [{ $eq: ["$feedback", "up"] }, 1, 0] } },
                 thumbsDown: { $sum: { $cond: [{ $eq: ["$feedback", "down"] }, 1, 0] } },
