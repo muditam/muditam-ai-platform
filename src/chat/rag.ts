@@ -100,7 +100,7 @@ function toKnowledgeEntry(item: Document): KnowledgeEntry {
       : {}),
     ...(Number.isInteger(item.overallRank) ? { overallRank: Number(item.overallRank) } : {}),
     ...(Number.isInteger(item.tagRank) ? { tagRank: Number(item.tagRank) } : {}),
-    ...(item.recommendationConcern === "blood_sugar" || item.recommendationConcern === "liver" || item.recommendationConcern === "heart" || item.recommendationConcern === "gut"
+    ...(item.recommendationConcern === "blood_sugar" || item.recommendationConcern === "liver" || item.recommendationConcern === "heart" || item.recommendationConcern === "gut" || item.recommendationConcern === "bone"
       ? { recommendationConcern: item.recommendationConcern }
       : {}),
     ...(channels.length ? { channels } : {}),
@@ -184,6 +184,7 @@ const discoveryConcerns = [
   { key: "liver" as const, pattern: /\b(?:fatty liver|liver|lever)\b|(?:लिवर|जिगर)/iu, tags: ["liver", "fatty-liver", "fatty liver"] },
   { key: "heart" as const, pattern: /\b(?:heart|cardiac|cardiovascular)\b|(?:हार्ट|दिल)/iu, tags: ["heart", "cardiac", "cardiovascular"] },
   { key: "gut" as const, pattern: /\b(?:constipation|constipated|constapation|weak digestion|poor digestion|digestion|digestive|gut health|gut|bloating|gas|acidity)\b|(?:कब्ज|पेट|पाचन|गैस)/iu, tags: ["gut", "gut-health", "gut health", "digestion", "digestive", "constipation"] },
+  { key: "bone" as const, pattern: /\b(?:bone|bones|bone health|calcium|joint support)\b|(?:हड्डी|हड्डियों|कैल्शियम)/iu, tags: ["bone", "bones", "bone-health", "bone health", "bone_health", "calcium"] },
 ] as const;
 
 export function discoveryConcernForQuestion(question: string) {
@@ -209,12 +210,29 @@ async function concernProductResults(question: string): Promise<KnowledgeEntry[]
   const db = await database();
   if (!db) return [];
   const tagMatchers = concern.tags.map((tag) => new RegExp(`^${tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"));
-  const products = await db.collection("metabolic_products").find({
+  const projection = { slug: 1, name: 1, recommendationPriority: 1, chatbotOverallRank: 1, chatbotTagRanks: 1, chatbotTags: 1 };
+  // Admin-managed chatbotTags are authoritative as soon as at least one product
+  // is configured for the concern. This keeps untagged legacy blood-sugar items
+  // out of diabetes results. For a concern that has not been configured at all
+  // yet (currently liver), fall back to its legacy category so valid products do
+  // not disappear while the admin finishes tagging the catalogue.
+  let products = await db.collection("metabolic_products").find({
     active: true,
     websiteStatus: "active",
     recommendationEligible: true,
     chatbotTags: { $in: tagMatchers },
-  }, { projection: { slug: 1, name: 1, recommendationPriority: 1, chatbotOverallRank: 1, chatbotTagRanks: 1, chatbotTags: 1 } }).toArray();
+  }, { projection }).toArray();
+  if (products.length === 0) {
+    const categoryMatchers = [...new Set([concern.key, ...concern.tags])]
+      .map((category) => new RegExp(`^${category.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"));
+    products = await db.collection("metabolic_products").find({
+      active: true,
+      websiteStatus: "active",
+      recommendationEligible: true,
+      category: { $in: categoryMatchers },
+      chatbotConfigUpdatedAt: { $exists: false },
+    }, { projection }).toArray();
+  }
   products.sort((left, right) => {
     const rankFor = (product: Document) => {
       const ranks = product.chatbotTagRanks && typeof product.chatbotTagRanks === "object" ? product.chatbotTagRanks : {};

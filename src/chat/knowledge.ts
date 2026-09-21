@@ -13,7 +13,7 @@ export interface KnowledgeEntry {
   recommendationPriority?: "hidden" | "normal" | "boosted";
   overallRank?: number | null;
   tagRank?: number | null;
-  recommendationConcern?: "blood_sugar" | "liver" | "heart" | "gut";
+  recommendationConcern?: "blood_sugar" | "liver" | "heart" | "gut" | "bone";
   channels?: Array<"mobile_app" | "shopify_web">;
   audiences?: Array<"anonymous_visitor" | "verified_customer">;
 }

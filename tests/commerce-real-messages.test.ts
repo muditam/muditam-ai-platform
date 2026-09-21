@@ -52,6 +52,7 @@ const catalogue: KnowledgeEntry[] = [
   product("sugar-defend-pro", "Sugar Defend Pro", "blood_sugar", 1_325, { tagRank: 3, overallRank: 3 }),
   product("liver-defend-pro", "Liver Defend Pro", "liver", 715, { tagRank: 1, overallRank: 5 }),
   product("liver-fix", "Liver Fix", "liver", 650, { tagRank: 2, overallRank: 2 }),
+  product("heart-defend-pro", "Heart Defend Pro", "heart", 899, { tagRank: 1, overallRank: 6 }),
   product("power-gut", "Power Gut", "gut", 799, { tagRank: 1, overallRank: 6 }),
   product("core-essentials", "Core Essentials", null, 420, { overallRank: 7 }),
 ];
@@ -183,6 +184,64 @@ describe("real storefront message regressions", () => {
     );
     expect(result.recommendedProducts.map((item) => item.productSlug)).toEqual(["power-gut"]);
     expect(result.messages[0]?.text).toContain("Power Gut");
+    expect(result.handoff).toBeNull();
+  });
+
+  it("answers add-to-cart capability from the current turn instead of replaying an older recommendation", async () => {
+    const result = await answerCommerceChat(
+      {
+        ...base,
+        message: "can you add products to cart?",
+        recentMessages: [
+          { role: "user", content: "I need liver support and prefer a tablet dissolved in water." },
+          { role: "assistant", content: "Liver Fix may suit that format." },
+        ],
+      },
+      { answer: async () => { throw new Error("model must not run"); } },
+      async () => { throw new Error("retrieval must not run"); },
+    );
+    expect(result.messages[0]?.text).toContain("can’t add an item to your cart on your behalf");
+    expect(result.messages[0]?.text).toContain("Add to Cart button");
+    expect(result.recommendedProducts).toEqual([]);
+  });
+
+  it("does not mistake 'recommend an option' for a Shopify pack-options request", async () => {
+    const result = await answerCommerceChat(
+      {
+        ...base,
+        message: "I want liver support, prefer a tablet dissolved in water, and I am not taking medicines. Recommend an option.",
+      },
+      offTopicProvider,
+      async () => catalogue,
+    );
+    expect(result.category).toBe("PRODUCT_DISCOVERY");
+    expect(result.messages[0]?.text).not.toContain("Shopify details");
+    expect(result.recommendedProducts.map((item) => item.productSlug)).toEqual(["liver-fix"]);
+  });
+
+  it("prioritizes a current liver request after a long unrelated conversation", async () => {
+    const recentMessages = Array.from({ length: 20 }, (_, index) => ({
+      role: index % 2 === 0 ? "user" as const : "assistant" as const,
+      content: index % 2 === 0 ? "Tell me something about an older topic" : "What would you like to know?",
+    }));
+    const result = await answerCommerceChat(
+      { ...base, message: "any product for liver?", recentMessages },
+      offTopicProvider,
+      async () => catalogue,
+    );
+    expect(result.recommendedProducts.map((item) => item.productSlug)).toEqual(["liver-defend-pro", "liver-fix"]);
+    expect(result.messages[0]?.text).toContain("liver wellness support");
+  });
+
+  it("keeps an unsupported ingredient-count claim in scope without agreeing", async () => {
+    const result = await answerCommerceChat(
+      { ...base, message: "Your Karela Jamun Fizz has exactly 25 ingredients, right?" },
+      offTopicProvider,
+      async () => catalogue,
+    );
+    expect(result.category).toBe("PRODUCT_INFORMATION");
+    expect(result.messages[0]?.text).not.toMatch(/yes|right|correct/iu);
+    expect(result.messages[0]?.text).toContain("can’t verify");
     expect(result.handoff).toBeNull();
   });
 
@@ -362,12 +421,13 @@ describe("real storefront message regressions", () => {
     expect(result.handoff).toBeNull();
   });
 
-  it("does not treat a stable heart-patient disclosure as an emergency", async () => {
+  it("treats a stable heart-patient disclosure as product discovery", async () => {
     const result = await answerCommerceChat(
       { ...base, message: "haan mai heart patient hu", language: "hinglish" }, offTopicProvider, async () => catalogue,
     );
-    expect(result.decision).toBe("HANDOFF");
-    expect(result.category).toBe("EXPERT_HANDOFF");
+    expect(result.decision).toBe("ALLOW");
+    expect(result.category).toBe("PRODUCT_DISCOVERY");
+    expect(result.recommendedProducts.some((item) => item.productSlug === "heart-defend-pro")).toBe(true);
     expect(result.messages[0]?.text).not.toContain("emergency");
   });
 

@@ -258,8 +258,10 @@ export async function listMissingInformation(limit = 100) {
   if (!db) return [];
   const failed = await db.collection("commerce_messages").find({
     role: "assistant",
-    decision: "REFUSE",
-    category: { $ne: "OFF_TOPIC" },
+    $or: [
+      { needsReview: true },
+      { decision: "REFUSE", category: { $ne: "OFF_TOPIC" } },
+    ],
   }, { projection: { conversationId: 1, category: 1, createdAt: 1 } })
     .sort({ createdAt: -1 }).limit(Math.min(Math.max(limit, 1), 200)).toArray();
   const items = await Promise.all(failed.map(async (message) => {

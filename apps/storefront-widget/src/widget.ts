@@ -835,9 +835,18 @@ class MuditamChat extends HTMLElement {
       this.#conversationLanguage = "hi";
       return "hi";
     }
-    const hinglishSignals = /\b(?:kya|kyu|kyun|kaise|kaisa|kaunsi|kaun|hai|hain|hoon|hu|haan|nahi|nahin|mujhe|mera|meri|mere|aap|ap|batao|bataiye|chahiye|karna|karu|le sakta|le sakti|kitna|kitni|ka|ki|ke|kab|mein|mai|aur|wala|wali)\b/giu;
+    const hinglishPhrase = /\b(?:le raha|le rahi|le rahe|kha raha|kha rahi|kha rahe|use kar|start kar|order kar|cart mein|ke liye|isliye|iske liye|uske liye|kya karu|kya lena|kaise lena|kitni baar|safe hai|theek hai|sahi hai|diabetes hai|sugar hai|insulin le|medicine le|dawai le|dawa le)\b/iu;
+    if (hinglishPhrase.test(message)) {
+      this.#conversationLanguage = "hinglish";
+      return "hinglish";
+    }
+    const hinglishSignals = /\b(?:kya|kyu|kyun|kaise|kaisa|kaisi|kaunsi|kaun|hai|hain|hoon|hun|hu|haan|nahi|nahin|mujhe|mera|meri|mere|aap|ap|batao|bataiye|chahiye|karna|karu|karo|lena|leta|leti|sakta|sakti|kitna|kitni|ka|ki|ke|kab|mein|mai|aur|raha|rahi|rahe|wala|wali|liye|abhi|thoda|zyada|jaankari)\b/giu;
     const matches = message.match(hinglishSignals) ?? [];
-    if (matches.length >= 1) {
+    const uniqueMatches = new Set(matches.map((item) => item.toLocaleLowerCase("en-IN")));
+    const romanHindiPronoun = /\b(?:mai|mein|mujhe|mera|meri|mere|aap|ap|ham|hum)\b/iu.test(message);
+    const romanHindiVerb = /\b(?:hu|hoon|hun|hai|hain|raha|rahi|rahe|karna|karu|karo|lena|leta|leti|chahiye|sakta|sakti|batao|bataiye)\b/iu.test(message);
+    const englishIntent = /\b(?:what|which|how|can|could|would|please|tell|need|want|should|does|is|are|do|have|taking|product|order|price|support|doctor|dietitian)\b/iu.test(message);
+    if ((romanHindiPronoun && romanHindiVerb) || uniqueMatches.size >= 2 || (uniqueMatches.size === 1 && englishIntent)) {
       this.#conversationLanguage = "hinglish";
       return "hinglish";
     }
