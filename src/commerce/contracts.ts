@@ -79,9 +79,10 @@ export const botFlowProductConfigSchema = z.object({
     quantity: z.string().trim().max(1_000).default(""),
     usage: z.string().trim().max(2_000).default(""),
     warning: z.string().trim().max(3_000).default(""),
+    moreInfo: z.string().trim().max(30_000).default(""),
     other: z.string().trim().max(4_000).default(""),
     variantFormats: z.string().trim().max(2_000).default(""),
-  }).default({ concern: "", keyBenefits: "", quantity: "", usage: "", warning: "", other: "", variantFormats: "" }),
+  }).default({ concern: "", keyBenefits: "", quantity: "", usage: "", warning: "", moreInfo: "", other: "", variantFormats: "" }),
 });
 
 export const botFlowBulkProductConfigSchema = z.object({

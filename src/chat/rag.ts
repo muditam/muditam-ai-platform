@@ -368,6 +368,7 @@ async function exactProductResults(productSlug: string, question: string): Promi
         publishedQuantity && `Published quantity: ${publishedQuantity}`,
         product.chatbotFields?.usage && `Approved usage: ${String(product.chatbotFields.usage)}`,
         product.chatbotFields?.warning && `Approved warning/disclaimer: ${String(product.chatbotFields.warning)}`,
+        product.chatbotFields?.moreInfo && `More approved product information: ${String(product.chatbotFields.moreInfo)}`,
         product.chatbotFields?.other && `Other approved product information: ${String(product.chatbotFields.other)}`,
         product.chatbotFields?.variantFormats && `Approved variant formats: ${String(product.chatbotFields.variantFormats)}`,
         publishedDosage && `Published dosage: ${publishedDosage}`,
@@ -441,6 +442,7 @@ async function catalogueProductResults(): Promise<KnowledgeEntry[]> {
       product?.websiteCatalog?.publishedQuantity && `Published quantity: ${String(product.websiteCatalog.publishedQuantity)}`,
       product?.chatbotFields?.usage && `Approved usage: ${String(product.chatbotFields.usage)}`,
       product?.chatbotFields?.warning && `Approved warning/disclaimer: ${String(product.chatbotFields.warning)}`,
+      product?.chatbotFields?.moreInfo && `More approved product information: ${String(product.chatbotFields.moreInfo)}`,
       product?.chatbotFields?.other && `Other approved product information: ${String(product.chatbotFields.other)}`,
       product?.chatbotFields?.variantFormats && `Approved variant formats: ${String(product.chatbotFields.variantFormats)}`,
     ].filter(Boolean).join("\n");

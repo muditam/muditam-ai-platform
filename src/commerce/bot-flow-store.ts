@@ -72,6 +72,7 @@ export async function listBotFlowProducts() {
         quantity: String(product.chatbotFields?.quantity ?? ""),
         usage: String(product.chatbotFields?.usage ?? ""),
         warning: String(product.chatbotFields?.warning ?? ""),
+        moreInfo: String(product.chatbotFields?.moreInfo ?? ""),
         other: String(product.chatbotFields?.other ?? ""),
         variantFormats: String(product.chatbotFields?.variantFormats ?? ""),
       },
@@ -116,6 +117,7 @@ export async function updateBotFlowProduct(slug: string, value: {
     quantity: string;
     usage: string;
     warning: string;
+    moreInfo: string;
     other: string;
     variantFormats: string;
   };

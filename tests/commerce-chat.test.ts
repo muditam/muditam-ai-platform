@@ -5,6 +5,7 @@ import {
   relevantCommerceHistory,
   type CommerceModelProvider,
 } from "../src/commerce/commerce-engine.js";
+import { botFlowProductConfigSchema } from "../src/commerce/contracts.js";
 import { formatCommerceCopy } from "../src/commerce/guardrails.js";
 import type { KnowledgeEntry } from "../src/chat/knowledge.js";
 import { discoveryConcernForQuestion, productCatalogueIntent as retrievalCatalogueIntent } from "../src/chat/rag.js";
@@ -49,6 +50,76 @@ const productKnowledge: KnowledgeEntry[] = [
 ];
 
 describe("commerce chat", () => {
+  it("accepts approved product more info in bot-flow product config", () => {
+    const parsed = botFlowProductConfigSchema.parse({
+      recommendationPriority: "normal",
+      visible: true,
+      overallRank: null,
+      tagRanks: {},
+      tags: ["diabetes"],
+      aliases: ["Karela Jamun"],
+      approvedDescription: "Approved product summary.",
+      fields: {
+        concern: "Blood sugar wellness",
+        keyBenefits: "Supports daily metabolic wellness.",
+        quantity: "20 tablets",
+        usage: "Use as published on pack.",
+        warning: "",
+        moreInfo: "Result timeline: Customers may notice energy and overall wellness improvements within about 1 month.",
+        other: "",
+        variantFormats: "",
+      },
+    });
+
+    expect(parsed.fields.moreInfo).toContain("Result timeline");
+  });
+
+  it("can answer product questions from approved more info knowledge", async () => {
+    const moreInfoKnowledge: KnowledgeEntry = {
+      key: "product:karela-jamun-fizz:live-shopify-details",
+      title: "Karela Jamun Fizz — live Shopify details",
+      content: [
+        "Product: Karela Jamun Fizz",
+        "More approved product information: Result timeline: You may notice improvements in energy and overall wellness within about 1 month; consistent use for 3 months is recommended for more significant, lasting benefits.",
+      ].join("\n"),
+      contentHi: "प्रोडक्ट: Karela Jamun Fizz",
+      keywords: ["Karela Jamun Fizz", "result timeline"],
+      sourceName: "Muditam Ayurveda",
+      sourceUrl: "https://www.muditam.com/products/karela-jamun-fizz",
+      version: "test",
+      sourceType: "product",
+      productSlug: "karela-jamun-fizz",
+      recommendationEligible: true,
+    };
+
+    const response = await answerCommerceChat(
+      {
+        ...baseRequest,
+        message: "How long does Karela Jamun Fizz take to show results?",
+        pageContext: { url: "https://muditam.com/products/karela-jamun-fizz", pageType: "product", productSlug: "karela-jamun-fizz" },
+      },
+      {
+        answer: async () => ({
+          model: "test-model",
+          result: {
+            decision: "ALLOW",
+            category: "PRODUCT_INFORMATION",
+            answer: "You may notice improvements in energy and overall wellness within about 1 month; consistent use for 3 months is recommended for more significant, lasting benefits.",
+            followUp: "Would you like dosage or shipping details next?",
+            citedKnowledgeKeys: [moreInfoKnowledge.key],
+            recommendations: [],
+          },
+        }),
+      },
+      async () => [moreInfoKnowledge],
+    );
+
+    expect(response.decision).toBe("ALLOW");
+    expect(response.messages[0]?.text).toContain("within about 1 month");
+    expect(response.messages[1]?.text).toBe("Would you like dosage or shipping details next?");
+    expect(response.knowledgeReferences.map((item) => item.key)).toEqual([moreInfoKnowledge.key]);
+  });
+
   it("treats a Roman-Hindi diabetes disclosure as Hinglish product discovery", async () => {
     const response = await answerCommerceChat(
       { ...baseRequest, language: "hinglish", message: "mujhe diabetes hai" },

@@ -31,6 +31,8 @@ export function createStorefrontSession(options: {
   secret?: string;
   now?: number;
   ttlSeconds?: number;
+  conversationId?: string;
+  visitorId?: string;
 } = {}): CreatedStorefrontSession {
   const secret = options.secret ?? configuredSecret();
   if (secret.length < 32) throw new Error("Storefront session secret must contain at least 32 characters");
@@ -41,11 +43,12 @@ export function createStorefrontSession(options: {
   }
   const session: StorefrontSession = {
     version: 1,
-    conversationId: randomUUID(),
-    visitorId: randomUUID(),
+    conversationId: options.conversationId ?? randomUUID(),
+    visitorId: options.visitorId ?? randomUUID(),
     issuedAt,
     expiresAt: issuedAt + ttlSeconds,
   };
+  sessionPayloadSchema.parse(session);
   const encoded = Buffer.from(JSON.stringify(session)).toString("base64url");
   return { ...session, token: `${encoded}.${signature(encoded, secret)}` };
 }

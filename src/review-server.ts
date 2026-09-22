@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { resolve } from "node:path";
 import process from "node:process";
 import Busboy from "busboy";
-import { ZodError } from "zod";
+import { z, ZodError } from "zod";
 import { answerChat } from "./chat/chat-engine.js";
 import { answerCommerceChat } from "./commerce/commerce-engine.js";
 import { botFlowBulkProductConfigSchema, botFlowProductConfigSchema, botFlowTextDataSchema, commerceChatRequestSchema, discountConfigSchema, widgetConfigSchema } from "./commerce/contracts.js";
@@ -519,7 +519,23 @@ async function handle(
       return;
     }
     try {
-      const session = createStorefrontSession();
+      let requestedIds: { conversationId?: string; visitorId?: string } = {};
+      try {
+        const payload = await readJson(request, 2_048);
+        const parsed = z.object({
+          conversationId: z.string().uuid().optional(),
+          visitorId: z.string().uuid().optional(),
+        }).safeParse(payload);
+        if (parsed.success) {
+          requestedIds = {
+            ...(parsed.data.conversationId ? { conversationId: parsed.data.conversationId } : {}),
+            ...(parsed.data.visitorId ? { visitorId: parsed.data.visitorId } : {}),
+          };
+        }
+      } catch {
+        requestedIds = {};
+      }
+      const session = createStorefrontSession(requestedIds);
       storefrontJson(request, response, 201, session);
     } catch (error) {
       logEvent("storefront_commerce_session.failed", { requestId });
