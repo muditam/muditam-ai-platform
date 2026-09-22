@@ -744,15 +744,35 @@ class MuditamChat extends HTMLElement {
     }
   }
 
+  #storedSessionIds(): Pick<Session, "conversationId" | "visitorId"> | null {
+    try {
+      const value = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null") as Session | null;
+      return value?.conversationId && value?.visitorId
+        ? { conversationId: value.conversationId, visitorId: value.visitorId }
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
   // `silent` is used by the background pageview beacon: it still needs a session
   // (visitorId) to attribute the pageview to, but merely loading a page with the
   // widget installed isn't a real "conversation started" — only an actual chat
   // submission should count as one.
-  async #ensureSession(silent = false): Promise<Session> {
-    if (this.#session?.expiresAt && this.#session.expiresAt > Math.floor(Date.now() / 1000) + 30) return this.#session;
-    this.#session = this.#storedSession();
-    if (this.#session) return this.#session;
-    const response = await fetch(`${this.#apiUrl}/api/v1/commerce/sessions`, { method: "POST" });
+  async #ensureSession(silent = false, forceRefresh = false): Promise<Session> {
+    if (!forceRefresh && this.#session?.expiresAt && this.#session.expiresAt > Math.floor(Date.now() / 1000) + 30) return this.#session;
+    if (!forceRefresh) {
+      this.#session = this.#storedSession();
+      if (this.#session) return this.#session;
+    }
+    const ids = this.#session?.conversationId && this.#session?.visitorId
+      ? { conversationId: this.#session.conversationId, visitorId: this.#session.visitorId }
+      : this.#storedSessionIds();
+    const response = await fetch(`${this.#apiUrl}/api/v1/commerce/sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: ids ? JSON.stringify(ids) : undefined,
+    });
     if (!response.ok) throw new Error("Could not start chat");
     this.#session = await response.json() as Session;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(this.#session));
@@ -773,8 +793,8 @@ class MuditamChat extends HTMLElement {
     this.#appendMessage("user", message);
     const status = this.#appendStatus();
     try {
-      const session = await this.#ensureSession();
-      const response = await fetch(`${this.#apiUrl}/api/v1/commerce/messages`, {
+      let session = await this.#ensureSession();
+      let response = await fetch(`${this.#apiUrl}/api/v1/commerce/messages`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${session.token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -788,8 +808,24 @@ class MuditamChat extends HTMLElement {
           },
         }),
       });
+      if (response.status === 401) {
+        session = await this.#ensureSession(true, true);
+        response = await fetch(`${this.#apiUrl}/api/v1/commerce/messages`, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${session.token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message,
+            language: this.#languageFor(message),
+            recentMessages: this.#recentMessages.slice(-20),
+            pageContext: {
+              url: window.location.href,
+              pageType: this.#pageType(),
+              productSlug: this.#productSlug(),
+            },
+          }),
+        });
+      }
       if (!response.ok) {
-        if (response.status === 401) localStorage.removeItem(STORAGE_KEY);
         throw new Error("Chat request failed");
       }
       const result = await response.json() as CommerceResponse;
