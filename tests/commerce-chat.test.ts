@@ -454,6 +454,29 @@ describe("commerce chat", () => {
     expect(response.recommendedProducts.map((item) => item.productSlug)).toEqual(["liver-fix", "liver-defend-pro"]);
   });
 
+  it("recommends liver products even when retrieved knowledge is missing concern metadata", async () => {
+    const liverKnowledge = [
+      { slug: "liver-defend-pro", name: "Liver Defend Pro" },
+      { slug: "liver-fix", name: "Liver Fix" },
+    ].map(({ slug, name }) => ({
+      key: `product:${slug}:overview`, title: `${name} — product information`,
+      content: "Verified product for liver wellness and fatty liver support.",
+      contentHi: "Verified product.",
+      keywords: ["liver", "fatty liver"], sourceName: "Muditam Ayurveda",
+      sourceUrl: `https://www.muditam.com/products/${slug}`, version: "test",
+      sourceType: "product" as const, productSlug: slug, recommendationEligible: true,
+    }));
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "Suggest me something for Fatty Liver" },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => liverKnowledge,
+    );
+    expect(response.category).toBe("PRODUCT_DISCOVERY");
+    expect(response.messages[0]?.text).toContain("liver wellness support");
+    expect(response.recommendedProducts.map((item) => item.productSlug)).toEqual(["liver-defend-pro", "liver-fix"]);
+    expect(response.handoff).toBeNull();
+  });
+
   it("shows the full product catalogue in admin-configured overall order", async () => {
     const catalogue = [
       { slug: "liver-fix", name: "Liver Fix", overallRank: 2 },

@@ -134,6 +134,23 @@ const discoveryByConcern = [
   },
 ] as const;
 
+function entryMatchesConcern(entry: KnowledgeEntry, concern: typeof discoveryByConcern[number]["key"]): boolean {
+  if (entry.recommendationConcern === concern) return true;
+  const haystack = normalizedWords([
+    entry.productSlug,
+    productName(entry),
+    entry.content,
+    entry.keywords.join(" "),
+  ].filter(Boolean).join(" "));
+  const has = (pattern: RegExp) => pattern.test(haystack);
+  if (concern === "blood_sugar") return has(/\b(?:diabetes|diabetic|blood sugar|glucose|sugar|karela jamun|sugar defend|berberine|vasant kusmakar)\b/u);
+  if (concern === "liver") return has(/\b(?:liver|fatty liver|liver fix|liver defend|milk thistle|kutaki)\b/u);
+  if (concern === "heart") return has(/\b(?:heart|cardiac|cardiovascular|omega|heart defend)\b/u);
+  if (concern === "gut") return has(/\b(?:gut|digestion|digestive|constipation|bloating|gas|acidity|power gut)\b/u);
+  if (concern === "bone") return has(/\b(?:bone|calcium|joint|bone dense)\b/u);
+  return false;
+}
+
 export function deterministicProductDiscovery(
   input: CommerceChatRequest,
   knowledge: readonly KnowledgeEntry[],
@@ -169,7 +186,7 @@ export function deterministicProductDiscovery(
     .filter((item) => item.sourceType === "product"
       && item.recommendationEligible === true
       && item.productSlug
-      && item.recommendationConcern === match.key)
+      && entryMatchesConcern(item, match.key))
     .map((item) => [item.productSlug as string, item])).values()]
     .sort((left, right) => (left.tagRank ?? Number.MAX_SAFE_INTEGER) - (right.tagRank ?? Number.MAX_SAFE_INTEGER)
       || (left.overallRank ?? Number.MAX_SAFE_INTEGER) - (right.overallRank ?? Number.MAX_SAFE_INTEGER))
