@@ -41,6 +41,9 @@ describe("storefront commerce sessions", () => {
     process.env.MUDITAM_COMMERCE_ALLOWED_ORIGINS = "https://muditam.com,https://preview.muditam.com";
     try {
       expect(allowedStorefrontOrigin("https://muditam.com", "production")).toBe("https://muditam.com");
+      expect(allowedStorefrontOrigin("https://preview.muditam.com", "production")).toBe("https://preview.muditam.com");
+      expect(allowedStorefrontOrigin("https://muditam.myshopify.com", "production")).toBe("https://muditam.myshopify.com");
+      expect(allowedStorefrontOrigin("https://admin.shopify.com", "production")).toBe("https://admin.shopify.com");
       expect(allowedStorefrontOrigin("https://evil.example", "production")).toBeNull();
       expect(allowedStorefrontOrigin(undefined, "production")).toBeNull();
     } finally {
