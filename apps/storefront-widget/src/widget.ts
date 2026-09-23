@@ -70,6 +70,21 @@ const FALLBACK_RATINGS: Record<string, ProductRating> = {
   "shilajit-with-gold": { average: 4.8, count: 1500 },
 };
 
+// Internal catalogue slugs do not always match the current Shopify product
+// handle. Keep storefront requests on the current shop origin and translate
+// known legacy handles before requesting Shopify's product JSON. Both product
+// images and Add to Cart depend on this endpoint.
+const SHOPIFY_PRODUCT_PATH_ALIASES: Record<string, string> = {
+  "/products/karela-jamun-fizz": "/products/karela-jamun-juice",
+};
+
+function shopifyProductJsonUrl(productUrl: string): URL {
+  const source = new URL(productUrl, window.location.origin);
+  const sourcePath = source.pathname.replace(/\/$/u, "").replace(/\.js$/u, "");
+  const productPath = SHOPIFY_PRODUCT_PATH_ALIASES[sourcePath] ?? sourcePath;
+  return new URL(`${productPath}.js`, window.location.origin);
+}
+
 interface WidgetConfig {
   themeColor: string;
   botTitle: string;
@@ -459,14 +474,18 @@ class MuditamChat extends HTMLElement {
   }
 
   #shopifyProduct(productUrl: string): Promise<ShopifyProductJson | null> {
-    const cached = this.#productDataCache.get(productUrl);
+    let url: URL;
+    try {
+      url = shopifyProductJsonUrl(productUrl);
+    } catch {
+      return Promise.resolve(null);
+    }
+
+    const cacheKey = url.href;
+    const cached = this.#productDataCache.get(cacheKey);
     if (cached) return cached;
     const request = (async () => {
       try {
-        const url = new URL(productUrl, window.location.origin);
-        url.pathname = `${url.pathname.replace(/\/$/u, "")}.js`;
-        url.search = "";
-        url.hash = "";
         const response = await fetch(url, { headers: { Accept: "application/json" } });
         if (!response.ok) return null;
         return await response.json() as ShopifyProductJson;
@@ -474,7 +493,7 @@ class MuditamChat extends HTMLElement {
         return null;
       }
     })();
-    this.#productDataCache.set(productUrl, request);
+    this.#productDataCache.set(cacheKey, request);
     return request;
   }
 
@@ -486,7 +505,7 @@ class MuditamChat extends HTMLElement {
       : product.featured_image?.src;
     const firstImage = product.images?.map((image) => typeof image === "string" ? image : image.src).find(Boolean);
     const source = featured || firstImage;
-    return source ? new URL(source, new URL(productUrl, window.location.origin).origin).href : null;
+    return source ? new URL(source, window.location.origin).href : null;
   }
 
   async #addToCart(product: CommerceResponse["recommendedProducts"][number], button: HTMLButtonElement): Promise<void> {
