@@ -1,13 +1,18 @@
 import type { IncomingMessage } from "node:http";
 
-const DEFAULT_PRODUCTION_ORIGINS = ["https://muditam.com", "https://www.muditam.com"];
+const DEFAULT_PRODUCTION_ORIGINS = [
+  "https://muditam.com",
+  "https://www.muditam.com",
+  "https://muditam.myshopify.com",
+  "https://admin.shopify.com",
+];
 
 export function allowedStorefrontOrigins(nodeEnv = process.env.NODE_ENV): Set<string> {
   const configured = (process.env.MUDITAM_COMMERCE_ALLOWED_ORIGINS ?? "")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
-  const origins = configured.length ? configured : DEFAULT_PRODUCTION_ORIGINS;
+  const origins = [...DEFAULT_PRODUCTION_ORIGINS, ...configured];
   if (nodeEnv !== "production") origins.push("http://localhost:4174", "http://127.0.0.1:4174");
   return new Set(origins);
 }
