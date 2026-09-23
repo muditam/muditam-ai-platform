@@ -386,6 +386,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 }
 
 .product-add-to-cart {
+  display: block;
   width: calc(100% - 20px);
   margin: 0 10px 10px;
   padding: 8px 10px;
@@ -395,11 +396,11 @@ button, a { -webkit-tap-highlight-color: transparent; }
   color: var(--muditam-purple-dark);
   font-size: 12px;
   font-weight: 750;
+  text-align: center;
+  text-decoration: none;
   cursor: pointer;
 }
 .product-add-to-cart:hover { background: #f7f2f9; }
-.product-add-to-cart:disabled { cursor: default; opacity: 0.75; }
-.product-add-to-cart.error { border-color: #c0392b; color: #c0392b; }
 
 .product-nav {
   position: absolute;

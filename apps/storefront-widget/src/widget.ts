@@ -510,44 +510,6 @@ class MuditamChat extends HTMLElement {
     return source ? new URL(source, window.location.origin).href : null;
   }
 
-  async #addToCart(product: CommerceResponse["recommendedProducts"][number], button: HTMLButtonElement): Promise<void> {
-    const originalLabel = button.textContent;
-    button.disabled = true;
-    button.textContent = "Adding…";
-    button.classList.remove("error");
-    try {
-      let variantId = product.shopifyVariantId;
-      if (!variantId) {
-        const shopifyProduct = await this.#shopifyProduct(product.productUrl);
-        const variant = shopifyProduct?.variants?.find((item) => item.available !== false) ?? shopifyProduct?.variants?.[0];
-        variantId = variant ? String(variant.id) : null;
-      }
-      if (!variantId) throw new Error("No purchasable variant found");
-      const response = await fetch(new URL("/cart/add.js", window.location.origin), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items: [{
-            id: variantId,
-            quantity: 1,
-            properties: { _muditam_conversation_id: this.#session?.conversationId ?? "" },
-          }],
-        }),
-      });
-      if (!response.ok) throw new Error("Add to cart failed");
-      button.textContent = "Added ✓";
-      this.#emit("add_to_cart_clicked", product.productSlug);
-      window.setTimeout(() => {
-        button.disabled = false;
-        button.textContent = originalLabel;
-      }, 2500);
-    } catch {
-      button.classList.add("error");
-      button.textContent = "Try again";
-      button.disabled = false;
-    }
-  }
-
   #judgeMeRating(productExternalId: number): Promise<ProductRating | null> {
     const cached = this.#ratingCache.get(productExternalId);
     if (cached) return cached;
@@ -646,13 +608,15 @@ class MuditamChat extends HTMLElement {
         rating.setAttribute("aria-label", `Rated ${rated.average.toFixed(1)} out of 5 from ${rated.count} reviews`);
         rating.append(stars, count);
       });
-      const addToCart = document.createElement("button");
-      addToCart.type = "button";
-      addToCart.className = "product-add-to-cart";
-      addToCart.textContent = "Add to Cart";
-      addToCart.setAttribute("aria-label", `Add ${product.name} to cart`);
-      addToCart.addEventListener("click", () => void this.#addToCart(product, addToCart));
-      card.append(link, addToCart);
+      const viewProduct = document.createElement("a");
+      viewProduct.className = "product-add-to-cart";
+      viewProduct.href = product.productUrl;
+      viewProduct.target = "_blank";
+      viewProduct.rel = "noopener noreferrer";
+      viewProduct.textContent = "View Product";
+      viewProduct.setAttribute("aria-label", `View ${product.name}`);
+      viewProduct.addEventListener("click", () => this.#emit("product_clicked", product.productSlug));
+      card.append(link, viewProduct);
       container.append(card);
     }
     const scroll = (direction: number): void => container.scrollBy({
