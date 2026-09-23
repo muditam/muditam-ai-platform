@@ -165,6 +165,11 @@ function contrastSafeAccent(hex: string): string {
 }
 
 const STORAGE_KEY = "muditam_ai_storefront_session_v1";
+const SUGGESTED_QUESTIONS = [
+  "Suggest me something for Diabetes",
+  "Suggest me something for Fatty Liver",
+  "How long does Karela Jamun Fizz take to show results?",
+];
 
 type WidgetLanguage = "auto" | "en" | "hi" | "hinglish";
 
@@ -236,6 +241,9 @@ class MuditamChat extends HTMLElement {
         </header>
         <div class="messages" role="log" aria-live="polite"></div>
         <form class="composer">
+          <div class="suggested-questions" aria-label="Suggested questions">
+            ${SUGGESTED_QUESTIONS.map((question) => `<button class="suggested-question" type="button">${question}</button>`).join("")}
+          </div>
           <div class="composer-row">
             <input name="message" maxlength="2000" autocomplete="off" placeholder="Ask about a product…" aria-label="Message" />
             <button class="send" type="submit" aria-label="Send message">
@@ -253,9 +261,11 @@ class MuditamChat extends HTMLElement {
     const close = this.#required<HTMLButtonElement>(".close");
     const openChat = (): void => {
       this.#hideNudge();
+      this.setAttribute("data-open", "true");
       panel.hidden = false;
       launcher.setAttribute("aria-expanded", "true");
-      this.#required<HTMLInputElement>("input").focus();
+      const isTouchViewport = window.matchMedia("(pointer: coarse)").matches || window.innerWidth <= 768;
+      if (!isTouchViewport) this.#required<HTMLInputElement>("input").focus();
     };
     launcher.addEventListener("click", openChat);
     launcher.addEventListener("mouseenter", () => { if (panel.hidden) this.#showNudge(false); });
@@ -265,8 +275,14 @@ class MuditamChat extends HTMLElement {
     this.#required<HTMLButtonElement>(".nudge-close").addEventListener("click", () => this.#hideNudge());
     this.#required<HTMLElement>(".launcher-nudge").addEventListener("mouseenter", () => this.#clearNudgeHideTimer());
     this.#required<HTMLElement>(".launcher-nudge").addEventListener("mouseleave", () => this.#scheduleNudgeHide(300));
+    this.#root.querySelectorAll<HTMLButtonElement>(".suggested-question").forEach((button) => {
+      button.addEventListener("click", () => {
+        void this.#submit(button.textContent ?? "");
+      });
+    });
     close.addEventListener("click", () => {
       panel.hidden = true;
+      this.removeAttribute("data-open");
       launcher.setAttribute("aria-expanded", "false");
       launcher.focus();
     });
@@ -772,12 +788,13 @@ class MuditamChat extends HTMLElement {
     return this.#session;
   }
 
-  async #submit(): Promise<void> {
+  async #submit(presetMessage?: string): Promise<void> {
     const input = this.#required<HTMLInputElement>("input");
-    const message = input.value.trim();
+    const message = String(presetMessage ?? input.value).trim();
     if (!message || this.#pending) return;
     this.#pending = true;
     input.value = "";
+    this.#required<HTMLElement>(".suggested-questions").hidden = true;
     // Only the send button is blocked while a reply is in flight — `#pending`
     // already stops a duplicate submit, so there's no need to freeze the input
     // itself and make the chat feel locked up while the user waits.
@@ -844,7 +861,8 @@ class MuditamChat extends HTMLElement {
     } finally {
       this.#pending = false;
       this.#required<HTMLButtonElement>(".send").disabled = false;
-      input.focus();
+      const isTouchViewport = window.matchMedia("(pointer: coarse)").matches || window.innerWidth <= 768;
+      if (!isTouchViewport) input.focus();
     }
   }
 
