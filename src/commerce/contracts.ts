@@ -113,6 +113,8 @@ export interface CommerceChatResponse {
     productSlug: string;
     name: string;
     productUrl: string;
+    imageUrl?: string | null;
+    shopifyVariantId?: string | null;
     reason: string;
   }>;
   knowledgeReferences: Array<{

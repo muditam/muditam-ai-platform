@@ -7,6 +7,7 @@ import Busboy from "busboy";
 import { z, ZodError } from "zod";
 import { answerChat } from "./chat/chat-engine.js";
 import { answerCommerceChat } from "./commerce/commerce-engine.js";
+import { getStorefrontProductData } from "./commerce/bot-flow-store.js";
 import { botFlowBulkProductConfigSchema, botFlowProductConfigSchema, botFlowTextDataSchema, commerceChatRequestSchema, discountConfigSchema, widgetConfigSchema } from "./commerce/contracts.js";
 import {
   getConversationDetail,
@@ -582,6 +583,25 @@ async function handle(
         : payload;
       const parsedInput = commerceChatRequestSchema.parse(scopedPayload);
       const result = await answerCommerceChat(parsedInput);
+      try {
+        const storefrontProducts = await getStorefrontProductData(
+          result.recommendedProducts.map((product) => product.productSlug),
+        );
+        result.recommendedProducts = result.recommendedProducts.map((product) => {
+          const storefrontProduct = storefrontProducts.get(product.productSlug);
+          return storefrontProduct ? {
+            ...product,
+            productUrl: storefrontProduct.productUrl,
+            imageUrl: storefrontProduct.imageUrl,
+            shopifyVariantId: storefrontProduct.shopifyVariantId,
+          } : product;
+        });
+      } catch (error) {
+        logEvent("storefront_commerce_chat.product_data_failed", {
+          requestId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
       const clientIp = requestClientIp(request);
       void recordMessageTurn(parsedInput, result, clientIp !== undefined ? { ip: clientIp } : {});
       logEvent("storefront_commerce_chat.completed", {

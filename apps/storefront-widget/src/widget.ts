@@ -15,6 +15,8 @@ interface CommerceResponse {
     productSlug: string;
     name: string;
     productUrl: string;
+    imageUrl?: string | null;
+    shopifyVariantId?: string | null;
     reason: string;
   }>;
   handoff: null | {
@@ -514,15 +516,19 @@ class MuditamChat extends HTMLElement {
     button.textContent = "Adding…";
     button.classList.remove("error");
     try {
-      const shopifyProduct = await this.#shopifyProduct(product.productUrl);
-      const variant = shopifyProduct?.variants?.find((item) => item.available !== false) ?? shopifyProduct?.variants?.[0];
-      if (!variant) throw new Error("No purchasable variant found");
+      let variantId = product.shopifyVariantId;
+      if (!variantId) {
+        const shopifyProduct = await this.#shopifyProduct(product.productUrl);
+        const variant = shopifyProduct?.variants?.find((item) => item.available !== false) ?? shopifyProduct?.variants?.[0];
+        variantId = variant ? String(variant.id) : null;
+      }
+      if (!variantId) throw new Error("No purchasable variant found");
       const response = await fetch(new URL("/cart/add.js", window.location.origin), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           items: [{
-            id: variant.id,
+            id: variantId,
             quantity: 1,
             properties: { _muditam_conversation_id: this.#session?.conversationId ?? "" },
           }],
@@ -604,7 +610,10 @@ class MuditamChat extends HTMLElement {
       image.loading = "lazy";
       image.decoding = "async";
       media.append(image);
-      void this.#shopifyImage(product.productUrl).then((source) => {
+      const imageSource = product.imageUrl
+        ? Promise.resolve(product.imageUrl)
+        : this.#shopifyImage(product.productUrl);
+      void imageSource.then((source) => {
         media.classList.remove("loading");
         if (source) {
           image.src = source;

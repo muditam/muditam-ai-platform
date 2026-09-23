@@ -29,6 +29,67 @@ function imageUrl(product: Document): string | null {
   return candidates.find((value) => typeof value === "string" && /^https?:\/\//.test(value)) ?? null;
 }
 
+export interface StorefrontProductData {
+  productSlug: string;
+  productUrl: string;
+  imageUrl: string | null;
+  shopifyVariantId: string | null;
+}
+
+function absoluteHttpUrl(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+export function storefrontProductData(product: Document): StorefrontProductData {
+  const slug = String(product.slug ?? "");
+  const variants: Document[] = Array.isArray(product.websiteCatalog?.variants)
+    ? product.websiteCatalog.variants
+    : [];
+  const purchasableVariant = variants.find((variant) => (
+    variant.available !== false && String(variant.shopifyVariantId ?? "").length > 0
+  )) ?? variants.find((variant) => String(variant.shopifyVariantId ?? "").length > 0);
+  const shopifyImages: unknown[] = Array.isArray(product.websiteCatalog?.images)
+    ? product.websiteCatalog.images
+    : [];
+  const shopifyImage = shopifyImages
+    .map((value) => typeof value === "string" ? value : (value as Document | null)?.src)
+    .map(absoluteHttpUrl)
+    .find((value): value is string => value !== null) ?? null;
+  const syncedProductUrl = absoluteHttpUrl(product.websiteCatalog?.sourceUrl);
+  const configuredProductUrl = absoluteHttpUrl(product.productUrl);
+
+  return {
+    productSlug: slug,
+    productUrl: syncedProductUrl ?? configuredProductUrl ?? `https://www.muditam.com/products/${encodeURIComponent(slug)}`,
+    imageUrl: shopifyImage ?? imageUrl(product),
+    shopifyVariantId: purchasableVariant ? String(purchasableVariant.shopifyVariantId) : null,
+  };
+}
+
+export async function getStorefrontProductData(productSlugs: readonly string[]): Promise<Map<string, StorefrontProductData>> {
+  const slugs = [...new Set(productSlugs.filter(Boolean))];
+  if (!slugs.length) return new Map();
+  const db = await database();
+  if (!db) return new Map();
+  const products = await db.collection("metabolic_products").find({
+    slug: { $in: slugs },
+    active: true,
+    websiteStatus: "active",
+  }, {
+    projection: { slug: 1, productUrl: 1, imageUrl: 1, featuredImage: 1, websiteCatalog: 1 },
+  }).toArray();
+  return new Map(products.map((product) => {
+    const data = storefrontProductData(product);
+    return [data.productSlug, data];
+  }));
+}
+
 export async function listBotFlowProducts() {
   const db = await database();
   if (!db) return [];
