@@ -596,7 +596,14 @@ button, a { -webkit-tap-highlight-color: transparent; }
   :host(:not([data-position="left"])) .launcher { right: max(14px, env(safe-area-inset-right)); }
   :host([data-position="left"]) .launcher { left: max(14px, env(safe-area-inset-left)); }
   .launcher-nudge {
+    bottom: calc(max(14px, env(safe-area-inset-bottom)) + (var(--muditam-launcher-size) - 46px) / 2);
     max-width: calc(100vw - var(--muditam-launcher-size) - 44px);
+  }
+  :host(:not([data-position="left"])) .launcher-nudge {
+    right: calc(max(14px, env(safe-area-inset-right)) + var(--muditam-launcher-size) + 10px);
+  }
+  :host([data-position="left"]) .launcher-nudge {
+    left: calc(max(14px, env(safe-area-inset-left)) + var(--muditam-launcher-size) + 10px);
   }
   .panel {
     top: max(8px, env(safe-area-inset-top));
