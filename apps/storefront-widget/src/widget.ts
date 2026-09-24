@@ -47,7 +47,7 @@ interface ShopifyProductJson {
   id: number;
   featured_image?: string | { src?: string } | null;
   images?: Array<string | { src?: string }>;
-  variants?: Array<{ id: number; available?: boolean }>;
+  variants?: Array<{ id: number | string; available?: boolean }>;
 }
 
 interface ProductRating {
@@ -77,7 +77,8 @@ const FALLBACK_RATINGS: Record<string, ProductRating> = {
 // known legacy handles before requesting Shopify's product JSON. Both product
 // images and Add to Cart depend on this endpoint.
 const SHOPIFY_PRODUCT_PATH_ALIASES: Record<string, string> = {
-  "/products/karela-jamun-fizz": "/products/karela-jamun-juice",
+  "/products/karela-jamun-fizz": "/products/karela-jamun-fizz-v3",
+  "/products/vasant-kusmakar-ras": "/products/vasant-kusumakar-ras",
 };
 
 function shopifyProductJsonUrl(productUrl: string): URL {
@@ -526,6 +527,28 @@ class MuditamChat extends HTMLElement {
     return source ? new URL(source, window.location.origin).href : null;
   }
 
+  async #shopifyVariantId(productCard: CommerceResponse["recommendedProducts"][number]): Promise<string | null> {
+    if (productCard.shopifyVariantId) return String(productCard.shopifyVariantId);
+    const product = await this.#shopifyProduct(productCard.productUrl);
+    const variant = product?.variants?.find((item) => item.available !== false) ?? product?.variants?.[0];
+    return variant?.id ? String(variant.id) : null;
+  }
+
+  async #addToCart(productCard: CommerceResponse["recommendedProducts"][number]): Promise<boolean> {
+    const variantId = await this.#shopifyVariantId(productCard);
+    if (!variantId) return false;
+    try {
+      const response = await fetch("/cart/add.js", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ id: variantId, quantity: 1 }),
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
   #judgeMeRating(productExternalId: number): Promise<ProductRating | null> {
     const cached = this.#ratingCache.get(productExternalId);
     if (cached) return cached;
@@ -624,15 +647,32 @@ class MuditamChat extends HTMLElement {
         rating.setAttribute("aria-label", `Rated ${rated.average.toFixed(1)} out of 5 from ${rated.count} reviews`);
         rating.append(stars, count);
       });
-      const viewProduct = document.createElement("a");
-      viewProduct.className = "product-add-to-cart";
-      viewProduct.href = product.productUrl;
-      viewProduct.target = "_blank";
-      viewProduct.rel = "noopener noreferrer";
-      viewProduct.textContent = "View Product";
-      viewProduct.setAttribute("aria-label", `View ${product.name}`);
-      viewProduct.addEventListener("click", () => this.#emit("product_clicked", product.productSlug));
-      card.append(link, viewProduct);
+      const addToCart = document.createElement("button");
+      addToCart.className = "product-add-to-cart";
+      addToCart.type = "button";
+      addToCart.textContent = "Add to Cart";
+      addToCart.setAttribute("aria-label", `Add ${product.name} to cart`);
+      addToCart.addEventListener("click", () => {
+        void (async () => {
+          addToCart.disabled = true;
+          addToCart.textContent = "Adding...";
+          const added = await this.#addToCart(product);
+          if (added) {
+            addToCart.textContent = "Added";
+            this.#appendCartConfirmation(product);
+            this.#emit("product_added_to_cart", product.productSlug);
+            return;
+          }
+          addToCart.disabled = false;
+          addToCart.textContent = "View Product";
+          addToCart.addEventListener("click", () => {
+            window.open(product.productUrl, "_blank", "noopener,noreferrer");
+            this.#emit("product_clicked", product.productSlug);
+          }, { once: true });
+          this.#appendMessage("assistant", `I couldn’t add ${product.name} to your cart right now. You can open the product page and add it there.`);
+        })();
+      });
+      card.append(link, addToCart);
       container.append(card);
     }
     const scroll = (direction: number): void => container.scrollBy({
@@ -665,6 +705,38 @@ class MuditamChat extends HTMLElement {
       new ResizeObserver(updateNavigation).observe(container);
     }
     this.#required<HTMLElement>(".messages").append(carousel);
+  }
+
+  #appendCartConfirmation(product: CommerceResponse["recommendedProducts"][number]): void {
+    this.#appendMessage("assistant", `${product.name} has been added to your cart. Your 5% discount is available at checkout. Would you like to review your cart or ask anything before ordering?`);
+    const container = document.createElement("div");
+    container.className = "cart-actions";
+    container.setAttribute("aria-label", "Cart actions");
+
+    const cart = document.createElement("a");
+    cart.className = "cart-action primary";
+    cart.href = "/cart";
+    cart.textContent = "View Cart";
+    cart.addEventListener("click", () => this.#emit("cart_view_clicked"));
+
+    const dosage = document.createElement("button");
+    dosage.className = "cart-action secondary";
+    dosage.type = "button";
+    dosage.textContent = "Ask dosage";
+    dosage.addEventListener("click", () => {
+      void this.#submit(`What is the dosage for ${product.name}?`);
+    });
+
+    const results = document.createElement("button");
+    results.className = "cart-action secondary";
+    results.type = "button";
+    results.textContent = "Ask results";
+    results.addEventListener("click", () => {
+      void this.#submit(`How long does ${product.name} take to show results?`);
+    });
+
+    container.append(cart, dosage, results);
+    this.#required<HTMLElement>(".messages").append(container);
   }
 
   #appendHandoff(handoff: NonNullable<CommerceResponse["handoff"]>): void {
