@@ -669,14 +669,17 @@ button, a { -webkit-tap-highlight-color: transparent; }
     left: calc(max(14px, env(safe-area-inset-left)) + var(--muditam-launcher-size) + 10px);
   }
   .panel {
-    top: max(4px, env(safe-area-inset-top));
-    right: max(4px, env(safe-area-inset-right));
-    bottom: max(6px, env(safe-area-inset-bottom));
-    left: max(4px, env(safe-area-inset-left));
-    width: auto;
-    height: auto;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
     min-height: 0;
-    border-radius: 16px;
+    border: 0;
+    border-radius: 0;
   }
   .header {
     gap: 10px;
@@ -785,11 +788,11 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 @media (max-width: 360px) {
   .panel {
-    top: max(6px, env(safe-area-inset-top));
-    right: max(6px, env(safe-area-inset-right));
-    bottom: max(10px, env(safe-area-inset-bottom));
-    left: max(6px, env(safe-area-inset-left));
-    border-radius: 16px;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border-radius: 0;
   }
   .header {
     padding: 10px 11px;
@@ -838,9 +841,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 @media (max-height: 520px) and (max-width: 900px) {
   .panel {
-    top: max(6px, env(safe-area-inset-top));
-    bottom: max(8px, env(safe-area-inset-bottom));
-    height: auto;
+    top: 0;
+    bottom: 0;
+    height: 100vh;
+    height: 100dvh;
     min-height: 0;
   }
   .header {
