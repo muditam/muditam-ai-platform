@@ -101,6 +101,7 @@ interface WidgetConfig {
   pulseColor: string;
   launcherImage: string | null;
   launcherRingColor: string | null;
+  nudgeEnabled: boolean;
   nudgeText: string;
   nudgeBackgroundColor: string;
 }
@@ -121,6 +122,7 @@ const DEFAULT_WIDGET_CONFIG: WidgetConfig = {
   pulseColor: "#22c55e",
   launcherImage: null,
   launcherRingColor: "#70408f",
+  nudgeEnabled: true,
   nudgeText: "Chat with live agent",
   nudgeBackgroundColor: "#70408f",
 };
@@ -213,6 +215,7 @@ class MuditamChat extends HTMLElement {
   #nudgeShowTimer: number | null = null;
   #nudgeHideTimer: number | null = null;
   #nudgeTypingTimer: number | null = null;
+  #nudgeEnabled = DEFAULT_WIDGET_CONFIG.nudgeEnabled;
   #nudgeText = DEFAULT_WIDGET_CONFIG.nudgeText;
   #hasTypedNudge = false;
 
@@ -229,6 +232,7 @@ class MuditamChat extends HTMLElement {
         <span class="pulse-ring" aria-hidden="true"></span>
         <img class="launcher-image" alt="" hidden />
         <svg class="launcher-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-8 7.48 8.8 8.8 0 0 1-3.35-.88L4 19.5l1.42-4.04A7.5 7.5 0 1 1 20 11.5Z"/></svg>
+        <span class="launcher-badge" aria-label="1 unread message">1</span>
         <span class="online-dot" aria-hidden="true"></span>
       </button>
       <div class="launcher-nudge" role="status" aria-hidden="true">
@@ -319,6 +323,7 @@ class MuditamChat extends HTMLElement {
   }
 
   #showNudge(autoHide: boolean): void {
+    if (!this.#nudgeEnabled) return;
     const nudge = this.#required<HTMLElement>(".launcher-nudge");
     this.#clearNudgeHideTimer();
     nudge.classList.add("visible");
@@ -371,7 +376,9 @@ class MuditamChat extends HTMLElement {
     }
     this.setAttribute("data-ready", "true");
     const panel = this.#required<HTMLElement>(".panel");
-    this.#nudgeShowTimer = window.setTimeout(() => { if (panel.hidden) this.#showNudge(true); }, 3_000);
+    if (this.#nudgeEnabled) {
+      this.#nudgeShowTimer = window.setTimeout(() => { if (panel.hidden) this.#showNudge(true); }, 3_000);
+    }
   }
 
   async #fetchWidgetConfig(): Promise<WidgetConfig> {
@@ -407,6 +414,15 @@ class MuditamChat extends HTMLElement {
     this.setAttribute("data-position", config.widgetPosition);
     if (config.pulseEffect) this.setAttribute("data-pulse", "true");
     else this.removeAttribute("data-pulse");
+    this.#nudgeEnabled = config.nudgeEnabled !== false;
+    if (this.#nudgeEnabled) {
+      this.removeAttribute("data-nudge-disabled");
+    } else {
+      this.setAttribute("data-nudge-disabled", "true");
+      if (this.#nudgeShowTimer !== null) window.clearTimeout(this.#nudgeShowTimer);
+      this.#nudgeShowTimer = null;
+      this.#hideNudge();
+    }
     const brandName = this.#root.querySelector(".brand strong");
     if (brandName) brandName.textContent = config.botTitle;
     const image = this.#required<HTMLImageElement>(".launcher-image");

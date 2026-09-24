@@ -31,6 +31,7 @@ export interface WidgetConfig {
   pulseColor: string;
   launcherImage: string | null;
   launcherRingColor: string | null;
+  nudgeEnabled: boolean;
   nudgeText: string;
   nudgeBackgroundColor: string;
 }
@@ -48,6 +49,7 @@ export const DEFAULT_WIDGET_CONFIG: WidgetConfig = {
   pulseColor: "#22c55e",
   launcherImage: null,
   launcherRingColor: "#70408f",
+  nudgeEnabled: true,
   nudgeText: "Chat with live agent",
   nudgeBackgroundColor: "#70408f",
 };
