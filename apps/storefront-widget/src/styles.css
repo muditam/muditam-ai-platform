@@ -250,7 +250,6 @@ button, a { -webkit-tap-highlight-color: transparent; }
   width: 22px;
   height: 22px;
   fill: currentColor;
-  transform: translate(1px, -1px);
 }
 .close {
   font-size: 23px;
@@ -597,11 +596,17 @@ button, a { -webkit-tap-highlight-color: transparent; }
   background: white;
 }
 
+.composer.composer-with-suggestions {
+  border-top-color: transparent;
+}
+
 .suggested-questions {
-  display: grid;
-  gap: 8px;
-  justify-items: center;
-  margin: 0 0 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-end;
+  width: 100%;
+  margin: 0 0 14px;
 }
 
 .suggested-questions[hidden] {
@@ -610,25 +615,38 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 .suggested-question {
   display: block;
+  width: fit-content;
   max-width: 100%;
-  min-height: 38px;
-  padding: 8px 16px;
+  min-height: 36px;
+  padding: 8px 18px;
   overflow-wrap: anywhere;
-  border: 1px solid #eadff1;
+  border: 1px solid #ded9e2;
   border-radius: 999px;
   color: var(--muditam-ink);
   background: #fff;
-  box-shadow: 0 2px 8px rgb(87 49 111 / 4%);
+  box-shadow: none;
   cursor: pointer;
   font-size: 13px;
-  font-weight: 750;
+  font-weight: 760;
   line-height: 1.25;
   text-align: center;
 }
 
+.suggested-question:nth-child(1) {
+  width: 82%;
+}
+
+.suggested-question:nth-child(2) {
+  width: 84%;
+}
+
+.suggested-question:nth-child(3) {
+  width: 78%;
+}
+
 .suggested-question:hover {
-  border-color: #d9c4e3;
-  background: #fbf8fc;
+  border-color: #cfc7d4;
+  background: #fbfafc;
 }
 
 .composer-row {
@@ -765,14 +783,23 @@ button, a { -webkit-tap-highlight-color: transparent; }
     padding: 12px 14px max(12px, env(safe-area-inset-bottom));
   }
   .suggested-questions {
-    gap: 7px;
-    margin-bottom: 9px;
+    gap: 10px;
+    margin-bottom: 12px;
   }
   .suggested-question {
-    width: 100%;
-    min-height: 36px;
-    padding: 8px 12px;
-    font-size: 12.5px;
+    width: fit-content;
+    min-height: 38px;
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+  .suggested-question:nth-child(1) {
+    width: 82%;
+  }
+  .suggested-question:nth-child(2) {
+    width: 84%;
+  }
+  .suggested-question:nth-child(3) {
+    width: 78%;
   }
   .composer-row {
     gap: 7px;
