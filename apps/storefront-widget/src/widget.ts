@@ -249,7 +249,7 @@ class MuditamChat extends HTMLElement {
           <button class="close" type="button" aria-label="Close chat">×</button>
         </header>
         <div class="messages" role="log" aria-live="polite"></div>
-        <form class="composer">
+        <form class="composer composer-with-suggestions">
           <div class="suggested-questions" aria-label="Suggested questions">
             ${SUGGESTED_QUESTIONS.map((question) => `<button class="suggested-question" type="button">${question}</button>`).join("")}
           </div>
@@ -888,6 +888,7 @@ class MuditamChat extends HTMLElement {
     this.#pending = true;
     input.value = "";
     this.#required<HTMLElement>(".suggested-questions").hidden = true;
+    this.#required<HTMLElement>(".composer").classList.remove("composer-with-suggestions");
     // Only the send button is blocked while a reply is in flight — `#pending`
     // already stops a duplicate submit, so there's no need to freeze the input
     // itself and make the chat feel locked up while the user waits.
