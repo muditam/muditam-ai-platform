@@ -206,6 +206,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .brand strong { font-size: 14px; font-weight: 700; letter-spacing: -.01em; }
 .brand span { margin-top: 3px; color: var(--muditam-muted); font-size: 10.5px; }
 .brand i { display: inline-block; width: 6px; height: 6px; margin-right: 4px; border-radius: 50%; background: #38a169; }
+.header-whatsapp,
 .close {
   display: grid;
   width: 34px;
@@ -216,7 +217,24 @@ button, a { -webkit-tap-highlight-color: transparent; }
   color: #756d7b;
   background: transparent;
   cursor: pointer;
+  text-decoration: none;
+}
+.header-whatsapp {
+  color: #25d366;
+}
+.header-whatsapp svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+  transform: translate(1px, -1px);
+}
+.close {
   font-size: 23px;
+}
+.header-whatsapp:hover {
+  background: rgb(37 211 102 / 10%);
+  color: #16a34a;
 }
 .close:hover { background: var(--muditam-purple-soft); color: var(--muditam-purple-dark); }
 
@@ -651,18 +669,18 @@ button, a { -webkit-tap-highlight-color: transparent; }
     left: calc(max(14px, env(safe-area-inset-left)) + var(--muditam-launcher-size) + 10px);
   }
   .panel {
-    top: max(8px, env(safe-area-inset-top));
-    right: max(8px, env(safe-area-inset-right));
-    bottom: max(14px, env(safe-area-inset-bottom));
-    left: max(8px, env(safe-area-inset-left));
+    top: max(4px, env(safe-area-inset-top));
+    right: max(4px, env(safe-area-inset-right));
+    bottom: max(6px, env(safe-area-inset-bottom));
+    left: max(4px, env(safe-area-inset-left));
     width: auto;
     height: auto;
     min-height: 0;
-    border-radius: 18px;
+    border-radius: 16px;
   }
   .header {
-    gap: 9px;
-    padding: 12px 13px;
+    gap: 10px;
+    padding: 14px;
   }
   .brand-mark {
     width: 34px;
@@ -683,12 +701,12 @@ button, a { -webkit-tap-highlight-color: transparent; }
     flex: 0 0 36px;
   }
   .messages {
-    padding: 14px 12px 10px;
+    padding: 16px 14px 12px;
   }
   .message {
-    max-width: 88%;
-    padding: 10px 13px;
-    font-size: 13px;
+    max-width: 90%;
+    padding: 12px 14px;
+    font-size: 14px;
   }
   .product-carousel {
     margin-inline: -12px;
@@ -718,7 +736,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
     font-size: 11.5px;
   }
   .composer {
-    padding: 10px 12px max(10px, env(safe-area-inset-bottom));
+    padding: 12px 14px max(12px, env(safe-area-inset-bottom));
   }
   .suggested-questions {
     gap: 7px;
@@ -739,8 +757,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
     font-size: 16px;
   }
   .send {
-    width: 42px;
-    flex-basis: 42px;
+    width: 46px;
+    flex-basis: 46px;
     border-radius: 12px;
   }
   .send svg {

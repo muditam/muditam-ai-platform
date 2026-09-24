@@ -166,6 +166,7 @@ function contrastSafeAccent(hex: string): string {
 }
 
 const STORAGE_KEY = "muditam_ai_storefront_session_v1";
+const EXPERT_WHATSAPP_URL = "https://api.whatsapp.com/send?phone=919625368707&text=Hi%0AI%20would%20like%20to%20connect%20to%20an%20expert";
 const SUGGESTED_QUESTIONS = [
   "Suggest me something for Diabetes",
   "Suggest me something for Fatty Liver",
@@ -238,6 +239,9 @@ class MuditamChat extends HTMLElement {
         <header class="header">
           <div class="brand-mark" aria-hidden="true"><img class="brand-image" alt="" hidden /><span>m</span></div>
           <div class="brand"><strong>Muditam Expert</strong><span><i></i> Online · Typically replies instantly</span></div>
+          <a class="header-whatsapp" href="${EXPERT_WHATSAPP_URL}" target="_blank" rel="noopener noreferrer" aria-label="Chat on WhatsApp">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.031 0h-.062C5.406 0 0 5.406 0 12.031c0 2.578.836 4.964 2.256 6.906L.79 23.156l4.32-1.386c1.867 1.24 4.096 1.964 6.907 1.964h.014c6.61 0 12.03-5.406 12.03-12.032a11.94 11.94 0 0 0-3.522-8.487A11.943 11.943 0 0 0 12.03 0zm7.032 17.05c-.297.836-1.72 1.612-2.375 1.71-.607.09-1.377.129-2.222-.14-1.037-.328-2.37-.735-4.09-1.816-3.02-1.887-4.987-4.987-5.144-5.216-.157-.228-1.294-1.72-1.294-3.286 0-1.564.822-2.335 1.113-2.657.297-.322.647-.402.863-.402.216 0 .432.002.62.011.198.01.463-.075.727.554.272.647.925 2.235 1.006 2.398.08.16.132.35.026.564-.107.213-.16.346-.318.532-.157.187-.332.418-.474.56-.157.157-.32.328-.137.643.183.315.815 1.343 1.75 2.176 1.202 1.07 2.216 1.404 2.531 1.564.315.16.5.132.685-.08.187-.213.792-.926 1.006-1.245.213-.318.427-.264.72-.16.294.107 1.86.877 2.178 1.037.318.16.53.24.61.372.08.132.08.766-.217 1.602z"/></svg>
+          </a>
           <button class="close" type="button" aria-label="Close chat">×</button>
         </header>
         <div class="messages" role="log" aria-live="polite"></div>
@@ -276,6 +280,7 @@ class MuditamChat extends HTMLElement {
     this.#required<HTMLButtonElement>(".nudge-close").addEventListener("click", () => this.#hideNudge());
     this.#required<HTMLElement>(".launcher-nudge").addEventListener("mouseenter", () => this.#clearNudgeHideTimer());
     this.#required<HTMLElement>(".launcher-nudge").addEventListener("mouseleave", () => this.#scheduleNudgeHide(300));
+    this.#required<HTMLAnchorElement>(".header-whatsapp").addEventListener("click", () => this.#emit("header_whatsapp_clicked"));
     this.#root.querySelectorAll<HTMLButtonElement>(".suggested-question").forEach((button) => {
       button.addEventListener("click", () => {
         void this.#submit(button.textContent ?? "");
