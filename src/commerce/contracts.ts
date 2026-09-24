@@ -56,6 +56,7 @@ export const widgetConfigSchema = z.object({
   pulseColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   launcherImage: z.string().max(180_000).regex(/^data:image\/(?:png|jpeg|webp);base64,[a-zA-Z0-9+/=]+$/).nullable().optional(),
   launcherRingColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
+  nudgeEnabled: z.boolean().optional(),
   nudgeText: z.string().trim().min(1).max(60).optional(),
   nudgeBackgroundColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
 });
