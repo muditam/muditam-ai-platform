@@ -18,6 +18,7 @@ import {
   deterministicProductCertification,
   deterministicProductCatalogue,
   deterministicProductCommercialDetails,
+  deterministicProductComparison,
   deterministicProductDiscovery,
   deterministicProductDosage,
   deterministicProductFactVerification,
@@ -212,6 +213,8 @@ export async function answerCommerceChat(
   if (productCertification) return productCertification;
   const catalogue = deterministicProductCatalogue(input, knowledge);
   if (catalogue) return catalogue;
+  const productComparison = deterministicProductComparison(input, knowledge);
+  if (productComparison) return productComparison;
   const namedProductClaim = deterministicNamedProductClaim(input, knowledge);
   if (namedProductClaim) return namedProductClaim;
   const productDiscovery = deterministicProductDiscovery(input, knowledge);
