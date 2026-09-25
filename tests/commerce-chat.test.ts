@@ -22,7 +22,7 @@ const productKnowledge: KnowledgeEntry[] = [
   {
     key: "product:sugar-defend-pro:overview",
     title: "Sugar Defend Pro — product information",
-    content: "Product: Sugar Defend Pro\nPublished description: Supports healthy glucose metabolism.",
+    content: "Product: Sugar Defend Pro\nApproved key benefits: Broader daily metabolic support with 15+ natural ingredients.\nPublished description: Supports healthy glucose metabolism.",
     contentHi: "प्रोडक्ट: Sugar Defend Pro",
     keywords: ["Sugar Defend Pro", "blood sugar"],
     sourceName: "Muditam Ayurveda",
@@ -338,6 +338,40 @@ describe("commerce chat", () => {
       "sugar-defend-pro",
       "karela-jamun-fizz",
     ]);
+  });
+
+  it("answers comparison questions between two named Muditam products", async () => {
+    const berberineKnowledge: KnowledgeEntry = {
+      key: "product:berberine-pro:overview",
+      title: "Berberine Pro — product information",
+      content: "Product: Berberine Pro\nApproved key benefits: Focused blood-sugar, sugar craving, and metabolic wellness support with dual-source berberine.\nPublished description: Supports healthy blood sugar and enhanced metabolism.",
+      contentHi: "प्रोडक्ट: Berberine Pro",
+      keywords: ["Berberine Pro", "blood sugar"],
+      sourceName: "Muditam Ayurveda",
+      sourceUrl: "https://www.muditam.com/products/berberine-pro",
+      version: "test",
+      sourceType: "product",
+      productSlug: "berberine-pro",
+      recommendationEligible: true,
+      recommendationConcern: "blood_sugar",
+    };
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "difference between sugar defend pro and berberine pro" },
+      { answer: async () => { throw new Error("model should not run"); } },
+      async () => [productKnowledge[0]!, berberineKnowledge],
+    );
+
+    expect(response.decision).toBe("ALLOW");
+    expect(response.category).toBe("PRODUCT_COMPARISON");
+    expect(response.messages[0]?.text).toContain("Sugar Defend Pro");
+    expect(response.messages[0]?.text).toContain("Berberine Pro");
+    expect(response.messages[0]?.text).toContain("Broader daily metabolic support");
+    expect(response.messages[0]?.text).toContain("dual-source berberine");
+    expect(response.recommendedProducts.map((item) => item.productSlug)).toEqual([
+      "sugar-defend-pro",
+      "berberine-pro",
+    ]);
+    expect(response.handoff).toBeNull();
   });
 
   it("offers support when no verified product exists for an in-scope concern", async () => {

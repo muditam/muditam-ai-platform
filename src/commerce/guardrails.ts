@@ -243,6 +243,7 @@ export function deterministicProductDiscovery(
 }
 
 const bestSellerPattern = /\b(?:best[- ]?sell(?:er|ing)?|top[- ]?sell(?:er|ing)?|most (?:popular|sold|selling))\b|(?:सबसे ज़्यादा बिकने वाला|बेस्ट सेलर)/iu;
+const productComparisonPattern = /\b(?:difference|different|compare|comparison|vs|versus|between|better|which (?:is )?(?:better|best))\b|(?:अंतर|तुलना|बेहतर)/iu;
 
 // The overall flagship best seller and the diabetes-category best seller are the
 // same product (business-confirmed, not inferred) — this is deliberately a fixed
@@ -299,6 +300,72 @@ export function deterministicProductCatalogue(
       reason: entry.productSlug === BEST_SELLER_SLUG ? "Muditam's best-selling product" : "Muditam wellness product",
     })),
     knowledgeReferences: entries.map((entry) => ({ key: entry.key, title: entry.title, sourceName: entry.sourceName, sourceUrl: entry.sourceUrl })),
+    handoff: null,
+    model: null,
+    promptVersion: COMMERCE_PROMPT_VERSION,
+    guardrailStage: "INPUT",
+    usage: noUsage,
+  };
+}
+
+function approvedProductSummary(entry: KnowledgeEntry): string {
+  const text = entry.content;
+  const explicit = [
+    text.match(/^Approved key benefits:\s*(.+)$/imu)?.[1],
+    text.match(/^Approved description:\s*(.+)$/imu)?.[1],
+    text.match(/^Published description:\s*(.+)$/imu)?.[1],
+    text.match(/^More approved product information:\s*(.+)$/imu)?.[1],
+  ].find((value) => value && value.trim().length > 0)?.trim();
+  if (explicit) return formatCommerceCopy(explicit, 18).replace(/\.$/u, "");
+  const firstContentLine = text
+    .split(/\n+/u)
+    .map((line) => line.trim())
+    .find((line) => line && !/^Product:/iu.test(line));
+  return formatCommerceCopy(firstContentLine ?? "daily wellness support", 18).replace(/\.$/u, "");
+}
+
+export function deterministicProductComparison(
+  input: CommerceChatRequest,
+  knowledge: readonly KnowledgeEntry[],
+): CommerceChatResponse | null {
+  if (!productComparisonPattern.test(input.message)) return null;
+  const normalizedMessage = ` ${normalizedWords(input.message)} `;
+  const productEntries = [...new Map(knowledge
+    .filter((entry) => entry.sourceType === "product"
+      && entry.recommendationEligible === true
+      && entry.productSlug)
+    .map((entry) => [entry.productSlug as string, entry])).values()];
+  const matched = productEntries.filter((entry) => productReferenceMatches(normalizedMessage, productName(entry)));
+  if (matched.length < 2) return null;
+  const [first, second] = matched.slice(0, 2) as [KnowledgeEntry, KnowledgeEntry];
+  const firstName = productName(first);
+  const secondName = productName(second);
+  const firstSummary = approvedProductSummary(first);
+  const secondSummary = approvedProductSummary(second);
+  const sameConcern = first.recommendationConcern && first.recommendationConcern === second.recommendationConcern;
+  const concern = first.recommendationConcern === "blood_sugar"
+    ? "blood-sugar support"
+    : first.recommendationConcern?.replace(/_/gu, " ");
+  const text = sameConcern && concern
+    ? `${firstName} and ${secondName} both support ${concern}, but they are positioned differently. ${firstName} focuses on ${firstSummary}, while ${secondName} focuses on ${secondSummary}.`
+    : `${firstName} focuses on ${firstSummary}. ${secondName} focuses on ${secondSummary}.`;
+  const references = [first, second].map((entry) => ({
+    key: entry.key,
+    title: entry.title,
+    sourceName: entry.sourceName,
+    sourceUrl: entry.sourceUrl,
+  }));
+  return {
+    decision: "ALLOW",
+    category: "PRODUCT_COMPARISON",
+    messages: [{ type: "text", text: formatCommerceCopy(text, 55) }],
+    recommendedProducts: [first, second].map((entry) => ({
+      productSlug: entry.productSlug as string,
+      name: productName(entry),
+      productUrl: entry.sourceUrl,
+      reason: `View ${productName(entry)}`,
+    })),
+    knowledgeReferences: references,
     handoff: null,
     model: null,
     promptVersion: COMMERCE_PROMPT_VERSION,
