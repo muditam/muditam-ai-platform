@@ -1,6 +1,6 @@
 import { MongoClient, type Document } from "mongodb";
 import OpenAI from "openai";
-import { fuzzyIntent } from "../internal/fuzzy-match.js";
+import { editDistance, fuzzyIntent } from "../internal/fuzzy-match.js";
 import type { KnowledgeEntry } from "./knowledge.js";
 
 const PRODUCT_INTENT = /\b(product|products|supplement|supplements|ingredient|ingredients|price|buy|purchase|fizz|defend|fix|fuel|essentials|dense|snooze|shilajit|berberine|karela|jamun|ras|vati|gut|liver|heart|thyroid|nerve|bone|sleep)\b|(प्रोडक्ट|उत्पाद|सप्लीमेंट|सामग्री|कीमत|खरीद|शिलाजीत|करेला|जामुन|लिवर|हार्ट|थायराइड|नींद)/iu;
@@ -8,6 +8,7 @@ const PLATFORM_INTENT = /\b(muditam|company|platform|app|service|services|dietit
 const DEFAULT_MODEL = "text-embedding-3-small";
 const DEFAULT_DIMENSIONS = 1024;
 const PRODUCT_CATALOGUE_PATTERN = /\b(?:what (?:are|products? (?:do|does)) muditam products?|what products? do (?:you|muditam) (?:have|offer|sell)|show (?:me )?(?:all |your )?products?|all (?:muditam )?products?|(?:your|muditam) product (?:catalogue|catalog))\b/iu;
+const PRODUCT_COMPARISON_PATTERN = /\b(?:difference|different|compare|comparison|vs|versus|between|b\/?w|better|which (?:is )?(?:better|best))\b|(?:अंतर|तुलना|बेहतर)/iu;
 
 export function productCatalogueIntent(message: string): boolean {
   const latest = latestCustomerMessage(message);
@@ -275,18 +276,33 @@ function productReferenceNames(value: string): string[] {
   const full = normalizedProductName(value);
   const withoutMerchandisingSuffix = full.replace(/\b(?:pro|fizz)\b/gu, " ").replace(/\s+/gu, " ").trim();
   const knownAliases = full === "karela jamun fizz" ? ["karela jamun", "karela fizz"] : [];
-  return [...new Set([full, withoutMerchandisingSuffix, ...knownAliases])].filter((name) => name.split(" ").length >= 2);
+  return [...new Set([full, withoutMerchandisingSuffix, ...knownAliases])]
+    .filter((name) => name.split(" ").length >= 2 || name.length >= 7);
 }
 
-export async function explicitlyReferencedProduct(question: string): Promise<{ slug: string; eligible: boolean } | null> {
+function referenceNameMatches(normalizedQuestion: string, questionTokens: readonly string[], referenceName: string): boolean {
+  if (normalizedQuestion.includes(` ${referenceName} `)) return true;
+  const referenceTokens = referenceName.split(/\s+/u).filter(Boolean);
+  if (referenceTokens.length < 2 && (referenceTokens[0]?.length ?? 0) < 7) return false;
+  return referenceTokens.every((target) => questionTokens.some((token) => {
+    if (token === target || token.includes(target) || (target.includes(token) && token.length >= 5)) return true;
+    const tolerance = target.length >= 9 ? 2 : 1;
+    return token.length >= 4
+      && Math.abs(token.length - target.length) <= tolerance
+      && editDistance(token, target) <= tolerance;
+  }));
+}
+
+async function explicitlyReferencedProducts(question: string): Promise<Array<{ slug: string; eligible: boolean }>> {
   const latest = latestCustomerMessage(question);
-  if (!enabled() || !mongoUri() || !PRODUCT_INTENT.test(latest)) return null;
+  if (!enabled() || !mongoUri() || !PRODUCT_INTENT.test(latest)) return [];
   const db = await database();
-  if (!db) return null;
+  if (!db) return [];
   // Explicit product resolution must use the latest customer turn. Searching the
   // whole transcript lets a longer product name from an older answer override the
   // product the customer is asking about now.
   const normalizedQuestion = ` ${normalizedProductName(latest)} `;
+  const questionTokens = normalizedProductName(latest).split(/\s+/u).filter(Boolean);
   const products = await db.collection("metabolic_products").find({}, {
     projection: { name: 1, slug: 1, active: 1, recommendationEligible: 1, websiteStatus: 1, chatbotAliases: 1 },
   }).toArray();
@@ -295,14 +311,17 @@ export async function explicitlyReferencedProduct(question: string): Promise<{ s
       ...productReferenceNames(String(product.name)),
       ...(Array.isArray(product.chatbotAliases) ? product.chatbotAliases.map((alias: unknown) => normalizedProductName(String(alias))) : []),
     ].map((name) => ({ product, name })))
-    .filter(({ name }) => name.length >= 5 && normalizedQuestion.includes(` ${name} `))
+    .filter(({ name }) => name.length >= 5 && referenceNameMatches(normalizedQuestion, questionTokens, name))
     .sort((left, right) => right.name.length - left.name.length);
-  const match = candidates[0]?.product;
-  if (!match) return null;
-  return {
-    slug: String(match.slug),
-    eligible: match.active === true && match.recommendationEligible === true && match.websiteStatus === "active",
-  };
+  return [...new Map(candidates.map(({ product }) => [String(product.slug), product])).values()]
+    .map((match) => ({
+      slug: String(match.slug),
+      eligible: match.active === true && match.recommendationEligible === true && match.websiteStatus === "active",
+    }));
+}
+
+export async function explicitlyReferencedProduct(question: string): Promise<{ slug: string; eligible: boolean } | null> {
+  return (await explicitlyReferencedProducts(question))[0] ?? null;
 }
 
 async function exactProductResults(productSlug: string, question: string): Promise<KnowledgeEntry[]> {
@@ -497,11 +516,13 @@ export async function retrieveRagKnowledge(
       for (const slug of forcedProductSlugs(question)) {
         retrieved.push(...await exactProductResults(slug, question));
       }
-      const explicitlyNamed = await explicitlyReferencedProduct(question);
-      if (explicitlyNamed && !explicitlyNamed.eligible) return curated;
-      retrieved.push(...(explicitlyNamed
-        ? await exactProductResults(explicitlyNamed.slug, question)
-        : concernDiscovery ? [] : await vectorResults(question, "product")));
+      const explicitlyNamedProducts = await explicitlyReferencedProducts(question);
+      if (explicitlyNamedProducts.some((product) => !product.eligible)) return curated;
+      if (explicitlyNamedProducts.length) {
+        for (const product of explicitlyNamedProducts) retrieved.push(...await exactProductResults(product.slug, question));
+      } else {
+        retrieved.push(...(concernDiscovery ? [] : await vectorResults(question, "product")));
+      }
     }
     if (wantsPlatform) retrieved.push(...await vectorResults(question, "platform"));
   } catch (error) {
@@ -556,11 +577,13 @@ export async function retrieveCommerceRagKnowledge(question: string): Promise<Kn
   try {
     retrieved.push(...await concernProductResults(question));
     for (const slug of forcedSlugs) retrieved.push(...await exactProductResults(slug, question));
-    const explicitlyNamed = await explicitlyReferencedProduct(question);
-    if (explicitlyNamed && !explicitlyNamed.eligible) return [];
-    retrieved.push(...(explicitlyNamed
-      ? await exactProductResults(explicitlyNamed.slug, question)
-      : concernDiscovery ? [] : await vectorResults(productQuery, "product")));
+    const explicitlyNamedProducts = await explicitlyReferencedProducts(question);
+    if (explicitlyNamedProducts.some((product) => !product.eligible)) return [];
+    if (explicitlyNamedProducts.length) {
+      for (const product of explicitlyNamedProducts) retrieved.push(...await exactProductResults(product.slug, question));
+    } else {
+      retrieved.push(...(concernDiscovery ? [] : await vectorResults(productQuery, "product")));
+    }
     // Bot Flow text additions are stored as verified platform knowledge. Search
     // that collection on every commerce turn so custom FAQs can answer arbitrary
     // customer wording, not only questions that explicitly mention Muditam.

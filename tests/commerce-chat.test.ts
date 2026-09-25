@@ -374,6 +374,48 @@ describe("commerce chat", () => {
     expect(response.handoff).toBeNull();
   });
 
+  it("handles shorthand and typos in product comparison questions", async () => {
+    const berberineKnowledge: KnowledgeEntry = {
+      key: "product:berberine-pro:overview",
+      title: "Berberine Pro — product information",
+      content: "Product: Berberine Pro\nApproved key benefits: Focused blood-sugar, sugar craving, and metabolic wellness support with dual-source berberine.",
+      contentHi: "प्रोडक्ट: Berberine Pro",
+      keywords: ["Berberine Pro"],
+      sourceName: "Muditam Ayurveda",
+      sourceUrl: "https://www.muditam.com/products/berberine-pro",
+      version: "test",
+      sourceType: "product",
+      productSlug: "berberine-pro",
+      recommendationEligible: true,
+    };
+    const liverDefendKnowledge: KnowledgeEntry = {
+      key: "product:liver-defend-pro:overview",
+      title: "Liver Defend Pro — product information",
+      content: "Product: Liver Defend Pro\nApproved key benefits: Daily liver wellness support with Milk Thistle and liver-supporting herbs.",
+      contentHi: "प्रोडक्ट: Liver Defend Pro",
+      keywords: ["Liver Defend Pro"],
+      sourceName: "Muditam Ayurveda",
+      sourceUrl: "https://www.muditam.com/products/liver-defend-pro",
+      version: "test",
+      sourceType: "product",
+      productSlug: "liver-defend-pro",
+      recommendationEligible: true,
+    };
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "difference between berberine and lever defend" },
+      { answer: async () => { throw new Error("model should not run"); } },
+      async () => [berberineKnowledge, liverDefendKnowledge],
+    );
+
+    expect(response.category).toBe("PRODUCT_COMPARISON");
+    expect(response.messages[0]?.text).toContain("Berberine Pro");
+    expect(response.messages[0]?.text).toContain("Liver Defend Pro");
+    expect(response.recommendedProducts.map((item) => item.productSlug)).toEqual([
+      "berberine-pro",
+      "liver-defend-pro",
+    ]);
+  });
+
   it("offers support when no verified product exists for an in-scope concern", async () => {
     const response = await answerCommerceChat(
       { ...baseRequest, message: "can you recommend a product for skin concern?" },

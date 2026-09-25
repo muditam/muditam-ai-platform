@@ -1,6 +1,6 @@
 import type { KnowledgeEntry } from "../chat/knowledge.js";
 import { formatChatAnswer } from "../chat/guardrails.js";
-import { fuzzyIntent, fuzzyToken } from "../internal/fuzzy-match.js";
+import { editDistance, fuzzyIntent, fuzzyToken } from "../internal/fuzzy-match.js";
 import type {
   CommerceChatRequest,
   CommerceChatResponse,
@@ -243,7 +243,7 @@ export function deterministicProductDiscovery(
 }
 
 const bestSellerPattern = /\b(?:best[- ]?sell(?:er|ing)?|top[- ]?sell(?:er|ing)?|most (?:popular|sold|selling))\b|(?:सबसे ज़्यादा बिकने वाला|बेस्ट सेलर)/iu;
-const productComparisonPattern = /\b(?:difference|different|compare|comparison|vs|versus|between|better|which (?:is )?(?:better|best))\b|(?:अंतर|तुलना|बेहतर)/iu;
+const productComparisonPattern = /\b(?:difference|different|compare|comparison|vs|versus|between|b\/?w|better|which (?:is )?(?:better|best))\b|(?:अंतर|तुलना|बेहतर)/iu;
 
 // The overall flagship best seller and the diabetes-category best seller are the
 // same product (business-confirmed, not inferred) — this is deliberately a fixed
@@ -324,18 +324,37 @@ function approvedProductSummary(entry: KnowledgeEntry): string {
   return formatCommerceCopy(firstContentLine ?? "daily wellness support", 18).replace(/\.$/u, "");
 }
 
+function preferredComparisonEntry(entries: readonly KnowledgeEntry[], slug: string): KnowledgeEntry | null {
+  const sameProduct = entries.filter((entry) => entry.productSlug === slug);
+  const liveDetails = sameProduct.find((entry) => entry.key.endsWith(":live-shopify-details")
+    && /^Approved (?:description|key benefits|concerns):/imu.test(entry.content));
+  return liveDetails
+    ?? sameProduct.find((entry) => entry.key.endsWith(":overview"))
+    ?? sameProduct[0]
+    ?? null;
+}
+
 export function deterministicProductComparison(
   input: CommerceChatRequest,
   knowledge: readonly KnowledgeEntry[],
 ): CommerceChatResponse | null {
   if (!productComparisonPattern.test(input.message)) return null;
   const normalizedMessage = ` ${normalizedWords(input.message)} `;
+  const messageTokens = normalizedWords(input.message).split(/\s+/u).filter(Boolean);
   const productEntries = [...new Map(knowledge
     .filter((entry) => entry.sourceType === "product"
       && entry.recommendationEligible === true
       && entry.productSlug)
     .map((entry) => [entry.productSlug as string, entry])).values()];
-  const matched = productEntries.filter((entry) => productReferenceMatches(normalizedMessage, productName(entry)));
+  const matched = productEntries
+    .filter((entry) => comparisonProductReferenceMatches(normalizedMessage, messageTokens, productName(entry)))
+    .flatMap((entry) => {
+      const preferred = preferredComparisonEntry(knowledge, entry.productSlug as string);
+      return preferred ? [preferred] : [entry];
+    })
+    .sort((left, right) =>
+      comparisonProductReferenceIndex(normalizedMessage, messageTokens, productName(left))
+      - comparisonProductReferenceIndex(normalizedMessage, messageTokens, productName(right)));
   if (matched.length < 2) return null;
   const [first, second] = matched.slice(0, 2) as [KnowledgeEntry, KnowledgeEntry];
   const firstName = productName(first);
@@ -347,8 +366,8 @@ export function deterministicProductComparison(
     ? "blood-sugar support"
     : first.recommendationConcern?.replace(/_/gu, " ");
   const text = sameConcern && concern
-    ? `${firstName} and ${secondName} both support ${concern}, but they are positioned differently. ${firstName} focuses on ${firstSummary}, while ${secondName} focuses on ${secondSummary}.`
-    : `${firstName} focuses on ${firstSummary}. ${secondName} focuses on ${secondSummary}.`;
+    ? `${firstName} and ${secondName} both support ${concern}, but they are positioned differently. ${firstName}: ${firstSummary}. ${secondName}: ${secondSummary}.`
+    : `${firstName}: ${firstSummary}. ${secondName}: ${secondSummary}.`;
   const references = [first, second].map((entry) => ({
     key: entry.key,
     title: entry.title,
@@ -387,6 +406,43 @@ function productReferenceMatches(normalizedMessage: string, name: string): boole
   return [full, withoutMerchandisingSuffix, ...knownAliases]
     .filter((candidate) => candidate.split(" ").length >= 2)
     .some((candidate) => normalizedMessage.includes(` ${candidate} `));
+}
+
+function tokenApproximatelyMatches(token: string, target: string): boolean {
+  if (token === target || token.includes(target) || (target.includes(token) && token.length >= 5)) return true;
+  const tolerance = target.length >= 9 ? 2 : 1;
+  return token.length >= 4
+    && Math.abs(token.length - target.length) <= tolerance
+    && editDistance(token, target) <= tolerance;
+}
+
+function comparisonProductReferenceMatches(normalizedMessage: string, messageTokens: readonly string[], name: string): boolean {
+  if (productReferenceMatches(normalizedMessage, name)) return true;
+  const full = normalizedWords(name);
+  const withoutMerchandisingSuffix = full.replace(/\b(?:pro|fizz)\b/gu, " ").replace(/\s+/gu, " ").trim();
+  const knownAliases = full === "karela jamun fizz" ? ["karela jamun", "karela fizz"] : [];
+  return [withoutMerchandisingSuffix, ...knownAliases]
+    .filter(Boolean)
+    .some((candidate) => {
+      const candidateTokens = candidate.split(/\s+/u).filter(Boolean);
+      if (candidateTokens.length < 2 && (candidateTokens[0]?.length ?? 0) < 7) return false;
+      return candidateTokens.every((target) => messageTokens.some((token) => tokenApproximatelyMatches(token, target)));
+    });
+}
+
+function comparisonProductReferenceIndex(normalizedMessage: string, messageTokens: readonly string[], name: string): number {
+  const full = normalizedWords(name);
+  const withoutMerchandisingSuffix = full.replace(/\b(?:pro|fizz)\b/gu, " ").replace(/\s+/gu, " ").trim();
+  const knownAliases = full === "karela jamun fizz" ? ["karela jamun", "karela fizz"] : [];
+  void normalizedMessage;
+  const tokenIndexes = [full, withoutMerchandisingSuffix, ...knownAliases]
+    .filter(Boolean)
+    .flatMap((candidate) => candidate.split(/\s+/u).filter(Boolean))
+    .flatMap((target) => {
+      const index = messageTokens.findIndex((token) => tokenApproximatelyMatches(token, target));
+      return index >= 0 ? [index] : [];
+    });
+  return tokenIndexes.length ? Math.min(...tokenIndexes) : Number.MAX_SAFE_INTEGER;
 }
 
 const productDiseaseClaimPattern = /\b(?:cure|treat|reverse|heal|control|manage|disa+p+ear|go away|end|remove)\b.{0,45}\b(?:diabetes|diabetic|blood sugar|glucose|liver|fatty liver|heart|thyroid)\b|\b(?:diabetes|diabetic|blood sugar|glucose|liver|fatty liver|heart|thyroid)\b.{0,45}\b(?:cure|treat|reverse|heal|control|manage|disa+p+ear|go away|end|remove)\b|\b(?:ठीक|इलाज|कंट्रोल)\b/iu;
