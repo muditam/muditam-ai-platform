@@ -340,6 +340,20 @@ describe("commerce chat", () => {
     ]);
   });
 
+  it("answers order delivery timeline questions instead of treating days as dosage", async () => {
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "What about orders delevery in how many days" },
+      { answer: async () => { throw new Error("model should not run"); } },
+      async () => productKnowledge,
+    );
+
+    expect(response.decision).toBe("ALLOW");
+    expect(response.category).toBe("ORDER_OR_SUPPORT");
+    expect(response.messages[0]?.text).toContain("2 to 4 business days");
+    expect(response.messages[0]?.text).toContain("order number");
+    expect(response.handoff).toBeNull();
+  });
+
   it("answers comparison questions between two named Muditam products", async () => {
     const berberineKnowledge: KnowledgeEntry = {
       key: "product:berberine-pro:overview",
