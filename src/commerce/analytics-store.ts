@@ -435,6 +435,8 @@ export interface CommerceOverview {
   resolutionRate: number;
   leadCaptures: number;
   addToCartAssisted: number;
+  assistedOrderValue: number;
+  orderValueUtm: number;
   interactionRate: number;
   thumbsUp: number;
   thumbsDown: number;
@@ -475,6 +477,67 @@ function topCounts(values: Array<string | null | undefined>, limit = 5): Array<{
     .map(([key, count]) => ({ key, count }));
 }
 
+function numberValue(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
+function orderCreatedAt(order: Document): Date | null {
+  const value = order.shopifyCreatedAt ?? order.created_at ?? order.createdAt;
+  const date = value instanceof Date ? value : typeof value === "string" || typeof value === "number" ? new Date(value) : null;
+  return date && Number.isFinite(date.getTime()) ? date : null;
+}
+
+function orderTotal(order: Document): number {
+  return numberValue(
+    order.totalPrice
+      ?? order.total_price
+      ?? order.current_total_price
+      ?? order.orderTotal
+      ?? order.totalAmount,
+  );
+}
+
+function orderAttribute(order: Document, key: string): string | null {
+  const direct = order[key];
+  if (typeof direct === "string" && direct.trim()) return direct.trim();
+  const attributes = order.attributes ?? order.cartAttributes ?? order.cart_attributes ?? order.noteAttributes ?? order.note_attributes;
+  if (attributes && typeof attributes === "object" && !Array.isArray(attributes)) {
+    const value = (attributes as Record<string, unknown>)[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  if (Array.isArray(attributes)) {
+    for (const item of attributes) {
+      if (!item || typeof item !== "object") continue;
+      const record = item as Record<string, unknown>;
+      if ((record.name === key || record.key === key) && typeof record.value === "string" && record.value.trim()) {
+        return record.value.trim();
+      }
+    }
+  }
+  return null;
+}
+
+function orderHasChatAttribution(order: Document): boolean {
+  return Boolean(orderAttribute(order, "muditam_chat_conversation_id") || orderAttribute(order, "muditam_chat_visitor_id"));
+}
+
+function orderHasUtmAttribution(order: Document): boolean {
+  const landingSite = typeof order.landing_site === "string" ? order.landing_site : typeof order.landingSite === "string" ? order.landingSite : "";
+  const sourceUrl = orderAttribute(order, "muditam_chat_source_url") ?? landingSite;
+  if (!sourceUrl) return false;
+  try {
+    const url = new URL(sourceUrl, "https://muditam.com");
+    return Boolean(url.searchParams.get("utm_source") || url.searchParams.get("utm_campaign") || url.searchParams.get("utm_medium"));
+  } catch {
+    return /utm_(?:source|campaign|medium)=/iu.test(sourceUrl);
+  }
+}
+
 export async function getOverview(range: DateRange = {}): Promise<CommerceOverview> {
   const empty: CommerceOverview = {
     totalConversations: 0,
@@ -483,6 +546,8 @@ export async function getOverview(range: DateRange = {}): Promise<CommerceOvervi
     resolutionRate: 0,
     leadCaptures: 0,
     addToCartAssisted: 0,
+    assistedOrderValue: 0,
+    orderValueUtm: 0,
     interactionRate: 0,
     thumbsUp: 0,
     thumbsDown: 0,
@@ -506,6 +571,7 @@ export async function getOverview(range: DateRange = {}): Promise<CommerceOvervi
     recommendationCounts,
     clickCounts,
     addToCartCount,
+    attributedOrders,
     healthConcernResult,
     pageviewVisitorCount,
     conversationVisitorCount,
@@ -559,7 +625,36 @@ export async function getOverview(range: DateRange = {}): Promise<CommerceOvervi
       { $match: { ...messageDateFilter, type: "product_clicked", productSlug: { $ne: null } } },
       { $group: { _id: "$productSlug", count: { $sum: 1 } } },
     ]).toArray(),
-    db.collection("commerce_events").countDocuments({ ...messageDateFilter, type: "add_to_cart_clicked" }),
+    db.collection("commerce_events").countDocuments({ ...messageDateFilter, type: { $in: ["add_to_cart_clicked", "product_added_to_cart"] } }),
+    db.collection("orders")
+      .find(
+        range.from || range.to
+          ? { $or: [{ shopifyCreatedAt: messageDateFilter.createdAt }, { createdAt: messageDateFilter.createdAt }] }
+          : {},
+        {
+          projection: {
+            _id: 0,
+            totalPrice: 1,
+            total_price: 1,
+            current_total_price: 1,
+            orderTotal: 1,
+            totalAmount: 1,
+            shopifyCreatedAt: 1,
+            created_at: 1,
+            createdAt: 1,
+            landing_site: 1,
+            landingSite: 1,
+            attributes: 1,
+            cartAttributes: 1,
+            cart_attributes: 1,
+            noteAttributes: 1,
+            note_attributes: 1,
+            muditam_chat_conversation_id: 1,
+            muditam_chat_visitor_id: 1,
+          },
+        },
+      )
+      .toArray(),
     db.collection("commerce_visitors").aggregate([
       { $unwind: "$healthConcerns" },
       ...(range.from || range.to ? [{ $match: {
@@ -610,6 +705,20 @@ export async function getOverview(range: DateRange = {}): Promise<CommerceOvervi
 
   const pageviewVisitors = (pageviewVisitorCount as unknown as Array<{ count: number }>)[0]?.count ?? 0;
   const conversationVisitors = (conversationVisitorCount as unknown as Array<{ count: number }>)[0]?.count ?? 0;
+  const orderDocs = attributedOrders as Document[];
+  const filteredOrders = orderDocs.filter((order) => {
+    const createdAt = orderCreatedAt(order);
+    if (!createdAt) return true;
+    if (range.from && createdAt < range.from) return false;
+    if (range.to && createdAt > range.to) return false;
+    return true;
+  });
+  const assistedOrderValue = filteredOrders
+    .filter(orderHasChatAttribution)
+    .reduce((sum, order) => sum + orderTotal(order), 0);
+  const orderValueUtm = filteredOrders
+    .filter(orderHasUtmAttribution)
+    .reduce((sum, order) => sum + orderTotal(order), 0);
 
   return {
     totalConversations: totals.totalConversations ?? 0,
@@ -620,6 +729,8 @@ export async function getOverview(range: DateRange = {}): Promise<CommerceOvervi
       : 0,
     leadCaptures: totals.leadCaptures ?? 0,
     addToCartAssisted: addToCartCount,
+    assistedOrderValue: Math.round(assistedOrderValue * 100) / 100,
+    orderValueUtm: Math.round(orderValueUtm * 100) / 100,
     // Guards against a near-empty pageview sample (e.g. right after this beacon
     // ships) making the rate look artificially high or low from a handful of visits.
     interactionRate: pageviewVisitors ? Math.round((conversationVisitors / pageviewVisitors) * 1000) / 10 : 0,
