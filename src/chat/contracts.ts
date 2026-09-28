@@ -37,6 +37,29 @@ export const mobileAppContextSchema = z.object({
     todayCompletedTasks: z.number().int().min(0),
     todayTotalTasks: z.number().int().min(0),
   }).nullable(),
+  routine: z.object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    items: z.array(z.object({
+      productName: z.string().min(1).max(180),
+      period: z.enum(["morning", "evening", "night", "anytime"]),
+      dosage: z.string().max(240),
+      completed: z.boolean(),
+    })).max(50),
+  }).nullable(),
+  orderHistory: z.object({
+    available: z.boolean(),
+    orders: z.array(z.object({
+      orderId: z.string().max(100),
+      orderName: z.string().max(80),
+      placedAt: z.string().datetime().nullable(),
+      status: z.string().max(80),
+      financialStatus: z.string().max(80),
+      inProgress: z.boolean(),
+      total: z.string().max(40),
+      currency: z.string().max(10),
+      items: z.array(z.object({ name: z.string().max(200), quantity: z.number().int().min(1) })).max(30),
+    })).max(20),
+  }).nullable().optional(),
   diet: z.object({
     profileComplete: z.boolean(),
     planStatus: z.string().max(40),
@@ -51,7 +74,7 @@ export const mobileAppContextSchema = z.object({
     currentKitStartedAt: z.string().datetime().nullable(),
     cycleDays: z.number().int().min(1).max(365),
     daysOnCurrentKit: z.number().int().min(0),
-    daysUntilNextKit: z.number().int().min(0),
+    daysUntilNextKit: z.number().int().min(0).nullable(),
     reorderReady: z.boolean(),
     name: z.string().max(200).nullable(),
     condition: z.string().max(200).nullable(),
@@ -160,7 +183,7 @@ export const modelChatResultSchema = z.object({
 
 export const appUiActionSchema = z.object({
   type: z.literal("NAVIGATE"),
-  target: z.enum(["REELS", "GAMES"]),
+  target: z.enum(["REELS", "GAMES", "PRODUCTS", "FITNESS", "MY_PLAN"]),
   label: z.string().min(1).max(80),
 });
 

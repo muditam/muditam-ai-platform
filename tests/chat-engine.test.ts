@@ -34,12 +34,28 @@ const appContext = {
     metrics: { steps: 4321, workoutMinutes: 18 }, targets: { steps: 10000, workoutMinutes: 30 }, completedPlans: [],
   },
   progress: { currentStreakDays: 3, bestStreakDays: 5, weekCompletedDays: 3, weekTotalDays: 7 as const, weekRemainingCompletionDays: 4, todayCompletedTasks: 2, todayTotalTasks: 5 },
+  routine: { date: "2026-09-28", items: [{ productName: "Berberine Pro", period: "morning" as const, dosage: "1 capsule", completed: true }] },
+  orderHistory: { available: true, orders: [{ orderId: "10", orderName: "#10", placedAt: "2026-09-28T10:00:00.000Z", status: "UNFULFILLED", financialStatus: "PAID", inProgress: true, total: "420.00", currency: "INR", items: [{ name: "Core Essentials", quantity: 1 }] }] },
   diet: { profileComplete: true, planStatus: "ACTIVE", startDate: "2026-09-28", endDate: "2026-10-01", answersUsedForPlan: [], targets: [] },
   kit: { hasPurchased: true, currentKitNumber: 1, currentKitStartedAt: "2026-09-20T10:00:00.000Z", cycleDays: 20, daysOnCurrentKit: 8, daysUntilNextKit: 12, reorderReady: false, name: "Month 1 Kit", condition: "Diabetes", items: [] },
   quiz: null,
 };
 
+const appContextWithoutKitClock = {
+  ...appContext,
+  kit: { ...appContext.kit, hasPurchased: false, currentKitStartedAt: null, daysUntilNextKit: null },
+};
+
 describe("AI chat guardrails", () => {
+  it("accepts today's routine and an unavailable next-kit countdown", () => {
+    const parsed = internalChatRequestSchema.parse({
+      ...baseRequest,
+      message: "What is my routine today?",
+      appContext: appContextWithoutKitClock,
+    });
+    expect(parsed.appContext?.routine?.items[0]?.productName).toBe("Berberine Pro");
+    expect(parsed.appContext?.kit?.daysUntilNextKit).toBeNull();
+  });
   it("rejects private app context outside an authenticated mobile request", () => {
     expect(() => internalChatRequestSchema.parse({
       ...baseRequest,
@@ -54,6 +70,14 @@ describe("AI chat guardrails", () => {
     const response = await answerChat({ ...baseRequest, message: "Take me to the reels page", appContext });
     expect(response.category).toBe("APP_INFORMATION");
     expect(response.uiActions).toEqual([{ type: "NAVIGATE", target: "REELS", label: "Open Reels" }]);
+  });
+  it.each([
+    ["Open the products page", "PRODUCTS"],
+    ["Take me to the fitness page", "FITNESS"],
+    ["Open my plan", "MY_PLAN"],
+  ])("navigates %s", async (message, target) => {
+    const response = await answerChat({ ...baseRequest, message, appContext });
+    expect(response.uiActions?.[0]?.target).toBe(target);
   });
   it("rejects report observations outside a verified mobile customer context", () => {
     expect(() => internalChatRequestSchema.parse({
