@@ -7,6 +7,7 @@ import {
 } from "../src/commerce/commerce-engine.js";
 import { botFlowProductConfigSchema } from "../src/commerce/contracts.js";
 import { formatCommerceCopy } from "../src/commerce/guardrails.js";
+import { assistantOfferedCallback, assistantPromptedForLead } from "../src/commerce/analytics-store.js";
 import type { KnowledgeEntry } from "../src/chat/knowledge.js";
 import { discoveryConcernForQuestion, productCatalogueIntent as retrievalCatalogueIntent } from "../src/chat/rag.js";
 
@@ -188,6 +189,134 @@ describe("commerce chat", () => {
     expect(response.category).toBe("ORDER_OR_SUPPORT");
     expect(response.messages[0]?.text).toBe("Refund requests are handled by our support team. Please connect with them by call or WhatsApp.");
     expect(response.handoff?.queue).toBe("support");
+  });
+
+  it("offers callback consent only for explicit support requests", async () => {
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "connect me to support" },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => [],
+    );
+    expect(response.handoff?.queue).toBe("support");
+    expect(response.messages.at(-1)?.text).toBe("Do you want our team to contact you?");
+  });
+
+  it("uses deterministic support copy for plain support requests", async () => {
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "support" },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => [],
+    );
+    expect(response.handoff?.queue).toBe("support");
+    expect(response.messages[0]?.text).toBe("Our support team can help you. You can use the Call or WhatsApp option below to connect directly.");
+    expect(response.messages.at(-1)?.text).toBe("Do you want our team to contact you?");
+  });
+
+  it("normalizes model-generated support choice wording", async () => {
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "connect me with support" },
+      {
+        answer: async () => ({
+          model: "test-model",
+          result: {
+            decision: "HANDOFF",
+            category: "ORDER_OR_SUPPORT",
+            answer: "I will connect you to Muditam support, shall I connect you to expert chat or phone support?",
+            followUp: "Do you prefer expert chat or phone support?",
+            citedKnowledgeKeys: [],
+            recommendations: [],
+          },
+        }),
+      },
+      async () => [],
+    );
+
+    expect(response.messages.map((message) => message.text).join(" ")).not.toMatch(/expert chat|phone support|chat support/iu);
+    expect(response.messages[0]?.text).toBe("Our support team can help you. You can use the Call or WhatsApp option below to connect directly.");
+    expect(response.messages.at(-1)?.text).toBe("Do you want our team to contact you?");
+  });
+
+  it("normalizes phone-support model branches", async () => {
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "phone" },
+      {
+        answer: async () => ({
+          model: "test-model",
+          result: {
+            decision: "HANDOFF",
+            category: "ORDER_OR_SUPPORT",
+            answer: "I will connect you to Muditam phone support for personalised help, please hold while I initiate the call.",
+            followUp: "Do you want support for orders or health guidance?",
+            citedKnowledgeKeys: [],
+            recommendations: [],
+          },
+        }),
+      },
+      async () => [],
+    );
+
+    expect(response.messages.map((message) => message.text).join(" ")).not.toMatch(/phone support|initiate the call|orders or health guidance/iu);
+    expect(response.messages[0]?.text).toBe("Our support team can help you. You can use the Call or WhatsApp option below to connect directly.");
+    expect(response.messages.at(-1)?.text).toBe("Do you want our team to contact you?");
+  });
+
+  it("normalizes expert contact-method model branches", async () => {
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "contact me" },
+      {
+        answer: async () => ({
+          model: "test-model",
+          result: {
+            decision: "HANDOFF",
+            category: "EXPERT_HANDOFF",
+            answer: "I can arrange expert support from our dietitian team, please confirm your preferred contact method and a good time to call.",
+            followUp: "Which contact method do you prefer, phone or WhatsApp?",
+            citedKnowledgeKeys: [],
+            recommendations: [],
+          },
+        }),
+      },
+      async () => [],
+    );
+
+    expect(response.messages.map((message) => message.text).join(" ")).not.toMatch(/preferred contact method|phone or WhatsApp|good time to call/iu);
+    expect(response.messages[0]?.text).toBe("Please share your mobile number and our support team will contact you.");
+  });
+
+  it("separates callback consent prompts from number prompts", () => {
+    const callbackOffer = [
+      { role: "assistant" as const, content: "Do you want our team to contact you?" },
+    ];
+    const numberPrompt = [
+      { role: "assistant" as const, content: "Sure, please share your mobile number and our support team will contact you." },
+    ];
+
+    expect(assistantOfferedCallback(callbackOffer)).toBe(true);
+    expect(assistantPromptedForLead(callbackOffer)).toBe(false);
+    expect(assistantPromptedForLead(numberPrompt)).toBe(true);
+  });
+
+  it("recovers from old phone-support prompts by asking for mobile number", () => {
+    expect(assistantOfferedCallback([
+      { role: "assistant", content: "Do you prefer expert chat or phone support?" },
+    ])).toBe(true);
+  });
+
+  it("asks for mobile number when customer directly says contact me", async () => {
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "contact me" },
+      { answer: async () => { throw new Error("model should not run"); } },
+      async () => { throw new Error("retrieval should not run"); },
+    );
+
+    expect(response.messages[0]?.text).toBe("Please share your mobile number and our support team will contact you.");
+    expect(response.handoff).toBeNull();
+  });
+
+  it("does not treat generic contact-method questions as number prompts", () => {
+    expect(assistantPromptedForLead([
+      { role: "assistant", content: "What is the best contact method for support, call, WhatsApp, or email?" },
+    ])).toBe(false);
   });
 
   it("carries product context into retrieval for affirmative follow-up questions", async () => {
@@ -1149,7 +1278,9 @@ describe("commerce chat", () => {
     expect(generated).toBe(false);
     expect(response.decision).toBe("HANDOFF");
     expect(response.handoff?.queue).toBe("doctor");
-    expect(response.messages[0]?.text).toContain("chat or a callback");
+    expect(response.messages[0]?.text).not.toContain("chat or a callback");
+    expect(response.messages[0]?.text).not.toContain("phone support");
+    expect(response.messages[0]?.text).not.toContain("chat support");
   });
 
   it("keeps medication handoff copy in Hinglish for a Hinglish insulin disclosure", async () => {
@@ -1163,7 +1294,7 @@ describe("commerce chat", () => {
     expect(response.category).toBe("EXPERT_HANDOFF");
     expect(response.handoff?.queue).toBe("doctor");
     expect(response.messages[0]?.text).toContain("Aap insulin ya medication le rahe hain");
-    expect(response.messages[0]?.text).toContain("chat prefer karenge ya callback");
+    expect(response.messages[0]?.text).not.toContain("chat prefer karenge ya callback");
     expect(response.messages[0]?.text).not.toContain("Since medication is involved");
   });
 

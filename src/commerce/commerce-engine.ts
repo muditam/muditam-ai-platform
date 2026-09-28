@@ -29,6 +29,7 @@ import {
 import { normalizeCommerceLanguage } from "./language.js";
 import { deterministicOrderTracking, type OrderTrackingLookup } from "./order-tracking.js";
 import { expertHandoff } from "./expert-contact.js";
+import { appendCallbackOffer, maybeCaptureCommerceLead } from "./analytics-store.js";
 
 export interface CommerceModelProvider {
   answer(input: CommerceChatRequest, knowledge: readonly KnowledgeEntry[]): Promise<{
@@ -185,10 +186,13 @@ export async function answerCommerceChat(
   orderLookup?: OrderTrackingLookup,
 ): Promise<CommerceChatResponse> {
   const input = normalizeCommerceLanguage(commerceChatRequestSchema.parse(value));
+  const withCallbackOffer = (result: CommerceChatResponse) => appendCallbackOffer(result, input);
+  const leadCapture = await maybeCaptureCommerceLead(input);
+  if (leadCapture) return leadCapture;
   const orderTracking = await deterministicOrderTracking(input, orderLookup);
-  if (orderTracking) return orderTracking;
+  if (orderTracking) return withCallbackOffer(orderTracking);
   const deterministic = deterministicCommerceGuardrail(input);
-  if (deterministic) return deterministic;
+  if (deterministic) return withCallbackOffer(deterministic);
   let knowledge: KnowledgeEntry[];
   try {
     knowledge = await retrieve(commerceRetrievalQuery(input));
@@ -198,32 +202,32 @@ export async function answerCommerceChat(
       event: "commerce_knowledge.retrieval_failed",
       error: error instanceof Error ? error.message : String(error),
     }));
-    return supportFallback("Verified product information could not be loaded");
+    return withCallbackOffer(supportFallback("Verified product information could not be loaded"));
   }
   const commercialDetails = deterministicProductCommercialDetails(input, knowledge);
-  if (commercialDetails) return commercialDetails;
+  if (commercialDetails) return withCallbackOffer(commercialDetails);
   const productFactVerification = deterministicProductFactVerification(input, knowledge);
-  if (productFactVerification) return productFactVerification;
+  if (productFactVerification) return withCallbackOffer(productFactVerification);
   const founderInformation = deterministicFounderInformation(input, knowledge);
-  if (founderInformation) return founderInformation;
+  if (founderInformation) return withCallbackOffer(founderInformation);
   const orderDeliveryTimeline = deterministicOrderDeliveryTimeline(input);
-  if (orderDeliveryTimeline) return orderDeliveryTimeline;
+  if (orderDeliveryTimeline) return withCallbackOffer(orderDeliveryTimeline);
   const dosage = deterministicProductDosage(input, knowledge);
-  if (dosage) return dosage;
+  if (dosage) return withCallbackOffer(dosage);
   const bestSeller = deterministicBestSeller(input, knowledge);
-  if (bestSeller) return bestSeller;
+  if (bestSeller) return withCallbackOffer(bestSeller);
   const productCertification = deterministicProductCertification(input, knowledge);
-  if (productCertification) return productCertification;
+  if (productCertification) return withCallbackOffer(productCertification);
   const catalogue = deterministicProductCatalogue(input, knowledge);
-  if (catalogue) return catalogue;
+  if (catalogue) return withCallbackOffer(catalogue);
   const productComparison = deterministicProductComparison(input, knowledge);
-  if (productComparison) return productComparison;
+  if (productComparison) return withCallbackOffer(productComparison);
   const namedProductClaim = deterministicNamedProductClaim(input, knowledge);
-  if (namedProductClaim) return namedProductClaim;
+  if (namedProductClaim) return withCallbackOffer(namedProductClaim);
   const productDiscovery = deterministicProductDiscovery(input, knowledge);
-  if (productDiscovery) return productDiscovery;
+  if (productDiscovery) return withCallbackOffer(productDiscovery);
   const productInformation = deterministicProductInformation(input, knowledge);
-  if (productInformation) return productInformation;
+  if (productInformation) return withCallbackOffer(productInformation);
   const activeProvider = provider ?? new OpenAICommerceModelProvider(
     process.env.MUDITAM_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY ?? "",
   );
@@ -236,13 +240,13 @@ export async function answerCommerceChat(
       event: "commerce_model.answer_failed",
       error: error instanceof Error ? error.message : String(error),
     }));
-    return supportFallback("The automated assistant could not prepare a verified answer");
+    return withCallbackOffer(supportFallback("The automated assistant could not prepare a verified answer"));
   }
-  return enforceCommerceResult(
+  return withCallbackOffer(enforceCommerceResult(
     generated.result,
     input,
     knowledge,
     generated.model,
     generated.usage ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
-  );
+  ));
 }

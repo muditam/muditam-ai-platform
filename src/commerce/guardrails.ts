@@ -46,6 +46,7 @@ const currentMessageScopeSignalPattern = /\b(?:muditam|product|products|suppleme
 // through whenever the model phrased it differently, e.g. "Muditam dietitians create
 // plans using your reports" with no "book/consult" wording at all.
 const consultationOfferPattern = /\b(?:dietitian|dietician)s?\b|(डाइटिशियन|डायटीशियन)|\b(?:book|schedule|connect|arrange|offer|suggest|recommend|get|talk to|speak (?:to|with)|reach out to)\b.{0,40}\b(?:free\s+)?(?:consultation|consult|doctor|expert)\b|\bconsult(?:ation)?\b.{0,40}\b(?:free\s+)?(?:doctor|expert)\b/iu;
+const supportRequestPattern = /^(?:support|help|customer support|customer care|live agent|agent|human|connect me|connect me with support|connect me to support|talk to support|speak to support|contact support|call support|whatsapp support|need support|want support)$/iu;
 
 function likelyInScopeSupportRequest(message: string): boolean {
   return fuzzyIntent(message, ["product", "products", "supplement", "recommend", "order", "refund", "delivery", "price", "dosage", "ingredient", "ingredients"])
@@ -1034,6 +1035,22 @@ export function deterministicCommerceGuardrail(input: CommerceChatRequest): Comm
       guardrailStage: "INPUT",
     });
   }
+  if (supportRequestPattern.test(input.message.trim())) {
+    return response(input, {
+      decision: "HANDOFF",
+      category: "ORDER_OR_SUPPORT",
+      messages: [{
+        type: "text",
+        text: input.language === "hi"
+          ? "हमारी सपोर्ट टीम आपकी मदद कर सकती है। आप नीचे दिए गए कॉल या WhatsApp विकल्प से तुरंत जुड़ सकते हैं।"
+          : input.language === "hinglish"
+            ? "Hamari support team aapki help kar sakti hai. Neeche Call ya WhatsApp se directly connect kar sakte hain."
+            : "Our support team can help you. You can use the Call or WhatsApp option below to connect directly.",
+      }],
+      handoff: expertHandoff("support", "Customer requested support"),
+      guardrailStage: "INPUT",
+    });
+  }
   if (refundRequestPattern.test(input.message)) {
     return response(input, {
       decision: "HANDOFF",
@@ -1130,10 +1147,10 @@ export function deterministicCommerceGuardrail(input: CommerceChatRequest): Comm
       messages: [{
         type: "text",
         text: input.language === "hi"
-          ? "चूंकि इसमें दवा शामिल है, हमारी डॉक्टर टीम से एक त्वरित संगतता जाँच बेहतर रहेगी। आप चैट पसंद करेंगे या कॉलबैक?"
+          ? "चूंकि इसमें दवा शामिल है, हमारी डॉक्टर टीम से एक त्वरित संगतता जाँच बेहतर रहेगी।"
           : input.language === "hinglish"
-            ? "Aap insulin ya medication le rahe hain, isliye supplement start karne se pehle hamari doctor team se quick compatibility check karna best rahega. Aap chat prefer karenge ya callback?"
-          : "Since medication is involved, a quick compatibility check with our doctor would be best. Would you prefer a chat or a callback?",
+            ? "Aap insulin ya medication le rahe hain, isliye supplement start karne se pehle hamari doctor team se quick compatibility check karna best rahega."
+          : "Since medication is involved, a quick compatibility check with our doctor would be best.",
       }],
       handoff: expertHandoff("doctor", "Medication compatibility or treatment-change question"),
       guardrailStage: "INPUT",

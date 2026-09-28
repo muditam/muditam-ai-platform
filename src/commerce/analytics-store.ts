@@ -98,7 +98,177 @@ export function explicitlyRequestsHumanSupport(message: string): boolean {
   const normalized = message.trim();
   if (!normalized) return false;
 
-  return /(?:\b(?:talk|speak|chat|connect|contact|transfer|call|whatsapp|reach)\b.{0,45}\b(?:support|agent|human|person|representative|expert|dietitian|dietician|doctor|team|someone)\b|\b(?:support|agent|human|representative|expert|dietitian|dietician|doctor)\b.{0,45}\b(?:talk|speak|chat|connect|contact|transfer|call|whatsapp|help me)\b|\b(?:live agent|human agent|customer care|customer support|talk to someone|speak to someone|connect me to someone|someone from (?:your|the) team|call me|call back|callback|need (?:human )?support|want (?:human )?support)\b|(?:support se baat|agent se baat|doctor se baat|dietitian se baat|dietician se baat|किसी से बात|सपोर्ट से बात|एजेंट से बात|डॉक्टर से बात))/iu.test(normalized);
+  return /(?:^(?:support|help|agent|human|customer support|customer care)$|\b(?:talk|speak|chat|connect|contact|transfer|call|whatsapp|reach)\b.{0,45}\b(?:support|agent|human|person|representative|expert|dietitian|dietician|doctor|team|someone)\b|\b(?:support|agent|human|representative|expert|dietitian|dietician|doctor)\b.{0,45}\b(?:talk|speak|chat|connect|contact|transfer|call|whatsapp|help me)\b|\b(?:live agent|human agent|customer care|customer support|talk to someone|speak to someone|connect me to someone|someone from (?:your|the) team|call me|call back|callback|need (?:human )?support|want (?:human )?support)\b|(?:support se baat|agent se baat|doctor se baat|dietitian se baat|dietician se baat|किसी से बात|सपोर्ट से बात|एजेंट से बात|डॉक्टर से बात))/iu.test(normalized);
+}
+
+function normalizedPhone(value: string): string | null {
+  const digits = value.replace(/\D/gu, "");
+  const phone = digits.length >= 10 ? digits.slice(-10) : "";
+  return /^[6-9]\d{9}$/u.test(phone) ? phone : null;
+}
+
+function nameCandidate(value: string): string | null {
+  const cleaned = value
+    .replace(/\b(?:my name is|name is|i am|i'm|this is|mera naam|main|mai)\b/giu, "")
+    .replace(/[^\p{L}\s.'-]/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
+  if (cleaned.length < 2 || cleaned.length > 80) return null;
+  if (/\b(?:price|cost|order|product|support|whatsapp|call|help|diabetes|liver|heart|karela|jamun)\b/iu.test(cleaned)) return null;
+  return cleaned;
+}
+
+function latestLeadQuery(input: CommerceChatRequest): string {
+  const recentUser = input.recentMessages
+    .filter((message) => message.role === "user")
+    .map((message) => message.content)
+    .filter((text) => !normalizedPhone(text) && !userAcceptedCallback(text))
+    .at(-1);
+  return recentUser ?? "Support callback requested";
+}
+
+export function assistantPromptedForLead(recentMessages: CommerceChatRequest["recentMessages"]): boolean {
+  return recentMessages
+    .filter((message) => message.role === "assistant")
+    .slice(-3)
+    .some((message) => /(?:share your mobile number|share your phone number|phone number here|mobile number here|share your name)/iu.test(message.content));
+}
+
+export function assistantOfferedCallback(recentMessages: CommerceChatRequest["recentMessages"]): boolean {
+  return recentMessages
+    .filter((message) => message.role === "assistant")
+    .slice(-3)
+    .some((message) => /(?:would you like our team to contact you|do you want our team to contact you|we can reach out to you|expert chat or phone support|phone support|chat support)/iu.test(message.content));
+}
+
+function userAcceptedCallback(message: string): boolean {
+  return /^(?:yes|yeah|yep|ok|okay|sure|please|haan|ha|ji|yes please|call me|contact me|phone|call|mobile)$/iu.test(message.trim());
+}
+
+function directlyRequestsCallback(message: string): boolean {
+  return /^(?:contact me|call me|callback|call back|please contact me|please call me|team contact me|mujhe call karo|mujhe contact karo)$/iu.test(message.trim());
+}
+
+function recentAssistantAskedForLead(input: CommerceChatRequest): boolean {
+  return assistantPromptedForLead(input.recentMessages);
+}
+
+export async function maybeCaptureCommerceLead(input: CommerceChatRequest): Promise<CommerceChatResponse | null> {
+  const acceptedCallback = directlyRequestsCallback(input.message)
+    || (assistantOfferedCallback(input.recentMessages) && userAcceptedCallback(input.message));
+
+  if (acceptedCallback) {
+    return {
+      decision: "ALLOW",
+      category: "EXPERT_HANDOFF",
+      messages: [{ type: "text", text: "Please share your mobile number and our support team will contact you." }],
+      recommendedProducts: [],
+      knowledgeReferences: [],
+      handoff: null,
+      model: null,
+      promptVersion: "commerce-lead-capture-2026-09-28.2",
+      guardrailStage: "INPUT",
+      usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+    };
+  }
+
+  const db = await database();
+  if (!db) return null;
+  const now = new Date();
+  const existing = await db.collection("commerce_leads").findOne(
+    { conversationId: input.conversationId, status: { $ne: "closed" } },
+    { sort: { createdAt: -1 } },
+  );
+  const phone = normalizedPhone(input.message);
+  const askedForLead = recentAssistantAskedForLead(input);
+
+  if (phone && (askedForLead || existing)) {
+    const query = latestLeadQuery(input);
+    await db.collection("commerce_leads").updateOne(
+      { conversationId: input.conversationId },
+      {
+        $setOnInsert: {
+          leadId: input.conversationId,
+          conversationId: input.conversationId,
+          visitorId: input.visitorId,
+          source: "chatbot",
+          status: "new",
+          createdAt: now,
+        },
+        $set: {
+          phone,
+          query,
+          pageUrl: input.pageContext?.url ?? null,
+          productContext: input.pageContext?.productSlug ?? null,
+          updatedAt: now,
+        },
+      },
+      { upsert: true },
+    );
+    await db.collection("commerce_conversations").updateOne(
+      { conversationId: input.conversationId },
+      { $set: { leadCaptured: true } },
+    );
+    return {
+      decision: "ALLOW",
+      category: "EXPERT_HANDOFF",
+      messages: [{ type: "text", text: "Thanks, I have saved your number. Please share your name too." }],
+      recommendedProducts: [],
+      knowledgeReferences: [],
+      handoff: null,
+      model: null,
+      promptVersion: "commerce-lead-capture-2026-09-28.2",
+      guardrailStage: "INPUT",
+      usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+    };
+  }
+
+  if (existing?.phone && !existing.name && askedForLead) {
+    const name = nameCandidate(input.message);
+    if (name) {
+      await db.collection("commerce_leads").updateOne(
+        { _id: existing._id },
+        { $set: { name, updatedAt: now } },
+      );
+      return {
+        decision: "ALLOW",
+        category: "EXPERT_HANDOFF",
+        messages: [{ type: "text", text: "Thanks, our support team will contact you soon." }],
+        recommendedProducts: [],
+        knowledgeReferences: [],
+        handoff: null,
+        model: null,
+        promptVersion: "commerce-lead-capture-2026-09-28.2",
+        guardrailStage: "INPUT",
+        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      };
+    }
+  }
+
+  return null;
+}
+
+export function appendCallbackOffer(result: CommerceChatResponse, input: CommerceChatRequest): CommerceChatResponse {
+  if (!result.handoff) return result;
+  const badContactChoice = result.messages.some((message) => /(?:expert chat|phone support|chat support|initiate the call|support for orders or health guidance|preferred contact method|which contact method|phone or whatsapp|good time to call)/iu.test(message.text));
+  const explicitContactFlow = explicitlyRequestsHumanSupport(input.message) || directlyRequestsCallback(input.message) || badContactChoice;
+  if (!explicitContactFlow) return result;
+  const messages = [{
+    type: "text" as const,
+    text: result.handoff.queue === "support"
+      ? "Our support team can help you. You can use the Call or WhatsApp option below to connect directly."
+      : "Our expert team can help you. You can use the Call or WhatsApp option below to connect directly.",
+  }];
+  if (result.messages.some((message) => /contact you|callback/iu.test(message.text))) {
+    return { ...result, messages };
+  }
+  return {
+    ...result,
+    messages: [
+      ...messages,
+      { type: "text", text: "Do you want our team to contact you?" },
+    ],
+  };
 }
 
 export async function recordMessageTurn(
@@ -392,6 +562,36 @@ export async function listConversations(
       resolutionStatus: escalated ? "escalated" : "resolved",
     };
   });
+}
+
+export async function listCommerceLeads(range: DateRange & { limit?: number } = {}): Promise<Document[]> {
+  const db = await database();
+  if (!db) return [];
+  const createdAt: Record<string, Date> = {};
+  if (range.from) createdAt.$gte = range.from;
+  if (range.to) createdAt.$lte = range.to;
+  const query = Object.keys(createdAt).length ? { createdAt } : {};
+  return db.collection("commerce_leads")
+    .find(query, {
+      projection: {
+        _id: 0,
+        leadId: 1,
+        conversationId: 1,
+        visitorId: 1,
+        name: 1,
+        phone: 1,
+        query: 1,
+        pageUrl: 1,
+        productContext: 1,
+        source: 1,
+        status: 1,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    })
+    .sort({ createdAt: -1 })
+    .limit(Math.min(Math.max(range.limit ?? 100, 1), 300))
+    .toArray();
 }
 
 export interface ConversationDetail {
