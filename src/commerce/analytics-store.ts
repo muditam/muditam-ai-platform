@@ -596,10 +596,12 @@ export interface ConversationFilters {
 }
 
 export async function listConversations(
-  range: DateRange & { limit?: number } & ConversationFilters = {},
-): Promise<Document[]> {
+  range: DateRange & { limit?: number; page?: number } & ConversationFilters = {},
+): Promise<{ conversations: Document[]; total: number; page: number; limit: number }> {
   const db = await database();
-  if (!db) return [];
+  const limit = Math.min(Math.max(range.limit ?? 50, 1), 200);
+  const page = Math.max(range.page ?? 1, 1);
+  if (!db) return { conversations: [], total: 0, page, limit };
 
   const query: Record<string, unknown> = { ...dateRangeFilter(range) };
   if (range.intent) query.intents = { $in: range.intent.split(",").map((value) => value.trim()).filter(Boolean) };
@@ -619,17 +621,21 @@ export async function listConversations(
       { $match: { conversationCount: { $gt: 1 } } },
     ]).toArray();
     const repeatVisitorIds = repeatVisitors.map((doc) => doc._id as string);
-    if (repeatVisitorIds.length === 0) return [];
+    if (repeatVisitorIds.length === 0) return { conversations: [], total: 0, page, limit };
     query.visitorId = { $in: repeatVisitorIds };
   }
 
-  const conversations = await db.collection("commerce_conversations")
-    .find(query)
-    .sort({ lastMessageAt: -1 })
-    .limit(Math.min(Math.max(range.limit ?? 50, 1), 200))
-    .toArray();
+  const [total, conversations] = await Promise.all([
+    db.collection("commerce_conversations").countDocuments(query),
+    db.collection("commerce_conversations")
+      .find(query)
+      .sort({ lastMessageAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .toArray(),
+  ]);
 
-  if (conversations.length === 0) return conversations;
+  if (conversations.length === 0) return { conversations, total, page, limit };
   const conversationIds = conversations
     .map((conversation) => conversation.conversationId)
     .filter((value): value is string => typeof value === "string");
@@ -645,14 +651,19 @@ export async function listConversations(
       .map((message) => message.conversationId as string),
   );
 
-  return conversations.map((conversation) => {
+  return {
+    conversations: conversations.map((conversation) => {
     const escalated = explicitlyEscalated.has(conversation.conversationId as string);
     return {
       ...conversation,
       explicitEscalationRequested: escalated,
       resolutionStatus: escalated ? "escalated" : "resolved",
     };
-  });
+    }),
+    total,
+    page,
+    limit,
+  };
 }
 
 export async function listCommerceLeads(range: DateRange & { limit?: number } = {}): Promise<Document[]> {
