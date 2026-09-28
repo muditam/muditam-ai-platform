@@ -205,6 +205,21 @@ describe("commerce chat", () => {
     expect(query).toContain("yes do you have it?");
   });
 
+  it("carries product-card context into price follow-up retrieval", () => {
+    const query = commerceRetrievalQuery({
+      ...baseRequest,
+      message: "price",
+      recentMessages: [
+        { role: "user", content: "How long does Karela Jamun Fizz take to show results?" },
+        { role: "assistant", content: "Most users notice improved energy and general wellness within about 1 month. Would you like the 1-month or 3-month pack details?" },
+        { role: "assistant", content: "Recommended products: Karela Jamun Fizz" },
+      ],
+    });
+
+    expect(query).toContain("Karela Jamun Fizz");
+    expect(query).toContain("price");
+  });
+
   it("retains only the immediate exchange instead of replaying stale long-chat intents", () => {
     const input = {
       ...baseRequest,
