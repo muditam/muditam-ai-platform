@@ -205,6 +205,21 @@ describe("commerce chat", () => {
     expect(query).toContain("yes do you have it?");
   });
 
+  it("carries product-card context into price follow-up retrieval", () => {
+    const query = commerceRetrievalQuery({
+      ...baseRequest,
+      message: "price",
+      recentMessages: [
+        { role: "user", content: "How long does Karela Jamun Fizz take to show results?" },
+        { role: "assistant", content: "Most users notice improved energy and general wellness within about 1 month. Would you like the 1-month or 3-month pack details?" },
+        { role: "assistant", content: "Recommended products: Karela Jamun Fizz" },
+      ],
+    });
+
+    expect(query).toContain("Karela Jamun Fizz");
+    expect(query).toContain("price");
+  });
+
   it("retains only the immediate exchange instead of replaying stale long-chat intents", () => {
     const input = {
       ...baseRequest,
@@ -338,6 +353,20 @@ describe("commerce chat", () => {
       "sugar-defend-pro",
       "karela-jamun-fizz",
     ]);
+  });
+
+  it("answers order delivery timeline questions instead of treating days as dosage", async () => {
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "What about orders delevery in how many days" },
+      { answer: async () => { throw new Error("model should not run"); } },
+      async () => productKnowledge,
+    );
+
+    expect(response.decision).toBe("ALLOW");
+    expect(response.category).toBe("ORDER_OR_SUPPORT");
+    expect(response.messages[0]?.text).toContain("2 to 4 business days");
+    expect(response.messages[0]?.text).toContain("order number");
+    expect(response.handoff).toBeNull();
   });
 
   it("answers comparison questions between two named Muditam products", async () => {
@@ -832,6 +861,27 @@ describe("commerce chat", () => {
       async () => shopifyKnowledge,
     );
     expect(response.messages[0]?.text).toContain("Karela Jamun Fizz ke available Shopify options");
+    expect(response.messages[0]?.text).toContain("1 Bottle: ₹465");
+    expect(response.handoff).toBeNull();
+  });
+
+  it("answers a short price follow-up using the last product context", async () => {
+    const shopifyKnowledge = [{
+      key: "product:karela-jamun-fizz:live-shopify-details", title: "Karela Jamun Fizz — live Shopify details",
+      content: 'Product: Karela Jamun Fizz\nShopify variants: {"title":"1 Bottle","price":465,"compareAtPrice":null,"available":true} | {"title":"3 Bottles","price":990,"compareAtPrice":1395,"available":true}\nShelf life: 18 months.',
+      contentHi: "Verified Shopify details.", keywords: ["price"], sourceName: "Muditam Ayurveda",
+      sourceUrl: "https://www.muditam.com/products/karela-jamun-juice", version: "test",
+      sourceType: "product" as const, productSlug: "karela-jamun-fizz", recommendationEligible: true,
+    }];
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "Price", recentMessages: [
+        { role: "user", content: "How long does Karela Jamun Fizz take to show results?" },
+        { role: "assistant", content: "You may notice improved energy and overall wellness within one month. Would you like the 1-month or 3-month pack recommendation?" },
+      ] },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => shopifyKnowledge,
+    );
+    expect(response.messages[0]?.text).toContain("Karela Jamun Fizz has these available Shopify options");
     expect(response.messages[0]?.text).toContain("1 Bottle: ₹465");
     expect(response.handoff).toBeNull();
   });

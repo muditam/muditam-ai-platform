@@ -20,7 +20,8 @@ const generalDoctorGuidancePattern = /\bdo\s+i?\s*need\b.{0,45}\b(?:doctor|physi
 const genericAllopathicMedicationQuestionPattern = /\bcan i take\b.{0,80}\bwith (?:my |any |the )?(?:allopathic )?(?:medicine|medication|medicines|medications)\b|\b(?:allopathic )?(?:medicine|medication|medicines|medications)\b.{0,80}\b(?:ke saath|with)\b.{0,40}\b(?:le sakta|le sakti|take|lena)\b/iu;
 const namedHighRiskMedicinePattern = /\b(?:insulin|metformin|prescription|blood thinner|warfarin|bp medicine|thyroid medicine)\b|(?:इंसुलिन|मेटफॉर्मिन|दवा की पर्ची)/iu;
 const individualizedRiskContextPattern = /\b(?:pregnan(?:t|cy)|breastfeed(?:ing)?|child|kidney|liver disease|allergy|allergic|adverse|side effect|symptom|medicine|medication|metformin|insulin|prescription)\b/iu;
-const dosageQuestionPattern = /\b(?:dose|dosage|how many|how much|how often|times? (?:a|per) day|kitni baar|kitna lena|kaise lena)\b|\b(?:tablet|tablets|capsule|capsules)\b.{0,24}\b(?:take|daily|day|time|times)\b|(खुराक|डोज|कितनी (?:गोली|टैबलेट)|कितना लेना)/iu;
+const dosageQuestionPattern = /\b(?:dose|dosage|how often|times? (?:a|per) day|kitni baar|kitna lena|kaise lena)\b|\b(?:how many|how much)\b.{0,35}\b(?:tablet|tablets|capsule|capsules|sachets?|softgels?|sprays?|dose|dosage)\b|\b(?:tablet|tablets|capsule|capsules)\b.{0,24}\b(?:take|daily|day|time|times)\b|(खुराक|डोज|कितनी (?:गोली|टैबलेट)|कितना लेना)/iu;
+const orderDeliveryTimelinePattern = /\b(?:order|orders|delivery|deliver|delivered|shipping|shipment)\b.{0,45}\b(?:how many days|how long|when|time|days?|eta|arrive|reach)\b|\b(?:how many days|how long|when|eta)\b.{0,45}\b(?:order|orders|delivery|deliver|delivered|shipping|shipment|arrive|reach)\b|(?:ऑर्डर|डिलीवरी).{0,35}(कब|कितने दिन|कितना समय)/iu;
 const priceQuestionPattern = /\b(?:price|cost|mrp|offer price|how much (?:is|does)|kitne ka|kitni price|daam)\b|(?:कीमत|दाम)/iu;
 const cheapestProductPattern = /\b(?:cheapest|lowest[ -]?priced|least expensive|most affordable|budget(?:-friendly)?)\b/iu;
 const variantQuestionPattern = /\b(?:quantity|quantities|pack|packs|set|sets|variant|variants|pack options?|purchase options?|size|sizes|bottles?|boxes?|sachets?)\b|(?:कितनी बोतल|पैक|सेट)/iu;
@@ -408,6 +409,17 @@ function productReferenceMatches(normalizedMessage: string, name: string): boole
     .some((candidate) => normalizedMessage.includes(` ${candidate} `));
 }
 
+function recentProductSlug(input: CommerceChatRequest, knowledge: readonly KnowledgeEntry[]): string | null {
+  for (const message of [...input.recentMessages].slice(-4).reverse()) {
+    const normalizedRecent = ` ${normalizedWords(message.content)} `;
+    const match = knowledge.find((entry) => entry.sourceType === "product"
+      && entry.productSlug
+      && productReferenceMatches(normalizedRecent, productName(entry)));
+    if (match?.productSlug) return match.productSlug;
+  }
+  return null;
+}
+
 function tokenApproximatelyMatches(token: string, target: string): boolean {
   if (token === target || token.includes(target) || (target.includes(token) && token.length >= 5)) return true;
   const tolerance = target.length >= 9 ? 2 : 1;
@@ -633,7 +645,7 @@ export function deterministicProductDosage(
     return productReferenceMatches(normalizedMessage, productName(entry));
   });
   const uniqueSlugs = [...new Set(productEntries.map((entry) => entry.productSlug as string))];
-  const productSlug = explicitlyMatched?.productSlug ?? (uniqueSlugs.length === 1 ? uniqueSlugs[0] : null);
+  const productSlug = explicitlyMatched?.productSlug ?? recentProductSlug(input, productEntries) ?? (uniqueSlugs.length === 1 ? uniqueSlugs[0] : null);
   const matchingEntries = productSlug ? productEntries.filter((entry) => entry.productSlug === productSlug) : [];
   const dosageEntry = matchingEntries.find((entry) => publishedDosageFromEntry(entry));
   const dosage = dosageEntry ? publishedDosageFromEntry(dosageEntry) : null;
@@ -673,6 +685,22 @@ export function deterministicProductDosage(
           : "I don’t have a verified published dosage for this product yet. Our doctor or dietitian can guide you through a FREE consultation.",
     }],
     handoff: expertHandoff("dietitian", "Published product dosage was unavailable"),
+    guardrailStage: "INPUT",
+  });
+}
+
+export function deterministicOrderDeliveryTimeline(input: CommerceChatRequest): CommerceChatResponse | null {
+  if (!orderDeliveryTimelinePattern.test(input.message)) return null;
+  const text = input.language === "hi"
+    ? "भारत में Muditam orders आमतौर पर 2 से 4 business days में deliver होते हैं। Exact status के लिए अपना order number भेजें."
+    : input.language === "hinglish"
+      ? "Muditam orders usually India mein 2 to 4 business days mein deliver ho jaate hain. Exact status ke liye apna order number bhej dein."
+      : "Muditam orders are usually delivered across India within 2 to 4 business days. For exact status, please share your order number.";
+  return response(input, {
+    decision: "ALLOW",
+    category: "ORDER_OR_SUPPORT",
+    messages: [{ type: "text", text }],
+    handoff: null,
     guardrailStage: "INPUT",
   });
 }
@@ -794,7 +822,7 @@ export function deterministicProductCommercialDetails(
     return productReferenceMatches(normalizedMessage, productName(entry));
   });
   const uniqueSlugs = [...new Set(productEntries.map((entry) => entry.productSlug as string))];
-  const productSlug = explicitlyMatched?.productSlug ?? (uniqueSlugs.length === 1 ? uniqueSlugs[0] : null);
+  const productSlug = explicitlyMatched?.productSlug ?? recentProductSlug(input, productEntries) ?? (uniqueSlugs.length === 1 ? uniqueSlugs[0] : null);
   const matchingEntries = productSlug ? productEntries.filter((entry) => entry.productSlug === productSlug) : [];
   const detailsEntry = matchingEntries.find((entry) => shopifyVariants(entry).length > 0)
     ?? matchingEntries.find((entry) => publishedQuantity(entry))

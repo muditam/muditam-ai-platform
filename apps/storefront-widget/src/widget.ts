@@ -564,9 +564,33 @@ class MuditamChat extends HTMLElement {
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ id: variantId, quantity: 1 }),
       });
+      if (response.ok) {
+        void this.#attachCartAttribution(productCard);
+      }
       return response.ok;
     } catch {
       return false;
+    }
+  }
+
+  async #attachCartAttribution(productCard: CommerceResponse["recommendedProducts"][number]): Promise<void> {
+    const session = this.#session;
+    if (!session) return;
+    try {
+      await fetch("/cart/update.js", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          attributes: {
+            muditam_chat_conversation_id: session.conversationId,
+            muditam_chat_visitor_id: session.visitorId,
+            muditam_chat_product_slug: productCard.productSlug,
+            muditam_chat_source_url: window.location.href,
+          },
+        }),
+      });
+    } catch {
+      // Attribution should never block cart additions.
     }
   }
 
@@ -681,7 +705,7 @@ class MuditamChat extends HTMLElement {
           if (added) {
             addToCart.textContent = "Added";
             this.#appendCartConfirmation(product);
-            this.#emit("product_added_to_cart", product.productSlug);
+            this.#emit("add_to_cart_clicked", product.productSlug);
             return;
           }
           addToCart.disabled = false;
@@ -944,6 +968,12 @@ class MuditamChat extends HTMLElement {
       if (result.handoff) this.#appendHandoff(result.handoff);
       this.#recentMessages.push({ role: "user", content: message });
       for (const item of result.messages) this.#recentMessages.push({ role: "assistant", content: item.text });
+      if (result.recommendedProducts.length) {
+        this.#recentMessages.push({
+          role: "assistant",
+          content: `Recommended products: ${result.recommendedProducts.map((product) => product.name).join(", ")}`,
+        });
+      }
       this.#recentMessages = this.#recentMessages.slice(-20);
       this.#emit("message_completed");
     } catch {

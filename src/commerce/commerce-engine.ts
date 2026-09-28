@@ -21,6 +21,7 @@ import {
   deterministicProductComparison,
   deterministicProductDiscovery,
   deterministicProductDosage,
+  deterministicOrderDeliveryTimeline,
   deterministicProductFactVerification,
   deterministicProductInformation,
   enforceCommerceResult,
@@ -205,6 +206,8 @@ export async function answerCommerceChat(
   if (productFactVerification) return productFactVerification;
   const founderInformation = deterministicFounderInformation(input, knowledge);
   if (founderInformation) return founderInformation;
+  const orderDeliveryTimeline = deterministicOrderDeliveryTimeline(input);
+  if (orderDeliveryTimeline) return orderDeliveryTimeline;
   const dosage = deterministicProductDosage(input, knowledge);
   if (dosage) return dosage;
   const bestSeller = deterministicBestSeller(input, knowledge);
