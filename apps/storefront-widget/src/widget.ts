@@ -968,6 +968,12 @@ class MuditamChat extends HTMLElement {
       if (result.handoff) this.#appendHandoff(result.handoff);
       this.#recentMessages.push({ role: "user", content: message });
       for (const item of result.messages) this.#recentMessages.push({ role: "assistant", content: item.text });
+      if (result.recommendedProducts.length) {
+        this.#recentMessages.push({
+          role: "assistant",
+          content: `Recommended products: ${result.recommendedProducts.map((product) => product.name).join(", ")}`,
+        });
+      }
       this.#recentMessages = this.#recentMessages.slice(-20);
       this.#emit("message_completed");
     } catch {
