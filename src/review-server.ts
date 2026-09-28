@@ -12,6 +12,7 @@ import { botFlowBulkProductConfigSchema, botFlowProductConfigSchema, botFlowText
 import {
   getConversationDetail,
   getOverview,
+  listCommerceLeads,
   listConversations,
   recordFeedback,
   recordMessageTurn,
@@ -859,6 +860,21 @@ async function handle(
       ...(url.searchParams.get("testSession") === "true" ? { testSession: true } : {}),
     });
     json(response, 200, { conversations });
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/internal/commerce-analytics/leads") {
+    if (!validServiceSecret(request.headers["x-muditam-service-secret"] as string | undefined)) {
+      json(response, 401, { error: "Unauthorized service request." });
+      return;
+    }
+    const range = parseDateRangeQuery(url);
+    const limitParam = Number.parseInt(url.searchParams.get("limit") ?? "", 10);
+    const leads = await listCommerceLeads({
+      ...range,
+      ...(Number.isFinite(limitParam) ? { limit: limitParam } : {}),
+    });
+    json(response, 200, { leads });
     return;
   }
 
