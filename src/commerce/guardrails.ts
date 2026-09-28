@@ -409,6 +409,17 @@ function productReferenceMatches(normalizedMessage: string, name: string): boole
     .some((candidate) => normalizedMessage.includes(` ${candidate} `));
 }
 
+function recentProductSlug(input: CommerceChatRequest, knowledge: readonly KnowledgeEntry[]): string | null {
+  for (const message of [...input.recentMessages].slice(-4).reverse()) {
+    const normalizedRecent = ` ${normalizedWords(message.content)} `;
+    const match = knowledge.find((entry) => entry.sourceType === "product"
+      && entry.productSlug
+      && productReferenceMatches(normalizedRecent, productName(entry)));
+    if (match?.productSlug) return match.productSlug;
+  }
+  return null;
+}
+
 function tokenApproximatelyMatches(token: string, target: string): boolean {
   if (token === target || token.includes(target) || (target.includes(token) && token.length >= 5)) return true;
   const tolerance = target.length >= 9 ? 2 : 1;
@@ -634,7 +645,7 @@ export function deterministicProductDosage(
     return productReferenceMatches(normalizedMessage, productName(entry));
   });
   const uniqueSlugs = [...new Set(productEntries.map((entry) => entry.productSlug as string))];
-  const productSlug = explicitlyMatched?.productSlug ?? (uniqueSlugs.length === 1 ? uniqueSlugs[0] : null);
+  const productSlug = explicitlyMatched?.productSlug ?? recentProductSlug(input, productEntries) ?? (uniqueSlugs.length === 1 ? uniqueSlugs[0] : null);
   const matchingEntries = productSlug ? productEntries.filter((entry) => entry.productSlug === productSlug) : [];
   const dosageEntry = matchingEntries.find((entry) => publishedDosageFromEntry(entry));
   const dosage = dosageEntry ? publishedDosageFromEntry(dosageEntry) : null;
@@ -811,7 +822,7 @@ export function deterministicProductCommercialDetails(
     return productReferenceMatches(normalizedMessage, productName(entry));
   });
   const uniqueSlugs = [...new Set(productEntries.map((entry) => entry.productSlug as string))];
-  const productSlug = explicitlyMatched?.productSlug ?? (uniqueSlugs.length === 1 ? uniqueSlugs[0] : null);
+  const productSlug = explicitlyMatched?.productSlug ?? recentProductSlug(input, productEntries) ?? (uniqueSlugs.length === 1 ? uniqueSlugs[0] : null);
   const matchingEntries = productSlug ? productEntries.filter((entry) => entry.productSlug === productSlug) : [];
   const detailsEntry = matchingEntries.find((entry) => shopifyVariants(entry).length > 0)
     ?? matchingEntries.find((entry) => publishedQuantity(entry))
