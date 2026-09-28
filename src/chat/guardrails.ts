@@ -1,7 +1,7 @@
 import type { InternalChatRequest, InternalChatResponse, ModelChatResult } from "./contracts.js";
 import type { KnowledgeEntry } from "./knowledge.js";
 
-export const CHAT_PROMPT_VERSION = "1.5.0";
+export const CHAT_PROMPT_VERSION = "1.6.0";
 const messages = {
   en: {
     safety: "This may need urgent medical attention. Please contact local emergency services or go to the nearest emergency department now. Do not rely on this chat for emergency care.",
@@ -11,6 +11,7 @@ const messages = {
     lifestyleUnavailable: "I can share general nutrition information, but I can’t decide what you personally should eat without enough verified context. Please discuss your food choices and portions with a Muditam dietitian or doctor.",
     productUnavailable: "I couldn’t find enough verified information about that product or product category. Please ask your Muditam dietitian about the available options.",
     platformUnavailable: "I couldn’t find enough verified information about that Muditam service or feature. Please ask a Muditam team member for help.",
+    appUnavailable: "I couldn’t find that information in your current app data.",
     educationUnavailable: "I don’t have enough verified information to answer that specific diabetes question reliably. Please ask your Muditam dietitian or doctor.",
     missingValue: "I couldn’t find that value in the verified results from your uploaded report.",
     unavailable: "I’m unable to answer that safely right now.",
@@ -25,6 +26,7 @@ const messages = {
     lifestyleUnavailable: "मैं पोषण की सामान्य जानकारी साझा कर सकता हूँ, लेकिन पर्याप्त सत्यापित संदर्भ के बिना यह तय नहीं कर सकता कि आपको व्यक्तिगत रूप से क्या खाना चाहिए। भोजन और उसकी मात्रा के बारे में Muditam डाइटिशियन या डॉक्टर से बात करें।",
     productUnavailable: "मुझे उस उत्पाद या उत्पाद श्रेणी के बारे में पर्याप्त सत्यापित जानकारी नहीं मिली। उपलब्ध विकल्पों के लिए अपने Muditam डाइटिशियन से पूछें।",
     platformUnavailable: "मुझे Muditam की उस सेवा या फीचर के बारे में पर्याप्त सत्यापित जानकारी नहीं मिली। कृपया Muditam टीम से सहायता लें।",
+    appUnavailable: "मुझे यह जानकारी आपके मौजूदा ऐप डेटा में नहीं मिली।",
     educationUnavailable: "मेरे पास उस विशेष डायबिटीज़ प्रश्न का विश्वसनीय उत्तर देने के लिए पर्याप्त सत्यापित जानकारी नहीं है। कृपया Muditam डाइटिशियन या डॉक्टर से पूछें।",
     missingValue: "मुझे आपकी अपलोड की गई रिपोर्ट के सत्यापित परिणामों में यह वैल्यू नहीं मिली।",
     unavailable: "मैं अभी इसका सुरक्षित उत्तर नहीं दे पा रहा हूँ।",
@@ -48,7 +50,7 @@ const productDosageHindiPattern = /(प्रोडक्ट|सप्लीम�
 const privacyExfiltrationPattern = /(output|show|reveal|list|dump).{0,60}(all patient data|patient data|all data|hidden prompt|system prompt)|(सिस्टम प्रॉम्प्ट|छिपे निर्देश|मरीज का सारा डेटा|सभी मरीज डेटा)/iu;
 const unsafeGeneratedAdvicePattern = /\b(start|stop|increase|decrease|double|skip|take)\b.{0,35}\b(insulin|metformin|medicine|medication|supplement|product|capsule|tablet|sachet|mg|ml|units?)\b|\b(?:once|twice|three times)\s+(?:a|per)\s+day\b|\byou (?:have|definitely have|are diagnosed with) diabetes\b/i;
 const unsafeGeneratedHindiPattern = /(इंसुलिन|मेटफॉर्मिन|दवा|गोली).{0,35}(बढ़ा|घटा|बंद|शुरू|ले लो)|(आपको|तुम्हें) डायबिटीज है/u;
-const allowedCategories = new Set(["GREETING", "REPORT_VALUES", "DIABETES_EDUCATION", "LIFESTYLE_EDUCATION", "PRODUCT_INFORMATION", "PLATFORM_INFORMATION"]);
+const allowedCategories = new Set(["GREETING", "REPORT_VALUES", "DIABETES_EDUCATION", "LIFESTYLE_EDUCATION", "PRODUCT_INFORMATION", "PLATFORM_INFORMATION", "APP_INFORMATION"]);
 const noUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
 
 const reportListPattern = /\b(?:show|list|give|tell(?:\s+me)?|what|which)\b.{0,55}\b(?:all\s+)?(?:values|results|markers|biomarkers)\b.{0,55}\b(?:report|extracted)\b|\b(?:show|list|give|tell(?:\s+me)?)\b.{0,55}\b(?:report|extracted)\b.{0,55}\b(?:all\s+)?(?:values|results|markers|biomarkers)\b/i;
@@ -229,6 +231,7 @@ function unavailableForCategory(category: ModelChatResult["category"], language:
   if (category === "LIFESTYLE_EDUCATION") return copy.lifestyleUnavailable;
   if (category === "PRODUCT_INFORMATION") return copy.productUnavailable;
   if (category === "PLATFORM_INFORMATION") return copy.platformUnavailable;
+  if (category === "APP_INFORMATION") return copy.appUnavailable;
   if (category === "DIABETES_EDUCATION") return copy.educationUnavailable;
   if (category === "REPORT_VALUES") return copy.missingValue;
   return copy.unavailable;
@@ -308,6 +311,9 @@ export function enforceModelResult(
     knowledgeReferences.length === 0
   ) {
     return { decision: "REFUSE", category: result.category, answer: unavailableForCategory(result.category, input.language), citations: [], knowledgeReferences: [], model, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: "OUTPUT", usage };
+  }
+  if (result.category === "APP_INFORMATION" && !input.appContext) {
+    return { decision: "REFUSE", category: result.category, answer: copy.appUnavailable, citations: [], knowledgeReferences: [], model, promptVersion: CHAT_PROMPT_VERSION, guardrailStage: "OUTPUT", usage };
   }
   let answer = result.answer.trim();
   if (!answer) {
