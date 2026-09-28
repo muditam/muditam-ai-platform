@@ -114,7 +114,7 @@ function nameCandidate(value: string): string | null {
     .replace(/\s+/gu, " ")
     .trim();
   if (cleaned.length < 2 || cleaned.length > 80) return null;
-  if (/\b(?:price|cost|order|product|support|whatsapp|call|help|diabetes|liver|heart|karela|jamun)\b/iu.test(cleaned)) return null;
+  if (/\b(?:price|cost|order|product|support|whatsapp|call|help|diabetes|liver|heart|karela|jamun|morning|afternoon|evening|night)\b/iu.test(cleaned)) return null;
   return cleaned;
 }
 
@@ -131,7 +131,14 @@ export function assistantPromptedForLead(recentMessages: CommerceChatRequest["re
   return recentMessages
     .filter((message) => message.role === "assistant")
     .slice(-3)
-    .some((message) => /(?:share your mobile number|share your phone number|phone number here|mobile number here|share your name)/iu.test(message.content));
+    .some((message) => /(?:share your mobile number|share your phone number|phone number here|mobile number here|share your name|share your name too)/iu.test(message.content));
+}
+
+function assistantAskedLeadQuery(recentMessages: CommerceChatRequest["recentMessages"]): boolean {
+  return recentMessages
+    .filter((message) => message.role === "assistant")
+    .slice(-3)
+    .some((message) => /(?:what query do you have|what query would you like our team to help you with|what do you need help with)/iu.test(message.content));
 }
 
 export function assistantOfferedCallback(recentMessages: CommerceChatRequest["recentMessages"]): boolean {
@@ -181,6 +188,7 @@ export async function maybeCaptureCommerceLead(input: CommerceChatRequest): Prom
   );
   const phone = normalizedPhone(input.message);
   const askedForLead = recentAssistantAskedForLead(input);
+  const askedLeadQuery = assistantAskedLeadQuery(input.recentMessages);
 
   if (phone && (askedForLead || existing)) {
     const query = latestLeadQuery(input);
@@ -223,12 +231,61 @@ export async function maybeCaptureCommerceLead(input: CommerceChatRequest): Prom
     };
   }
 
-  if (existing?.phone && !existing.name && askedForLead) {
+  if (existing?.phone && !existing.name) {
     const name = nameCandidate(input.message);
     if (name) {
       await db.collection("commerce_leads").updateOne(
         { _id: existing._id },
         { $set: { name, updatedAt: now } },
+      );
+      return {
+        decision: "ALLOW",
+        category: "EXPERT_HANDOFF",
+        messages: [{ type: "text", text: "Thanks. What query do you have?" }],
+        recommendedProducts: [],
+        knowledgeReferences: [],
+        handoff: null,
+        model: null,
+        promptVersion: "commerce-lead-capture-2026-09-28.2",
+        guardrailStage: "INPUT",
+        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      };
+    }
+    return {
+      decision: "ALLOW",
+      category: "EXPERT_HANDOFF",
+      messages: [{ type: "text", text: "Please share your name." }],
+      recommendedProducts: [],
+      knowledgeReferences: [],
+      handoff: null,
+      model: null,
+      promptVersion: "commerce-lead-capture-2026-09-28.2",
+      guardrailStage: "INPUT",
+      usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+    };
+  }
+
+  if (existing?.phone && existing.name && !existing.callbackQuery && !askedLeadQuery) {
+    return {
+      decision: "ALLOW",
+      category: "EXPERT_HANDOFF",
+      messages: [{ type: "text", text: "What query do you have?" }],
+      recommendedProducts: [],
+      knowledgeReferences: [],
+      handoff: null,
+      model: null,
+      promptVersion: "commerce-lead-capture-2026-09-28.2",
+      guardrailStage: "INPUT",
+      usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+    };
+  }
+
+  if (existing?.phone && existing.name && !existing.callbackQuery && askedLeadQuery) {
+    const query = input.message.trim();
+    if (query) {
+      await db.collection("commerce_leads").updateOne(
+        { _id: existing._id },
+        { $set: { query, callbackQuery: query, updatedAt: now } },
       );
       return {
         decision: "ALLOW",
