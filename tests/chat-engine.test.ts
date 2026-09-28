@@ -24,7 +24,37 @@ const baseRequest = {
   recentMessages: [],
 };
 
+const appContext = {
+  asOf: "2026-09-28T10:00:00.000Z",
+  user: { name: "Test User", age: 40, gender: "Female", preferredLanguage: "English" },
+  fitness: {
+    date: "2026-09-28", stepSource: "health_connect" as const,
+    stepSourceExplanation: "Steps are synchronized from Android Health Connect.",
+    workoutExplanation: "Workout minutes are calculated from class-video playback time.",
+    metrics: { steps: 4321, workoutMinutes: 18 }, targets: { steps: 10000, workoutMinutes: 30 }, completedPlans: [],
+  },
+  progress: { currentStreakDays: 3, bestStreakDays: 5, weekCompletedDays: 3, weekTotalDays: 7 as const, weekRemainingCompletionDays: 4, todayCompletedTasks: 2, todayTotalTasks: 5 },
+  diet: { profileComplete: true, planStatus: "ACTIVE", startDate: "2026-09-28", endDate: "2026-10-01", answersUsedForPlan: [], targets: [] },
+  kit: { hasPurchased: true, currentKitNumber: 1, currentKitStartedAt: "2026-09-20T10:00:00.000Z", cycleDays: 20, daysOnCurrentKit: 8, daysUntilNextKit: 12, reorderReady: false, name: "Month 1 Kit", condition: "Diabetes", items: [] },
+  quiz: null,
+};
+
 describe("AI chat guardrails", () => {
+  it("rejects private app context outside an authenticated mobile request", () => {
+    expect(() => internalChatRequestSchema.parse({
+      ...baseRequest,
+      message: "What is my streak?",
+      channel: "shopify_web",
+      audience: "anonymous_visitor",
+      appContext,
+    })).toThrow(/authenticated mobile customer context/);
+  });
+
+  it("returns only allow-listed mobile navigation actions", async () => {
+    const response = await answerChat({ ...baseRequest, message: "Take me to the reels page", appContext });
+    expect(response.category).toBe("APP_INFORMATION");
+    expect(response.uiActions).toEqual([{ type: "NAVIGATE", target: "REELS", label: "Open Reels" }]);
+  });
   it("rejects report observations outside a verified mobile customer context", () => {
     expect(() => internalChatRequestSchema.parse({
       ...baseRequest,
