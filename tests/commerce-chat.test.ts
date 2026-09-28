@@ -850,6 +850,27 @@ describe("commerce chat", () => {
     expect(response.handoff).toBeNull();
   });
 
+  it("answers a short price follow-up using the last product context", async () => {
+    const shopifyKnowledge = [{
+      key: "product:karela-jamun-fizz:live-shopify-details", title: "Karela Jamun Fizz — live Shopify details",
+      content: 'Product: Karela Jamun Fizz\nShopify variants: {"title":"1 Bottle","price":465,"compareAtPrice":null,"available":true} | {"title":"3 Bottles","price":990,"compareAtPrice":1395,"available":true}\nShelf life: 18 months.',
+      contentHi: "Verified Shopify details.", keywords: ["price"], sourceName: "Muditam Ayurveda",
+      sourceUrl: "https://www.muditam.com/products/karela-jamun-juice", version: "test",
+      sourceType: "product" as const, productSlug: "karela-jamun-fizz", recommendationEligible: true,
+    }];
+    const response = await answerCommerceChat(
+      { ...baseRequest, message: "Price", recentMessages: [
+        { role: "user", content: "How long does Karela Jamun Fizz take to show results?" },
+        { role: "assistant", content: "You may notice improved energy and overall wellness within one month. Would you like the 1-month or 3-month pack recommendation?" },
+      ] },
+      { answer: async () => { throw new Error("should not run"); } },
+      async () => shopifyKnowledge,
+    );
+    expect(response.messages[0]?.text).toContain("Karela Jamun Fizz has these available Shopify options");
+    expect(response.messages[0]?.text).toContain("1 Bottle: ₹465");
+    expect(response.handoff).toBeNull();
+  });
+
   it("recognizes Karela Fizz and replies in Hinglish even if the client sent English language", async () => {
     const shopifyKnowledge = [{
       key: "product:karela-jamun-fizz:live-shopify-details", title: "Karela Jamun Fizz — live Shopify details",
