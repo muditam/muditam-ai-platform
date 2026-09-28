@@ -212,6 +212,30 @@ describe("commerce chat", () => {
     expect(response.messages.at(-1)?.text).toBe("Do you want our team to contact you?");
   });
 
+  it("keeps normalized support copy in Hinglish", async () => {
+    const response = await answerCommerceChat(
+      { ...baseRequest, language: "hinglish", message: "order se related, support se baat karwaye" },
+      {
+        answer: async () => ({
+          model: "test-model",
+          result: {
+            decision: "HANDOFF",
+            category: "ORDER_OR_SUPPORT",
+            answer: "I will connect you to support.",
+            followUp: "Do you want phone support or chat support?",
+            citedKnowledgeKeys: [],
+            recommendations: [],
+          },
+        }),
+      },
+      async () => [],
+    );
+
+    expect(response.messages[0]?.text).toContain("Hamari support team");
+    expect(response.messages.at(-1)?.text).toBe("Kya aap chahte hain hamari team aapse contact kare?");
+    expect(response.messages.map((message) => message.text).join(" ")).not.toContain("Our support team");
+  });
+
   it("normalizes model-generated support choice wording", async () => {
     const response = await answerCommerceChat(
       { ...baseRequest, message: "connect me with support" },

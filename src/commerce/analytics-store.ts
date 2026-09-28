@@ -107,6 +107,10 @@ function normalizedPhone(value: string): string | null {
   return /^[6-9]\d{9}$/u.test(phone) ? phone : null;
 }
 
+function looksLikePhoneNumber(value: string): boolean {
+  return value.replace(/\D/gu, "").length >= 8;
+}
+
 function nameCandidate(value: string): string | null {
   const cleaned = value
     .replace(/\b(?:my name is|name is|i am|i'm|this is|mera naam|main|mai)\b/giu, "")
@@ -189,6 +193,21 @@ export async function maybeCaptureCommerceLead(input: CommerceChatRequest): Prom
   const phone = normalizedPhone(input.message);
   const askedForLead = recentAssistantAskedForLead(input);
   const askedLeadQuery = assistantAskedLeadQuery(input.recentMessages);
+
+  if (!phone && looksLikePhoneNumber(input.message) && (askedForLead || existing?.phone)) {
+    return {
+      decision: "ALLOW",
+      category: "EXPERT_HANDOFF",
+      messages: [{ type: "text", text: "Please share a valid 10-digit mobile number." }],
+      recommendedProducts: [],
+      knowledgeReferences: [],
+      handoff: null,
+      model: null,
+      promptVersion: "commerce-lead-capture-2026-09-28.2",
+      guardrailStage: "INPUT",
+      usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+    };
+  }
 
   if (phone && (askedForLead || existing)) {
     const query = latestLeadQuery(input);
@@ -312,9 +331,17 @@ export function appendCallbackOffer(result: CommerceChatResponse, input: Commerc
   if (!explicitContactFlow) return result;
   const messages = [{
     type: "text" as const,
-    text: result.handoff.queue === "support"
-      ? "Our support team can help you. You can use the Call or WhatsApp option below to connect directly."
-      : "Our expert team can help you. You can use the Call or WhatsApp option below to connect directly.",
+    text: input.language === "hi"
+      ? result.handoff.queue === "support"
+        ? "हमारी सपोर्ट टीम आपकी मदद कर सकती है। आप नीचे दिए गए Call या WhatsApp विकल्प से सीधे जुड़ सकते हैं।"
+        : "हमारी एक्सपर्ट टीम आपकी मदद कर सकती है। आप नीचे दिए गए Call या WhatsApp विकल्प से सीधे जुड़ सकते हैं।"
+      : input.language === "hinglish"
+        ? result.handoff.queue === "support"
+          ? "Hamari support team aapki help kar sakti hai. Neeche Call ya WhatsApp option se directly connect kar sakte hain."
+          : "Hamari expert team aapki help kar sakti hai. Neeche Call ya WhatsApp option se directly connect kar sakte hain."
+        : result.handoff.queue === "support"
+          ? "Our support team can help you. You can use the Call or WhatsApp option below to connect directly."
+          : "Our expert team can help you. You can use the Call or WhatsApp option below to connect directly.",
   }];
   if (result.messages.some((message) => /contact you|callback/iu.test(message.text))) {
     return { ...result, messages };
@@ -323,7 +350,14 @@ export function appendCallbackOffer(result: CommerceChatResponse, input: Commerc
     ...result,
     messages: [
       ...messages,
-      { type: "text", text: "Do you want our team to contact you?" },
+      {
+        type: "text",
+        text: input.language === "hi"
+          ? "क्या आप चाहते हैं कि हमारी टीम आपसे संपर्क करे?"
+          : input.language === "hinglish"
+            ? "Kya aap chahte hain hamari team aapse contact kare?"
+            : "Do you want our team to contact you?",
+      },
     ],
   };
 }
