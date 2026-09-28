@@ -847,9 +847,11 @@ async function handle(
     }
     const range = parseDateRangeQuery(url);
     const limitParam = Number.parseInt(url.searchParams.get("limit") ?? "", 10);
-    const conversations = await listConversations({
+    const pageParam = Number.parseInt(url.searchParams.get("page") ?? "", 10);
+    const result = await listConversations({
       ...range,
       ...(Number.isFinite(limitParam) ? { limit: limitParam } : {}),
+      ...(Number.isFinite(pageParam) ? { page: pageParam } : {}),
       ...(url.searchParams.get("intent") ? { intent: url.searchParams.get("intent") as string } : {}),
       ...(url.searchParams.get("feedback") ? { feedback: url.searchParams.get("feedback") as string } : {}),
       ...(url.searchParams.get("addedToCart") === "true" ? { addedToCart: true } : {}),
@@ -859,7 +861,7 @@ async function handle(
       ...(url.searchParams.get("repeatCustomer") === "true" ? { repeatCustomer: true } : {}),
       ...(url.searchParams.get("testSession") === "true" ? { testSession: true } : {}),
     });
-    json(response, 200, { conversations });
+    json(response, 200, result);
     return;
   }
 
